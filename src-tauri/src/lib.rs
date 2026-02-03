@@ -8,6 +8,7 @@ use tauri::{
 };
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
 
 #[tauri::command]
 async fn apply_replacement(app: AppHandle, text: String) -> Result<(), String> {
@@ -47,7 +48,6 @@ async fn show_main_window(app: AppHandle) -> Result<(), String> {
 async fn show_settings_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
         let _ = window.show();
-        let _ = window.center();
         let _ = window.set_focus();
     }
     Ok(())
@@ -57,6 +57,14 @@ async fn show_settings_window(app: AppHandle) -> Result<(), String> {
 async fn hide_settings_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
         let _ = window.hide();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn minimize_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("settings") {
+        window.minimize().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -132,7 +140,6 @@ fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             "settings" => {
                 if let Some(window) = app.get_webview_window("settings") {
                     let _ = window.show();
-                    let _ = window.center();
                     let _ = window.set_focus();
                 }
             }
@@ -168,7 +175,8 @@ pub fn run() {
             hide_window,
             show_main_window,
             show_settings_window,
-            hide_settings_window
+            hide_settings_window,
+            minimize_settings_window
         ])
         .setup(move |app| {
             // Enregistrer le raccourci global
@@ -177,11 +185,17 @@ pub fn run() {
             // Setup System Tray
             setup_tray(app.handle())?;
 
-            // Cacher les fenêtres au démarrage
+            // Appliquer l'effet de vibrancy (verre poli macOS) sur les fenêtres
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, Some(12.0))
+                    .expect("Failed to apply vibrancy effect");
                 let _ = window.hide();
             }
             if let Some(window) = app.get_webview_window("settings") {
+                #[cfg(target_os = "macos")]
+                apply_vibrancy(&window, NSVisualEffectMaterial::Sidebar, None, Some(12.0))
+                    .expect("Failed to apply vibrancy effect to settings");
                 let _ = window.hide();
             }
 

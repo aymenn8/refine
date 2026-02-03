@@ -102,28 +102,28 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen bg-transparent flex items-center justify-center p-2">
-      <div className="w-full max-w-[680px] bg-[rgba(30,30,30,0.95)] backdrop-blur-2xl backdrop-saturate-180 rounded-2xl border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.5),0_8px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] flex flex-col overflow-hidden animate-slide-in">
-        <div className="p-5 flex flex-col gap-4">
+    <div className="h-screen w-screen bg-transparent flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col animate-slide-in">
+        <div className="p-5 flex flex-col gap-4 flex-1">
           {/* Mode selector */}
-          <div className="flex gap-1.5 p-1 bg-black/25 rounded-[10px] border border-white/6">
+          <div className="flex gap-1.5 p-1 bg-white/5 rounded-[10px] border border-white/10">
             {MODES.map((m) => (
               <button
                 key={m.id}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-[7px] text-[13px] font-semibold cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] relative border-none ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
                   mode === m.id
-                    ? "bg-linear-to-br from-[#0A84FF] to-[#0066CC] text-white shadow-[0_2px_8px_rgba(10,132,255,0.4),0_1px_3px_rgba(0,0,0,0.3)] -translate-y-px before:content-[''] before:absolute before:inset-0 before:rounded-[7px] before:p-px before:bg-linear-to-br before:from-white/20 before:to-transparent before:[mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] before:mask-exclude"
-                    : "bg-transparent text-white/55 hover:bg-white/6 hover:text-white/75 hover:-translate-y-px"
+                    ? "bg-[#0A84FF] text-white"
+                    : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
                 }`}
                 onClick={() => setMode(m.id)}
               >
-                <span className="text-[15px] leading-none">{m.icon}</span>
-                {m.label}
+                <span className="text-base leading-none">{m.icon}</span>
+                <span>{m.label}</span>
               </button>
             ))}
           </div>
 
-          <div className="flex flex-col gap-4 min-h-[200px]">
+          <div className="flex flex-col gap-4 flex-1">
             <textarea
               ref={textareaRef}
               value={text}
@@ -131,17 +131,17 @@ function App() {
               onKeyDown={handleKeyDown}
               placeholder={getPlaceholder()}
               disabled={isLoading}
-              className="text-input w-full min-h-[140px] p-4 bg-black/20 border border-white/8 rounded-xl outline-none resize-y text-white/95 text-[15px] leading-relaxed select-text transition-all duration-200 placeholder:text-white/30 focus:bg-black/25 focus:border-[rgba(10,132,255,0.4)] focus:shadow-[0_0_0_3px_rgba(10,132,255,0.1),inset_0_1px_2px_rgba(0,0,0,0.1)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-input w-full min-h-[140px] flex-1 p-4 bg-white/5 border border-white/10 rounded-xl outline-none resize-none text-white text-[15px] leading-relaxed select-text transition-all duration-200 placeholder:text-white/40 focus:bg-white/8 focus:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
             />
 
-            <div className="flex items-center justify-between px-4 py-3 bg-black/15 rounded-[10px] border border-white/5">
-              <div className="flex items-center gap-2 text-white/45 text-xs font-medium">
-                <kbd className="inline-flex items-center justify-center min-w-6 px-[7px] py-1 bg-white/8 border border-white/12 rounded-[5px] text-[11px] font-semibold text-white/70 shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between px-4 py-3 bg-white/5 rounded-[10px] border border-white/10">
+              <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
+                <kbd className="inline-flex items-center justify-center min-w-6 px-[7px] py-1 bg-white/10 border border-white/15 rounded-[5px] text-[11px] font-semibold text-white/70">
                   Enter
                 </kbd>
                 <span>copier</span>
-                <span className="text-white/25 font-light">·</span>
-                <kbd className="inline-flex items-center justify-center min-w-6 px-[7px] py-1 bg-white/8 border border-white/12 rounded-[5px] text-[11px] font-semibold text-white/70 shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <span className="text-white/30">·</span>
+                <kbd className="inline-flex items-center justify-center min-w-6 px-[7px] py-1 bg-white/10 border border-white/15 rounded-[5px] text-[11px] font-semibold text-white/70">
                   Esc
                 </kbd>
                 <span>fermer</span>
@@ -150,7 +150,7 @@ function App() {
               <button
                 onClick={handleApply}
                 disabled={isLoading || !text.trim()}
-                className="flex items-center gap-1.5 px-[18px] py-[9px] bg-linear-to-br from-[#0A84FF] to-[#0066CC] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-[0_2px_8px_rgba(10,132,255,0.3),0_1px_3px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.2)] relative before:content-[''] before:absolute before:inset-0 before:rounded-lg before:p-px before:bg-linear-to-br before:from-white/30 before:to-transparent before:[mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] before:mask-exclude hover:bg-linear-to-br hover:from-[#1E90FF] hover:to-[#0077DD] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(10,132,255,0.4),0_2px_6px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] active:translate-y-0 active:shadow-[0_1px_4px_rgba(10,132,255,0.3),0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.2)] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
+                className="flex items-center gap-1.5 px-[18px] py-[9px] bg-[#0A84FF] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-[#1E90FF] active:bg-[#0066CC] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
