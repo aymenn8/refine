@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .settings-main::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .settings-main::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .settings-main::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.12);
+    border-radius: 4px;
+  }
+
+  .settings-main::-webkit-scrollbar-thumb:hover {
+    background: rgb(255 255 255 / 0.2);
+  }
+}
