@@ -151,7 +151,7 @@ function Settings() {
             className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff4136] transition-colors border-none flex items-center justify-center relative"
             title="Fermer"
           >
-            {hoveredButton === 'close' && (
+            {hoveredButton !== null && (
               <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className="absolute">
                 <path d="M1 1L5 5M5 1L1 5" stroke="#4a0000" strokeWidth="1" strokeLinecap="round" />
               </svg>
@@ -164,7 +164,7 @@ function Settings() {
             className="w-3 h-3 rounded-full bg-[#f5bf4f] hover:bg-[#f5a623] transition-colors border-none flex items-center justify-center relative"
             title="Réduire"
           >
-            {hoveredButton === 'minimize' && (
+            {hoveredButton !== null && (
               <svg width="6" height="1" viewBox="0 0 6 1" fill="none" className="absolute">
                 <rect width="6" height="1" fill="#704800" />
               </svg>
@@ -174,9 +174,8 @@ function Settings() {
 
         {/* Drag region - Covers the rest of the title bar */}
         <div
-          className="absolute inset-0 flex items-center justify-center"
+          className="absolute inset-0 flex items-center justify-center z-0"
           data-tauri-drag-region
-          style={{ pointerEvents: 'auto' }}
         >
           <span className="text-sm font-medium text-white/70 pointer-events-none">
             Refine Settings
