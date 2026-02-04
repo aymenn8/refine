@@ -12,6 +12,9 @@
 
 // Modules
 mod commands;
+mod inference;
+mod model;
+mod modes;
 mod shortcuts;
 mod state;
 mod tray;
@@ -20,7 +23,7 @@ mod window;
 use state::GlobalShortcutState;
 use std::sync::Mutex;
 use tauri::Manager;
-use tauri_plugin_global_shortcut::ShortcutState;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
 
 /// Point d'entrée principal de l'application Tauri
@@ -54,7 +57,20 @@ pub fn run() {
             commands::hide_settings_window,
             commands::minimize_settings_window,
             shortcuts::update_global_shortcut,
-            shortcuts::get_global_shortcut
+            shortcuts::get_global_shortcut,
+            model::check_model_status,
+            model::download_model,
+            model::cancel_download,
+            model::delete_model,
+            model::get_model_info,
+            model::get_available_models_list,
+            model::set_active_model,
+            model::get_active_model,
+            inference::process_text,
+            modes::get_modes,
+            modes::save_mode,
+            modes::delete_mode,
+            modes::reset_modes_to_defaults
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store
@@ -65,6 +81,9 @@ pub fn run() {
                 current_shortcut: Mutex::new(Some(shortcut)),
             });
 
+            // Initialiser le state pour le téléchargement du modèle
+            app.manage(model::DownloadState::new());
+
             // Enregistrer le raccourci global
             app.global_shortcut().register(shortcut)?;
 
@@ -74,13 +93,13 @@ pub fn run() {
             // Appliquer l'effet de vibrancy (verre poli macOS) sur les fenêtres
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "macos")]
-                apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, Some(12.0))
+                apply_vibrancy(&window, NSVisualEffectMaterial::WindowBackground, None, Some(12.0))
                     .expect("Failed to apply vibrancy effect");
                 let _ = window.hide();
             }
             if let Some(window) = app.get_webview_window("settings") {
                 #[cfg(target_os = "macos")]
-                apply_vibrancy(&window, NSVisualEffectMaterial::Sidebar, None, Some(12.0))
+                apply_vibrancy(&window, NSVisualEffectMaterial::WindowBackground, None, Some(12.0))
                     .expect("Failed to apply vibrancy effect to settings");
                 let _ = window.hide();
             }

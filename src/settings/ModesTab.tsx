@@ -1,16 +1,294 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+
+interface ProcessingMode {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  system_prompt: string;
+  user_prompt_template: string;
+  is_default: boolean;
+}
+
 function ModesTab() {
+  const [modes, setModes] = useState<ProcessingMode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingMode, setEditingMode] = useState<ProcessingMode | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const loadModes = async () => {
+    try {
+      const result = await invoke<ProcessingMode[]>("get_modes");
+      setModes(result);
+    } catch (error) {
+      console.error("Failed to load modes:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadModes();
+  }, []);
+
+  const handleSave = async (mode: ProcessingMode) => {
+    try {
+      await invoke("save_mode", { mode });
+      await loadModes();
+      setEditingMode(null);
+      setIsCreating(false);
+    } catch (error) {
+      console.error("Failed to save mode:", error);
+    }
+  };
+
+  const handleDelete = async (modeId: string) => {
+    if (!confirm("Are you sure you want to delete this mode?")) return;
+    try {
+      await invoke("delete_mode", { modeId });
+      await loadModes();
+    } catch (error) {
+      console.error("Failed to delete mode:", error);
+      alert(error);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!confirm("Reset all modes to defaults? Custom modes will be deleted.")) return;
+    try {
+      const result = await invoke<ProcessingMode[]>("reset_modes_to_defaults");
+      setModes(result);
+    } catch (error) {
+      console.error("Failed to reset modes:", error);
+    }
+  };
+
+  const handleCreateNew = () => {
+    setIsCreating(true);
+    setEditingMode({
+      id: `mode-${Date.now()}`,
+      name: "",
+      description: "",
+      icon: "",
+      system_prompt: "",
+      user_prompt_template: "{text}",
+      is_default: false,
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 md:px-8 h-full flex items-center justify-center">
+        <div className="text-white/50">Loading...</div>
+      </div>
+    );
+  }
+
+  if (editingMode) {
+    return (
+      <ModeEditor
+        mode={editingMode}
+        onSave={handleSave}
+        onCancel={() => {
+          setEditingMode(null);
+          setIsCreating(false);
+        }}
+        isCreating={isCreating}
+      />
+    );
+  }
+
   return (
-    <div className="p-6 md:px-8 h-full">
-      <div className="mb-6">
+    <div className="p-6 md:px-8 h-full flex flex-col">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em]">
           Modes
         </h1>
+        <div className="flex gap-2">
+          <button
+            onClick={handleReset}
+            className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
+          >
+            Reset to Defaults
+          </button>
+          <button
+            onClick={handleCreateNew}
+            className="px-3 py-1.5 text-xs bg-[#F0B67F] hover:bg-[#F5C88A] border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+          >
+            + New Mode
+          </button>
+        </div>
       </div>
-      <div className="text-white/75">
-        <p className="text-white/35 text-sm">
-          Modes configuration coming soon...
-        </p>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-3">
+          {modes.map((mode) => (
+            <div
+              key={mode.id}
+              className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/8 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    {mode.icon && <span className="text-lg">{mode.icon}</span>}
+                    <h3 className="text-[15px] font-semibold text-white m-0">
+                      {mode.name}
+                    </h3>
+                    {mode.is_default && (
+                      <span className="text-[10px] text-white/40 bg-white/10 px-1.5 py-0.5 rounded">
+                        default
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[13px] text-white/50 m-0 line-clamp-2">
+                    {mode.description}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {!mode.is_default ? (
+                    <>
+                      <button
+                        onClick={() => setEditingMode(mode)}
+                        className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(mode.id)}
+                        className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </>
+                  ) : (
+                    <span className="px-3 py-1.5 text-xs text-white/30">
+                      Built-in
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
+    </div>
+  );
+}
+
+interface ModeEditorProps {
+  mode: ProcessingMode;
+  onSave: (mode: ProcessingMode) => void;
+  onCancel: () => void;
+  isCreating: boolean;
+}
+
+function ModeEditor({ mode, onSave, onCancel, isCreating }: ModeEditorProps) {
+  const [form, setForm] = useState<ProcessingMode>(mode);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      alert("Name is required");
+      return;
+    }
+    onSave(form);
+  };
+
+  return (
+    <div className="p-6 md:px-8 h-full flex flex-col">
+      <div className="mb-6 flex items-center gap-4">
+        <button
+          onClick={onCancel}
+          className="p-2 -ml-2 bg-transparent border-none rounded-lg text-white/60 hover:text-white/80 hover:bg-white/10 transition-colors cursor-pointer"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em]">
+          {isCreating ? "New Mode" : "Edit Mode"}
+        </h1>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4 overflow-y-auto">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <label className="block text-[13px] text-white/60 mb-2">Name</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. TRANSLATE"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30"
+            />
+          </div>
+          <div className="w-20">
+            <label className="block text-[13px] text-white/60 mb-2">Icon</label>
+            <input
+              type="text"
+              value={form.icon}
+              onChange={(e) => setForm({ ...form, icon: e.target.value })}
+              placeholder=""
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30 text-center"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[13px] text-white/60 mb-2">Description</label>
+          <input
+            type="text"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Brief description of what this mode does"
+            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[13px] text-white/60 mb-2">System Prompt</label>
+          <textarea
+            value={form.system_prompt}
+            onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
+            placeholder="Instructions for the AI model..."
+            rows={5}
+            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30 resize-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[13px] text-white/60 mb-2">
+            User Prompt Template
+            <span className="text-white/40 ml-2 font-normal">
+              (use {"{text}"} for user input)
+            </span>
+          </label>
+          <textarea
+            value={form.user_prompt_template}
+            onChange={(e) => setForm({ ...form, user_prompt_template: e.target.value })}
+            placeholder="e.g. Translate to English: {text}"
+            rows={2}
+            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30 resize-none"
+          />
+        </div>
+
+        <div className="mt-auto pt-4 flex justify-end gap-3 border-t border-white/10">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-[13px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-4 py-2 text-[13px] bg-[#F0B67F] hover:bg-[#F5C88A] border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+          >
+            {isCreating ? "Create Mode" : "Save Changes"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

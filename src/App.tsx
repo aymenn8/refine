@@ -4,34 +4,45 @@ import { listen } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
 import "./App.css";
 
-type Mode = "en-fr" | "fr-en" | "correct";
-
-const MODES: { id: Mode; label: string; icon: string }[] = [
-  { id: "en-fr", label: "EN → FR", icon: "🇬🇧" },
-  { id: "fr-en", label: "FR → EN", icon: "🇫🇷" },
-  { id: "correct", label: "Corriger", icon: "✨" },
-];
+interface ProcessingMode {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  system_prompt: string;
+  user_prompt_template: string;
+  is_default: boolean;
+}
 
 function App() {
   const [text, setText] = useState("");
-  const [mode, setMode] = useState<Mode>("correct");
+  const [modes, setModes] = useState<ProcessingMode[]>([]);
+  const [mode, setMode] = useState<string>("correct");
   const [isLoading, setIsLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Charger le mode par défaut depuis les settings
-    const loadDefaultMode = async () => {
+    // Charger les modes et le mode par défaut
+    const loadModesAndDefault = async () => {
       try {
+        // Load available modes
+        const loadedModes = await invoke<ProcessingMode[]>("get_modes");
+        setModes(loadedModes);
+
+        // Load default mode preference
         const store = await load("settings.json");
         const defaultMode = await store.get<string>("defaultMode");
-        if (defaultMode && (defaultMode === "en-fr" || defaultMode === "fr-en" || defaultMode === "correct")) {
+        if (defaultMode && loadedModes.some(m => m.id === defaultMode)) {
           setMode(defaultMode);
+        } else if (loadedModes.length > 0) {
+          // Fallback to first mode if no default or default not found
+          setMode(loadedModes[0].id);
         }
       } catch (error) {
-        console.error("Failed to load default mode:", error);
+        console.error("Failed to load modes:", error);
       }
     };
-    loadDefaultMode();
+    loadModesAndDefault();
 
     // Écouter les événements de capture de texte
     const unlisten = listen<string>("text-captured", (event) => {
@@ -55,17 +66,19 @@ function App() {
 
     setIsLoading(true);
     try {
-      // TODO: Appeler l'API IA avec le mode sélectionné
-      // Pour l'instant, on copie juste le texte tel quel
-      const transformedText = text;
-
-      console.log("Mode:", mode);
-      console.log("Text:", text);
+      // Appeler l'API IA avec le mode sélectionné
+      const transformedText = await invoke<string>("process_text", {
+        text: text,
+        mode: mode,
+      });
 
       await invoke("apply_replacement", { text: transformedText });
       setText("");
     } catch (error) {
-      console.error("Failed to apply replacement:", error);
+      console.error("Failed to process text:", error);
+      // En cas d'erreur, copier quand même le texte original
+      await invoke("apply_replacement", { text: text });
+      setText("");
     } finally {
       setIsLoading(false);
     }
@@ -91,14 +104,11 @@ function App() {
   };
 
   const getPlaceholder = () => {
-    switch (mode) {
-      case "en-fr":
-        return "Entrez le texte anglais à traduire...";
-      case "fr-en":
-        return "Entrez le texte français à traduire...";
-      case "correct":
-        return "Entrez le texte à corriger...";
+    const currentMode = modes.find(m => m.id === mode);
+    if (currentMode) {
+      return `Enter text for ${currentMode.name.toLowerCase()}...`;
     }
+    return "Enter text...";
   };
 
   return (
@@ -107,18 +117,18 @@ function App() {
         <div className="p-5 flex flex-col gap-4 flex-1">
           {/* Mode selector */}
           <div className="flex gap-1.5 p-1 bg-white/5 rounded-[10px] border border-white/10">
-            {MODES.map((m) => (
+            {modes.map((m) => (
               <button
                 key={m.id}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
                   mode === m.id
-                    ? "bg-[#0A84FF] text-white"
+                    ? "bg-[#F0B67F] text-white"
                     : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
                 }`}
                 onClick={() => setMode(m.id)}
               >
-                <span className="text-base leading-none">{m.icon}</span>
-                <span>{m.label}</span>
+                {m.icon && <span className="text-base leading-none">{m.icon}</span>}
+                <span>{m.name}</span>
               </button>
             ))}
           </div>
@@ -150,11 +160,17 @@ function App() {
               <button
                 onClick={handleApply}
                 disabled={isLoading || !text.trim()}
-                className="flex items-center gap-1.5 px-[18px] py-[9px] bg-[#0A84FF] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-[#1E90FF] active:bg-[#0066CC] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-[18px] py-[9px] bg-[#F0B67F] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-[#F5C88A] active:bg-[#0066CC] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
-                    <svg className="w-[14px] h-[14px] animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      className="w-[14px] h-[14px] animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                     </svg>
                     <span>Traitement...</span>

@@ -7,8 +7,9 @@ import ModesTab from "./settings/ModesTab";
 import ConfigTab from "./settings/ConfigTab";
 import HistoryTab from "./settings/HistoryTab";
 import AboutTab from "./settings/AboutTab";
+import ModelTab from "./settings/ModelTab";
 
-type TabId = "home" | "modes" | "config" | "history" | "about";
+type TabId = "home" | "modes" | "config" | "model" | "history" | "about";
 
 interface Tab {
   id: TabId;
@@ -93,12 +94,29 @@ const Icons = {
       <line x1="12" y1="8" x2="12.01" y2="8" />
     </svg>
   ),
+  model: (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+      <line x1="12" y1="22.08" x2="12" y2="12" />
+    </svg>
+  ),
 };
 
 const TABS: Tab[] = [
   { id: "home", label: "Home", icon: Icons.home },
   { id: "modes", label: "Modes", icon: Icons.modes },
   { id: "config", label: "Configuration", icon: Icons.config },
+  { id: "model", label: "Modèle IA", icon: Icons.model },
   { id: "history", label: "History", icon: Icons.history },
   { id: "about", label: "About", icon: Icons.about },
 ];
@@ -131,6 +149,8 @@ function Settings() {
         return <ModesTab />;
       case "config":
         return <ConfigTab />;
+      case "model":
+        return <ModelTab />;
       case "history":
         return <HistoryTab />;
       case "about":
@@ -199,7 +219,7 @@ function Settings() {
               >
                 <span
                   className={`flex items-center justify-center w-5 h-5 transition-colors duration-150 ${
-                    activeTab === tab.id ? "text-[#0A84FF]" : ""
+                    activeTab === tab.id ? "text-[#F0B67F]" : ""
                   }`}
                 >
                   {tab.icon}
