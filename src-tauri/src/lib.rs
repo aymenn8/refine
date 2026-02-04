@@ -73,6 +73,7 @@ pub fn run() {
             modes::save_mode,
             modes::delete_mode,
             modes::reset_modes_to_defaults,
+            modes::toggle_pin_mode,
             clipboard::get_clipboard_history,
             clipboard::clear_clipboard_history
         ])

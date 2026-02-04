@@ -12,6 +12,8 @@ pub struct ProcessingMode {
     pub system_prompt: String,
     pub user_prompt_template: String,
     pub is_default: bool,
+    #[serde(default)]
+    pub is_pinned: bool,
 }
 
 impl ProcessingMode {
@@ -37,6 +39,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             system_prompt: "You are a professional translator. Translate the user's text to English. Output ONLY the translation, nothing else. Be concise.".to_string(),
             user_prompt_template: "Translate to English: {text}".to_string(),
             is_default: true,
+            is_pinned: true,
         },
         ProcessingMode {
             id: "correct".to_string(),
@@ -46,6 +49,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             system_prompt: "Role: Professional Multilingual Copyeditor.\nTask: Correct all spelling, grammar, and punctuation errors in the provided text.\nConstraints:\n- Language: Maintain the original language of the input. Do NOT translate.\n- Tone/Style: Preserve the author's original tone and intent.\n- Formatting: Maintain the original paragraph structure and Markdown formatting.\n- Output: Provide ONLY the corrected text. Do not include introductory remarks, explanations, or closing comments.".to_string(),
             user_prompt_template: "Fix spelling/grammar errors only (do NOT translate): {text}".to_string(),
             is_default: true,
+            is_pinned: true,
         },
         ProcessingMode {
             id: "ask".to_string(),
@@ -55,6 +59,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             system_prompt: "You are a helpful assistant. Answer the user's question concisely and accurately.".to_string(),
             user_prompt_template: "{text}".to_string(),
             is_default: true,
+            is_pinned: true,
         },
     ]
 }
@@ -183,6 +188,57 @@ pub async fn reset_modes_to_defaults(app: AppHandle) -> Result<Vec<ProcessingMod
         .map_err(|e| format!("Failed to save store: {}", e))?;
 
     Ok(defaults)
+}
+
+const MAX_PINNED_MODES: usize = 3;
+
+/// Toggle pin status for a mode
+#[tauri::command]
+pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), String> {
+    println!("[toggle_pin_mode] Called with mode_id: {}", mode_id);
+
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("Failed to load store: {}", e))?;
+
+    let mut modes: Vec<ProcessingMode> = store
+        .get(MODES_KEY)
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(get_default_modes);
+
+    // Find the mode and check current pin status
+    let mode = modes.iter().find(|m| m.id == mode_id)
+        .ok_or_else(|| format!("Mode not found: {}", mode_id))?;
+
+    let currently_pinned = mode.is_pinned;
+    let pinned_count = modes.iter().filter(|m| m.is_pinned).count();
+
+    // If trying to unpin, check we have at least 2 pinned (so 1 remains)
+    if currently_pinned && pinned_count <= 1 {
+        return Err("At least one mode must be pinned".to_string());
+    }
+
+    // If trying to pin, check if we already have max pinned modes
+    if !currently_pinned && pinned_count >= MAX_PINNED_MODES {
+        return Err(format!("Cannot pin more than {} modes", MAX_PINNED_MODES));
+    }
+
+    // Toggle the pin status
+    if let Some(mode) = modes.iter_mut().find(|m| m.id == mode_id) {
+        mode.is_pinned = !mode.is_pinned;
+        println!("[toggle_pin_mode] Mode {} is now pinned: {}", mode_id, mode.is_pinned);
+    }
+
+    store.set(
+        MODES_KEY,
+        serde_json::to_value(&modes).map_err(|e| format!("Failed to serialize modes: {}", e))?,
+    );
+
+    store
+        .save()
+        .map_err(|e| format!("Failed to save store: {}", e))?;
+
+    Ok(())
 }
 
 /// Get a specific mode by ID (used by inference)

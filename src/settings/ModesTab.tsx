@@ -9,7 +9,10 @@ interface ProcessingMode {
   system_prompt: string;
   user_prompt_template: string;
   is_default: boolean;
+  is_pinned?: boolean;
 }
+
+const MAX_PINNED_MODES = 3;
 
 function ModesTab() {
   const [modes, setModes] = useState<ProcessingMode[]>([]);
@@ -69,6 +72,17 @@ function ModesTab() {
       console.error("Failed to reset modes:", error);
     }
   };
+
+  const handleTogglePin = async (modeId: string) => {
+    try {
+      await invoke("toggle_pin_mode", { modeId });
+      await loadModes();
+    } catch (error) {
+      console.error("Failed to toggle pin:", error);
+    }
+  };
+
+  const pinnedCount = modes.filter((m) => m.is_pinned).length;
 
   const handleCreateNew = () => {
     setIsCreating(true);
@@ -153,6 +167,44 @@ function ModesTab() {
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => handleTogglePin(mode.id)}
+                      disabled={
+                        (!mode.is_pinned && pinnedCount >= MAX_PINNED_MODES) ||
+                        (mode.is_pinned && pinnedCount <= 1)
+                      }
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${
+                        mode.is_pinned
+                          ? pinnedCount <= 1
+                            ? "bg-[#F0B67F]/10 border-[#F0B67F]/20 text-[#F0B67F]/50 cursor-not-allowed"
+                            : "bg-[#F0B67F]/20 border-[#F0B67F]/30 text-[#F0B67F] hover:bg-[#F0B67F]/30"
+                          : pinnedCount >= MAX_PINNED_MODES
+                          ? "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
+                          : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
+                      }`}
+                      title={
+                        mode.is_pinned
+                          ? pinnedCount <= 1
+                            ? "At least one mode must be pinned"
+                            : "Unpin from Spotlight"
+                          : pinnedCount >= MAX_PINNED_MODES
+                          ? `Maximum ${MAX_PINNED_MODES} pinned modes`
+                          : "Pin to Spotlight"
+                      }
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill={mode.is_pinned ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+                      </svg>
+                    </button>
                     {!mode.is_default ? (
                       <>
                         <button

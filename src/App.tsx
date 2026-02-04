@@ -14,6 +14,7 @@ interface ProcessingMode {
   system_prompt: string;
   user_prompt_template: string;
   is_default: boolean;
+  is_pinned?: boolean;
 }
 
 interface SpotlightPayload {
@@ -34,7 +35,9 @@ function App() {
   const [clipboardHistory, setClipboardHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0);
+  const [showMoreModes, setShowMoreModes] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const moreModesRef = useRef<HTMLDivElement>(null);
 
   // Load clipboard history from Rust backend
   const loadClipboardHistory = useCallback(async () => {
@@ -46,33 +49,44 @@ function App() {
     }
   }, []);
 
-  useEffect(() => {
-    // Load modes and default mode
-    const loadData = async () => {
-      try {
-        const loadedModes = await invoke<ProcessingMode[]>("get_modes");
-        setModes(loadedModes);
+  // Load modes from backend
+  const loadModes = useCallback(async () => {
+    try {
+      const loadedModes = await invoke<ProcessingMode[]>("get_modes");
+      setModes(loadedModes);
+      return loadedModes;
+    } catch (error) {
+      console.error("Failed to load modes:", error);
+      return [];
+    }
+  }, []);
 
-        const store = await load("settings.json");
-        const defaultMode = await store.get<string>("defaultMode");
-        if (defaultMode && loadedModes.some((m) => m.id === defaultMode)) {
-          setMode(defaultMode);
-        } else if (loadedModes.length > 0) {
-          setMode(loadedModes[0].id);
-        }
-      } catch (error) {
-        console.error("Failed to load data:", error);
+  useEffect(() => {
+    // Load modes and default mode on mount
+    const loadData = async () => {
+      const loadedModes = await loadModes();
+
+      const store = await load("settings.json");
+      const defaultMode = await store.get<string>("defaultMode");
+      if (defaultMode && loadedModes.some((m) => m.id === defaultMode)) {
+        setMode(defaultMode);
+      } else if (loadedModes.length > 0) {
+        setMode(loadedModes[0].id);
       }
     };
     loadData();
 
     // Listen for spotlight open event
-    const unlisten = listen<SpotlightPayload>("spotlight-open", (event) => {
+    const unlisten = listen<SpotlightPayload>("spotlight-open", async (event) => {
       const { text: clipboardText } = event.payload;
       setText(clipboardText || "");
       setIsProcessed(false);
       setCopied(false);
       setShowHistory(false);
+      setShowMoreModes(false);
+
+      // Reload modes to get latest pin status
+      await loadModes();
 
       setTimeout(() => {
         if (textareaRef.current) {
@@ -85,7 +99,7 @@ function App() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [loadModes]);
 
   // Go back to prompt mode
   const handleBack = () => {
@@ -154,6 +168,21 @@ function App() {
       unlisten.then((fn) => fn());
     };
   }, [handleClose]);
+
+  // Close more modes dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        moreModesRef.current &&
+        !moreModesRef.current.contains(event.target as Node)
+      ) {
+        setShowMoreModes(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Select item from history
   const selectHistoryItem = (item: string) => {
@@ -252,25 +281,119 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="flex gap-1.5 p-1 bg-white/5 rounded-[10px] border border-white/10">
-              {modes.map((m) => (
-                <button
-                  key={m.id}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
-                    mode === m.id
-                      ? "bg-[#F0B67F] text-white"
-                      : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
-                  }`}
-                  onClick={() => setMode(m.id)}
-                  disabled={isLoading}
-                >
-                  {m.icon && (
-                    <span className="text-base leading-none">{m.icon}</span>
+            (() => {
+              const pinnedModes = modes.filter((m) => m.is_pinned);
+              const unpinnedModes = modes.filter((m) => !m.is_pinned);
+              const selectedUnpinnedMode = unpinnedModes.find((m) => m.id === mode);
+
+              return (
+                <div className="flex gap-1.5 p-1 bg-white/5 rounded-[10px] border border-white/10">
+                  {pinnedModes.map((m) => (
+                    <button
+                      key={m.id}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
+                        mode === m.id
+                          ? "bg-[#F0B67F] text-white"
+                          : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
+                      }`}
+                      onClick={() => {
+                        setMode(m.id);
+                        setShowMoreModes(false);
+                      }}
+                      disabled={isLoading}
+                    >
+                      {m.icon && (
+                        <span className="text-base leading-none">{m.icon}</span>
+                      )}
+                      <span>{m.name}</span>
+                    </button>
+                  ))}
+
+                  {unpinnedModes.length > 0 && (
+                    <div className="relative" ref={moreModesRef}>
+                      <button
+                        className={`flex items-center justify-center px-3 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
+                          selectedUnpinnedMode
+                            ? "bg-[#F0B67F] text-white"
+                            : showMoreModes
+                            ? "bg-white/10 text-white/80"
+                            : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
+                        }`}
+                        onClick={() => setShowMoreModes(!showMoreModes)}
+                        disabled={isLoading}
+                      >
+                        {selectedUnpinnedMode ? (
+                          <>
+                            {selectedUnpinnedMode.icon && (
+                              <span className="text-base leading-none mr-2">
+                                {selectedUnpinnedMode.icon}
+                              </span>
+                            )}
+                            <span>{selectedUnpinnedMode.name}</span>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="ml-1.5"
+                            >
+                              <path d="M6 9l6 6 6-6" />
+                            </svg>
+                          </>
+                        ) : (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="12" r="1" />
+                            <circle cx="19" cy="12" r="1" />
+                            <circle cx="5" cy="12" r="1" />
+                          </svg>
+                        )}
+                      </button>
+
+                      {showMoreModes && (
+                        <div className="absolute top-full right-0 mt-1 z-20 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl min-w-[160px] overflow-hidden">
+                          <div className="p-1">
+                            {unpinnedModes.map((m) => (
+                              <button
+                                key={m.id}
+                                onClick={() => {
+                                  setMode(m.id);
+                                  setShowMoreModes(false);
+                                }}
+                                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-left transition-colors border-none cursor-pointer ${
+                                  mode === m.id
+                                    ? "bg-[#F0B67F]/20 text-white"
+                                    : "bg-transparent text-white/70 hover:bg-white/10 hover:text-white"
+                                }`}
+                              >
+                                {m.icon && (
+                                  <span className="text-base leading-none">
+                                    {m.icon}
+                                  </span>
+                                )}
+                                <span>{m.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  <span>{m.name}</span>
-                </button>
-              ))}
-            </div>
+                </div>
+              );
+            })()
           )}
 
           <div className="flex flex-col gap-4 flex-1 relative">
