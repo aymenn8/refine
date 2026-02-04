@@ -11,6 +11,7 @@
 //! - `window` : Logique de capture et affichage du spotlight
 
 // Modules
+mod clipboard;
 mod commands;
 mod inference;
 mod model;
@@ -56,6 +57,7 @@ pub fn run() {
             commands::show_settings_window,
             commands::hide_settings_window,
             commands::minimize_settings_window,
+            commands::paste_to_previous_app,
             shortcuts::update_global_shortcut,
             shortcuts::get_global_shortcut,
             model::check_model_status,
@@ -70,7 +72,9 @@ pub fn run() {
             modes::get_modes,
             modes::save_mode,
             modes::delete_mode,
-            modes::reset_modes_to_defaults
+            modes::reset_modes_to_defaults,
+            clipboard::get_clipboard_history,
+            clipboard::clear_clipboard_history
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store
@@ -83,6 +87,10 @@ pub fn run() {
 
             // Initialiser le state pour le téléchargement du modèle
             app.manage(model::DownloadState::new());
+
+            // Initialiser le state pour le clipboard et démarrer le monitoring
+            app.manage(clipboard::ClipboardState::new());
+            clipboard::start_clipboard_monitor(app.handle().clone());
 
             // Enregistrer le raccourci global
             app.global_shortcut().register(shortcut)?;

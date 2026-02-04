@@ -68,10 +68,15 @@ pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let modes: Vec<ProcessingMode> = store
-        .get(MODES_KEY)
+    let from_store = store.get(MODES_KEY);
+    println!("[get_modes] From store: {:?}", from_store.is_some());
+
+    let modes: Vec<ProcessingMode> = from_store
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
+
+    println!("[get_modes] Returning {} modes", modes.len());
+    println!("[get_modes] Mode IDs: {:?}", modes.iter().map(|m| &m.id).collect::<Vec<_>>());
 
     Ok(modes)
 }
@@ -79,6 +84,8 @@ pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
 /// Save a new mode or update an existing one
 #[tauri::command]
 pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), String> {
+    println!("[save_mode] Called with mode id: {}, name: {}", mode.id, mode.name);
+
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
@@ -88,12 +95,18 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
 
+    println!("[save_mode] Current modes count: {}", modes.len());
+
     // Check if mode with this ID exists
     if let Some(existing) = modes.iter_mut().find(|m| m.id == mode.id) {
+        println!("[save_mode] Updating existing mode");
         *existing = mode;
     } else {
+        println!("[save_mode] Adding new mode");
         modes.push(mode);
     }
+
+    println!("[save_mode] New modes count: {}", modes.len());
 
     store.set(
         MODES_KEY,
@@ -103,6 +116,8 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
     store
         .save()
         .map_err(|e| format!("Failed to save store: {}", e))?;
+
+    println!("[save_mode] Store saved successfully");
 
     Ok(())
 }
@@ -110,6 +125,8 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
 /// Delete a mode by ID
 #[tauri::command]
 pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> {
+    println!("[delete_mode] Called with mode_id: {}", mode_id);
+
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
@@ -119,12 +136,19 @@ pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> 
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
 
+    println!("[delete_mode] Current modes count: {}", modes.len());
+    println!("[delete_mode] Mode IDs: {:?}", modes.iter().map(|m| &m.id).collect::<Vec<_>>());
+
     // Don't allow deleting if it would leave no modes
     if modes.len() <= 1 {
         return Err("Cannot delete the last mode".to_string());
     }
 
+    let before_count = modes.len();
     modes.retain(|m| m.id != mode_id);
+    let after_count = modes.len();
+
+    println!("[delete_mode] Removed {} mode(s)", before_count - after_count);
 
     store.set(
         MODES_KEY,
@@ -134,6 +158,8 @@ pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> 
     store
         .save()
         .map_err(|e| format!("Failed to save store: {}", e))?;
+
+    println!("[delete_mode] Store saved successfully");
 
     Ok(())
 }

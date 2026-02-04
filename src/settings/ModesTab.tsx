@@ -16,6 +16,10 @@ function ModesTab() {
   const [loading, setLoading] = useState(true);
   const [editingMode, setEditingMode] = useState<ProcessingMode | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; mode: ProcessingMode | null }>({
+    open: false,
+    mode: null,
+  });
 
   const loadModes = async () => {
     try {
@@ -43,14 +47,16 @@ function ModesTab() {
     }
   };
 
-  const handleDelete = async (modeId: string) => {
-    if (!confirm("Are you sure you want to delete this mode?")) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.mode) return;
     try {
-      await invoke("delete_mode", { modeId });
+      console.log("Deleting mode:", deleteModal.mode.id);
+      await invoke("delete_mode", { modeId: deleteModal.mode.id });
+      console.log("Delete successful");
       await loadModes();
+      setDeleteModal({ open: false, mode: null });
     } catch (error) {
       console.error("Failed to delete mode:", error);
-      alert(error);
     }
   };
 
@@ -100,79 +106,130 @@ function ModesTab() {
   }
 
   return (
-    <div className="p-6 md:px-8 h-full flex flex-col">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em]">
-          Modes
-        </h1>
-        <div className="flex gap-2">
-          <button
-            onClick={handleReset}
-            className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
-          >
-            Reset to Defaults
-          </button>
-          <button
-            onClick={handleCreateNew}
-            className="px-3 py-1.5 text-xs bg-[#F0B67F] hover:bg-[#F5C88A] border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
-          >
-            + New Mode
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3">
-          {modes.map((mode) => (
-            <div
-              key={mode.id}
-              className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/8 transition-colors"
+    <>
+      <div className="p-6 md:px-8 h-full flex flex-col">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em]">
+            Modes
+          </h1>
+          <div className="flex gap-2">
+            <button
+              onClick={handleReset}
+              className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    {mode.icon && <span className="text-lg">{mode.icon}</span>}
-                    <h3 className="text-[15px] font-semibold text-white m-0">
-                      {mode.name}
-                    </h3>
-                    {mode.is_default && (
-                      <span className="text-[10px] text-white/40 bg-white/10 px-1.5 py-0.5 rounded">
-                        default
+              Reset to Defaults
+            </button>
+            <button
+              onClick={handleCreateNew}
+              className="px-3 py-1.5 text-xs bg-[#F0B67F] hover:bg-[#F5C88A] border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+            >
+              + New Mode
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-3">
+            {modes.map((mode) => (
+              <div
+                key={mode.id}
+                className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/8 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      {mode.icon && <span className="text-lg">{mode.icon}</span>}
+                      <h3 className="text-[15px] font-semibold text-white m-0">
+                        {mode.name}
+                      </h3>
+                      {mode.is_default && (
+                        <span className="text-[10px] text-white/40 bg-white/10 px-1.5 py-0.5 rounded">
+                          default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[13px] text-white/50 m-0 line-clamp-2">
+                      {mode.description}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    {!mode.is_default ? (
+                      <>
+                        <button
+                          onClick={() => setEditingMode(mode)}
+                          className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setDeleteModal({ open: true, mode })}
+                          className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <span className="px-3 py-1.5 text-xs text-white/30">
+                        Built-in
                       </span>
                     )}
                   </div>
-                  <p className="text-[13px] text-white/50 m-0 line-clamp-2">
-                    {mode.description}
-                  </p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  {!mode.is_default ? (
-                    <>
-                      <button
-                        onClick={() => setEditingMode(mode)}
-                        className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(mode.id)}
-                        className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                      >
-                        Delete
-                      </button>
-                    </>
-                  ) : (
-                    <span className="px-3 py-1.5 text-xs text-white/30">
-                      Built-in
-                    </span>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.open && deleteModal.mode && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-[16px] font-semibold text-white m-0">Delete Mode</h3>
+                <p className="text-[13px] text-white/50 m-0">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <p className="text-[14px] text-white/70 mb-6">
+              Are you sure you want to delete <strong className="text-white">{deleteModal.mode.name}</strong>?
+            </p>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteModal({ open: false, mode: null })}
+                className="px-4 py-2 text-[13px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 text-[13px] bg-red-500 hover:bg-red-600 border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

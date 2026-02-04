@@ -1,22 +1,133 @@
-use enigo::{Direction, Enigo, Key, Keyboard, Settings};
-use std::thread;
-use std::time::Duration;
+#![allow(deprecated)]
+
+use serde::Serialize;
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
-/// Capture le texte sélectionné et affiche la fenêtre principale (spotlight)
+#[cfg(target_os = "macos")]
+use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior};
+#[cfg(target_os = "macos")]
+use cocoa::base::{id, nil};
+#[cfg(target_os = "macos")]
+use objc::runtime::YES;
+
+/// NSWindow levels
+#[cfg(target_os = "macos")]
+const NS_FLOATING_WINDOW_LEVEL: i64 = 3;
+
+/// Stocke la référence à l'app précédente pour pouvoir la réactiver
+#[cfg(target_os = "macos")]
+static PREVIOUS_APP: Mutex<Option<usize>> = Mutex::new(None);
+
+/// Payload envoyé au frontend lors de l'ouverture du spotlight
+#[derive(Clone, Serialize)]
+pub struct SpotlightPayload {
+    pub text: String,
+    pub previous_app: String,
+}
+
+/// Configure the window as floating overlay
+#[cfg(target_os = "macos")]
+pub fn configure_overlay_window(window: &tauri::WebviewWindow) {
+    let ns_window = window.ns_window().unwrap() as id;
+
+    unsafe {
+        // Set window level to floating (always on top)
+        let _: () = msg_send![ns_window, setLevel: NS_FLOATING_WINDOW_LEVEL];
+
+        // Set collection behavior: can join all spaces + fullscreen auxiliary
+        let behavior = NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
+            | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenAuxiliary
+            | NSWindowCollectionBehavior::NSWindowCollectionBehaviorTransient;
+        ns_window.setCollectionBehavior_(behavior);
+
+        // Don't hide on deactivate
+        let _: () = msg_send![ns_window, setHidesOnDeactivate: NO];
+
+        // Allow mouse events
+        let _: () = msg_send![ns_window, setAcceptsMouseMovedEvents: YES];
+    }
+}
+
+#[cfg(target_os = "macos")]
+use objc::*;
+
+#[cfg(target_os = "macos")]
+const NO: i8 = 0;
+
+#[cfg(not(target_os = "macos"))]
+pub fn configure_overlay_window(_window: &tauri::WebviewWindow) {}
+
+#[cfg(not(target_os = "macos"))]
+static PREVIOUS_APP: Mutex<Option<usize>> = Mutex::new(None);
+
+/// Récupère et stocke l'application active (avant Refine)
+#[cfg(target_os = "macos")]
+fn get_and_store_frontmost_app() -> String {
+    unsafe {
+        let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
+        let frontmost_app: id = msg_send![workspace, frontmostApplication];
+
+        if frontmost_app == nil {
+            return String::new();
+        }
+
+        // Stocker la référence pour réactivation ultérieure
+        // On stocke l'adresse mémoire comme usize (pas idéal mais fonctionne pour la session)
+        if let Ok(mut prev) = PREVIOUS_APP.lock() {
+            *prev = Some(frontmost_app as usize);
+        }
+
+        let name: id = msg_send![frontmost_app, localizedName];
+        if name == nil {
+            return String::new();
+        }
+
+        let utf8: *const i8 = msg_send![name, UTF8String];
+        if utf8.is_null() {
+            return String::new();
+        }
+
+        std::ffi::CStr::from_ptr(utf8)
+            .to_string_lossy()
+            .into_owned()
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn get_and_store_frontmost_app() -> String {
+    String::new()
+}
+
+/// Réactive l'application précédemment stockée
+#[cfg(target_os = "macos")]
+pub fn activate_previous_app() {
+    unsafe {
+        if let Ok(prev) = PREVIOUS_APP.lock() {
+            if let Some(app_ptr) = *prev {
+                let app = app_ptr as id;
+                // NSApplicationActivateIgnoringOtherApps = 1 << 1
+                let _: i8 = msg_send![app, activateWithOptions: 2u64];
+            }
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn activate_previous_app() {}
+
+/// Affiche la fenêtre principale (spotlight)
 ///
 /// Cette fonction implémente un comportement toggle :
 /// - Si la fenêtre est visible → la cache
-/// - Si la fenêtre est cachée → capture le texte sélectionné et affiche la fenêtre
+/// - Si la fenêtre est cachée → lit le clipboard et affiche la fenêtre
 ///
-/// # Processus de capture
+/// # Processus
 /// 1. Vérifie si la fenêtre est déjà visible (toggle)
-/// 2. Sauvegarde le contenu actuel du clipboard
-/// 3. Simule Cmd+A pour sélectionner tout le texte dans le champ actif
-/// 4. Simule Cmd+C pour copier le texte sélectionné
-/// 5. Compare le nouveau clipboard avec l'ancien
-/// 6. Affiche la fenêtre avec le texte capturé
+/// 2. Détecte le nom de l'application active
+/// 3. Lit le contenu du clipboard
+/// 4. Affiche la fenêtre avec le texte et le nom de l'app
 ///
 /// # Arguments
 /// * `app` - Handle de l'application Tauri
@@ -30,46 +141,26 @@ pub fn capture_and_show(app: &AppHandle) {
         }
     }
 
-    // Sauvegarder le clipboard actuel pour comparer après
-    let old_clipboard = app.clipboard().read_text().unwrap_or_default();
+    // Détecter et stocker l'application active AVANT d'afficher Refine
+    let previous_app = get_and_store_frontmost_app();
 
-    if let Ok(mut enigo) = Enigo::new(&Settings::default()) {
-        // 1. Cmd+A pour sélectionner tout dans l'input actif
-        let _ = enigo.key(Key::Meta, Direction::Press);
-        thread::sleep(Duration::from_millis(5));
-        let _ = enigo.key(Key::Unicode('a'), Direction::Click);
-        thread::sleep(Duration::from_millis(5));
-        let _ = enigo.key(Key::Meta, Direction::Release);
-
-        // Délai pour que la sélection soit effective
-        thread::sleep(Duration::from_millis(50));
-
-        // 2. Cmd+C pour copier
-        let _ = enigo.key(Key::Meta, Direction::Press);
-        thread::sleep(Duration::from_millis(5));
-        let _ = enigo.key(Key::Unicode('c'), Direction::Click);
-        thread::sleep(Duration::from_millis(5));
-        let _ = enigo.key(Key::Meta, Direction::Release);
-    }
-
-    // Attendre que le clipboard soit mis à jour
-    thread::sleep(Duration::from_millis(100));
-
-    // Lire le nouveau clipboard
-    let new_clipboard = app.clipboard().read_text().unwrap_or_default();
-
-    // Déterminer le texte à afficher
-    let text_to_show = if !new_clipboard.is_empty() && new_clipboard != old_clipboard {
-        new_clipboard
-    } else {
-        String::new()
-    };
+    // Lire le clipboard actuel (l'utilisateur a fait Cmd+C lui-même)
+    let clipboard_text = app.clipboard().read_text().unwrap_or_default();
 
     // Afficher la fenêtre
     if let Some(window) = app.get_webview_window("main") {
+        // Configure as overlay panel
+        configure_overlay_window(&window);
+
         let _ = window.show();
         let _ = window.center();
         let _ = window.set_focus();
-        let _ = window.emit("text-captured", text_to_show);
+
+        // Envoyer le payload avec le texte et le nom de l'app
+        let payload = SpotlightPayload {
+            text: clipboard_text,
+            previous_app,
+        };
+        let _ = window.emit("spotlight-open", payload);
     }
 }

@@ -6,9 +6,9 @@ use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::LlamaModel;
 use llama_cpp_2::model::AddBos;
-use llama_cpp_2::model::Special;
 use llama_cpp_2::token::data_array::LlamaTokenDataArray;
 use std::num::NonZeroU32;
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 /// Traite le texte avec le modèle actif
@@ -46,14 +46,18 @@ pub async fn process_text(
     // Construire le prompt
     let prompt = process_mode.build_prompt(&text);
 
-    // Exécuter l'inférence avec llama.cpp
-    let result = run_inference_llama_cpp(&model_path, &prompt)?;
+    // Exécuter l'inférence dans un thread bloquant pour éviter de bloquer le runtime async
+    let result = tokio::task::spawn_blocking(move || {
+        run_inference_llama_cpp(model_path, prompt)
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))??;
 
     Ok(result)
 }
 
 /// Exécute l'inférence avec llama.cpp + Metal
-fn run_inference_llama_cpp(model_path: &std::path::Path, prompt: &str) -> Result<String, String> {
+fn run_inference_llama_cpp(model_path: PathBuf, prompt: String) -> Result<String, String> {
     // Initialiser le backend llama.cpp
     let backend = LlamaBackend::init()
         .map_err(|e| format!("Failed to init llama backend: {}", e))?;
@@ -63,7 +67,7 @@ fn run_inference_llama_cpp(model_path: &std::path::Path, prompt: &str) -> Result
         .with_n_gpu_layers(99); // Mettre toutes les couches sur GPU
 
     // Charger le modèle
-    let model = LlamaModel::load_from_file(&backend, model_path, &model_params)
+    let model = LlamaModel::load_from_file(&backend, &model_path, &model_params)
         .map_err(|e| format!("Failed to load model: {}", e))?;
 
     // Paramètres du contexte
@@ -77,7 +81,7 @@ fn run_inference_llama_cpp(model_path: &std::path::Path, prompt: &str) -> Result
 
     // Tokenizer le prompt
     let tokens = model
-        .str_to_token(prompt, AddBos::Always)
+        .str_to_token(&prompt, AddBos::Always)
         .map_err(|e| format!("Failed to tokenize: {}", e))?;
 
     let n_tokens = tokens.len();
@@ -98,7 +102,7 @@ fn run_inference_llama_cpp(model_path: &std::path::Path, prompt: &str) -> Result
 
     // Générer les tokens
     let mut output_tokens = Vec::new();
-    let max_tokens = 256;
+    let max_tokens = 512;
     let mut n_cur = n_tokens;
 
     for _ in 0..max_tokens {
@@ -131,7 +135,7 @@ fn run_inference_llama_cpp(model_path: &std::path::Path, prompt: &str) -> Result
     // Convertir les tokens en texte
     let mut output = String::new();
     for token in output_tokens {
-        if let Ok(bytes) = model.token_to_bytes(token, Special::Tokenize) {
+        if let Ok(bytes) = model.token_to_piece_bytes(token, 64, false, None) {
             if let Ok(s) = String::from_utf8(bytes) {
                 output.push_str(&s);
             }

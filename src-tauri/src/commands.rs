@@ -1,3 +1,7 @@
+use crate::window::activate_previous_app;
+use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+use std::thread;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
@@ -112,5 +116,55 @@ pub async fn minimize_settings_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
         window.minimize().map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+/// Colle le texte dans l'application précédente
+///
+/// Cette commande :
+/// 1. Écrit le texte dans le clipboard
+/// 2. Cache la fenêtre Refine
+/// 3. Attend 150ms pour que macOS redonne le focus à l'app précédente
+/// 4. Simule Cmd+V pour coller le texte
+///
+/// # Arguments
+/// * `app` - Handle de l'application Tauri
+/// * `text` - Texte à coller
+///
+/// # Returns
+/// * `Ok(())` si l'opération réussit
+/// * `Err(String)` si une erreur se produit
+#[tauri::command]
+pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), String> {
+    // Écrire le texte dans le clipboard
+    app.clipboard()
+        .write_text(&text)
+        .map_err(|e| e.to_string())?;
+
+    // Cacher la fenêtre
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+
+    // Exécuter le paste dans un thread séparé pour ne pas bloquer
+    tokio::task::spawn_blocking(move || {
+        // Réactiver l'application précédente
+        activate_previous_app();
+
+        // Attendre que l'app précédente soit bien active
+        thread::sleep(Duration::from_millis(100));
+
+        // Simuler Cmd+V pour coller
+        if let Ok(mut enigo) = Enigo::new(&Settings::default()) {
+            let _ = enigo.key(Key::Meta, Direction::Press);
+            thread::sleep(Duration::from_millis(10));
+            let _ = enigo.key(Key::Unicode('v'), Direction::Click);
+            thread::sleep(Duration::from_millis(10));
+            let _ = enigo.key(Key::Meta, Direction::Release);
+        }
+    })
+    .await
+    .map_err(|e| format!("Failed to paste: {}", e))?;
+
     Ok(())
 }
