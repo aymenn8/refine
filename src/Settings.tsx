@@ -143,7 +143,7 @@ function Settings() {
   const renderContent = () => {
     switch (activeTab) {
       case "home":
-        return <HomeTab />;
+        return <HomeTab onNavigate={(tab) => setActiveTab(tab as TabId)} />;
       case "modes":
         return <ModesTab />;
       case "config":
@@ -218,7 +218,7 @@ function Settings() {
               >
                 <span
                   className={`flex items-center justify-center w-5 h-5 transition-colors duration-150 ${
-                    activeTab === tab.id ? "text-[#F0B67F]" : ""
+                    activeTab === tab.id ? "text-(--accent)" : ""
                   }`}
                 >
                   {tab.icon}

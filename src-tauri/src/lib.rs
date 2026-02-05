@@ -86,6 +86,8 @@ pub fn run() {
             model::set_active_model,
             model::get_active_model,
             inference::process_text,
+            inference::get_total_words_refined,
+            inference::generate_mode,
             modes::get_modes,
             modes::save_mode,
             modes::delete_mode,

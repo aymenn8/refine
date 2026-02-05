@@ -10,7 +10,6 @@ pub struct ProcessingMode {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub icon: String,
     pub system_prompt: String,
     pub user_prompt_template: String,
     pub is_default: bool,
@@ -40,7 +39,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             id: "translate-to-english".to_string(),
             name: "TO ENGLISH".to_string(),
             description: "Translate any text to English".to_string(),
-            icon: "".to_string(),
+
             system_prompt: "You are a professional translator. Translate the user's text to English. Output ONLY the translation, nothing else. Be concise.".to_string(),
             user_prompt_template: "Translate to English: {text}".to_string(),
             is_default: true,
@@ -51,7 +50,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             id: "correct".to_string(),
             name: "CORRECT".to_string(),
             description: "Fix spelling, grammar, and punctuation errors".to_string(),
-            icon: "".to_string(),
+
             system_prompt: "Role: Professional Multilingual Copyeditor.\nTask: Correct all spelling, grammar, and punctuation errors in the provided text.\nConstraints:\n- Language: Maintain the original language of the input. Do NOT translate.\n- Tone/Style: Preserve the author's original tone and intent.\n- Formatting: Maintain the original paragraph structure and Markdown formatting.\n- Output: Provide ONLY the corrected text. Do not include introductory remarks, explanations, or closing comments.".to_string(),
             user_prompt_template: "Fix spelling/grammar errors only (do NOT translate): {text}".to_string(),
             is_default: true,
@@ -62,7 +61,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             id: "ask".to_string(),
             name: "ASK".to_string(),
             description: "Ask a question and get an answer".to_string(),
-            icon: "".to_string(),
+
             system_prompt: "You are a helpful assistant. Answer the user's question concisely and accurately.".to_string(),
             user_prompt_template: "{text}".to_string(),
             is_default: true,

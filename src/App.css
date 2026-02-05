@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+:root {
+  --accent: #F0B67F;
+  --accent-hover: #F5C88A;
+}
+
 @layer base {
   * {
     margin: 0;

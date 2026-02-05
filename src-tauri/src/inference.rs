@@ -13,6 +13,54 @@ use llama_cpp_2::token::data_array::LlamaTokenDataArray;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_store::StoreExt;
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct GeneratedMode {
+    pub name: String,
+    pub description: String,
+    pub system_prompt: String,
+    pub user_prompt_template: String,
+}
+
+const STATS_KEY: &str = "stats";
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+struct Stats {
+    total_words_refined: u64,
+}
+
+/// Get the total words refined (persistent stat)
+#[tauri::command]
+pub async fn get_total_words_refined(app: AppHandle) -> Result<u64, String> {
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("Failed to load store: {}", e))?;
+
+    let stats: Stats = store
+        .get(STATS_KEY)
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+
+    Ok(stats.total_words_refined)
+}
+
+/// Increment the total words refined counter
+fn increment_words_refined(app: &AppHandle, word_count: u64) {
+    if let Ok(store) = app.store("settings.json") {
+        let mut stats: Stats = store
+            .get(STATS_KEY)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default();
+
+        stats.total_words_refined += word_count;
+
+        if let Ok(value) = serde_json::to_value(&stats) {
+            store.set(STATS_KEY, value);
+            let _ = store.save();
+        }
+    }
+}
 
 /// Traite le texte avec le modèle actif (local ou cloud)
 #[tauri::command]
@@ -43,8 +91,12 @@ pub async fn process_text(
         }
     };
 
-    // Save to history if successful
+    // Save to history and increment stats if successful
     if let Ok(ref output) = result {
+        // Count words in output
+        let word_count = output.split_whitespace().count() as u64;
+        increment_words_refined(&app, word_count);
+
         let _ = history::add_entry(
             &app,
             text,
@@ -208,4 +260,148 @@ fn run_inference_llama_cpp(model_path: PathBuf, prompt: String) -> Result<String
     }
 
     Ok(output.trim().to_string())
+}
+
+const GENERATE_MODE_SYSTEM_PROMPT: &str = r#"You are a mode configuration generator for a text processing app. Given the user's description, generate a JSON object with these exact fields:
+- "name": short uppercase name (1-3 words, e.g. "SUMMARIZE", "TO FRENCH")
+- "description": brief description (1 sentence)
+- "system_prompt": detailed instructions for the AI (2-5 sentences). IMPORTANT: the system_prompt MUST always instruct the AI to output ONLY the raw processed text, with no introductory phrases, no quotes, no explanations, no preamble like "Sure, here's..." or "Here is...". Just the direct result.
+- "user_prompt_template": template string using {text} as placeholder for user input
+
+Output ONLY the JSON object, no markdown, no explanation."#;
+
+/// Generate a mode configuration from a user description using AI
+#[tauri::command]
+pub async fn generate_mode(app: AppHandle, description: String) -> Result<GeneratedMode, String> {
+    let model_config = get_active_model_config(app.clone())
+        .await?
+        .ok_or("No active model configured. Please set up a model first in Settings.")?;
+
+    let raw_output = match model_config {
+        ActiveModelConfig::Local { model_id } => {
+            let models_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("Failed to get app data dir: {}", e))?
+                .join("models");
+
+            let model_info = crate::model::get_model_by_id(&model_id)?;
+            let model_path = models_dir.join(&model_info.filename);
+
+            if !model_path.exists() {
+                return Err(format!(
+                    "Model file not found: {}. Please re-download the model.",
+                    model_path.display()
+                ));
+            }
+
+            let prompt = format!(
+                "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
+                GENERATE_MODE_SYSTEM_PROMPT, description
+            );
+
+            tokio::task::spawn_blocking(move || run_inference_llama_cpp(model_path, prompt))
+                .await
+                .map_err(|e| format!("Task failed: {}", e))??
+        }
+        ActiveModelConfig::Cloud { credential_id } => {
+            let credential = get_credential_by_id(&app, &credential_id)?;
+            let api_key = retrieve_api_key(&credential)?;
+
+            run_cloud_inference(
+                credential.provider,
+                &credential.model_id,
+                &api_key,
+                GENERATE_MODE_SYSTEM_PROMPT,
+                &description,
+            )
+            .await?
+        }
+    };
+
+    // Extract JSON from the response (handle potential markdown wrapping)
+    let json_str = extract_json(&raw_output).ok_or_else(|| {
+        format!(
+            "Failed to parse AI response as JSON. Raw response: {}",
+            raw_output
+        )
+    })?;
+
+    serde_json::from_str::<GeneratedMode>(&json_str).map_err(|e| {
+        format!(
+            "Invalid mode format in AI response: {}. Raw response: {}",
+            e, raw_output
+        )
+    })
+}
+
+/// Extract a JSON object from a string, handling potential markdown code blocks
+fn extract_json(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+
+    // Try direct parse first
+    if trimmed.starts_with('{') {
+        if let Some(end) = find_matching_brace(trimmed) {
+            return Some(trimmed[..=end].to_string());
+        }
+    }
+
+    // Try extracting from markdown code block
+    if let Some(start) = trimmed.find("```") {
+        let after_backticks = &trimmed[start + 3..];
+        // Skip optional language identifier (e.g. ```json)
+        let content_start = after_backticks.find('\n').map(|i| i + 1).unwrap_or(0);
+        let content = &after_backticks[content_start..];
+        if let Some(end_backticks) = content.find("```") {
+            let json_part = content[..end_backticks].trim();
+            if json_part.starts_with('{') {
+                return Some(json_part.to_string());
+            }
+        }
+    }
+
+    // Try finding first { and last }
+    let first_brace = trimmed.find('{')?;
+    let last_brace = trimmed.rfind('}')?;
+    if first_brace < last_brace {
+        Some(trimmed[first_brace..=last_brace].to_string())
+    } else {
+        None
+    }
+}
+
+/// Find the index of the matching closing brace for the opening brace at index 0
+fn find_matching_brace(s: &str) -> Option<usize> {
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escape_next = false;
+
+    for (i, ch) in s.char_indices() {
+        if escape_next {
+            escape_next = false;
+            continue;
+        }
+        if ch == '\\' && in_string {
+            escape_next = true;
+            continue;
+        }
+        if ch == '"' {
+            in_string = !in_string;
+            continue;
+        }
+        if in_string {
+            continue;
+        }
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }

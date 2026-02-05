@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { load } from "@tauri-apps/plugin-store";
+import "@melloware/coloris/dist/coloris.css";
+import Coloris from "@melloware/coloris";
 
 interface ProcessingMode {
   id: string;
@@ -10,6 +13,14 @@ interface QuickAction {
   mode_id: string;
   mode_name: string;
   shortcut: string;
+}
+
+function lightenColor(hex: string, percent: number): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, (num >> 16) + Math.round(((255 - (num >> 16)) * percent) / 100));
+  const g = Math.min(255, ((num >> 8) & 0x00ff) + Math.round(((255 - ((num >> 8) & 0x00ff)) * percent) / 100));
+  const b = Math.min(255, (num & 0x0000ff) + Math.round(((255 - (num & 0x0000ff)) * percent) / 100));
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1).toUpperCase()}`;
 }
 
 function ConfigTab() {
@@ -23,9 +34,66 @@ function ConfigTab() {
   const [isRecording, setIsRecording] = useState<string | null>(null); // mode_id being recorded
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
 
+  // Accent color
+  const [accentColor, setAccentColor] = useState("#F0B67F");
+  const [customColor, setCustomColor] = useState<string | null>(null);
+  const colorisInitialized = useRef(false);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  const applyAccent = useCallback(async (hex: string, saveCustom?: string | null) => {
+    setAccentColor(hex);
+    document.documentElement.style.setProperty("--accent", hex);
+    document.documentElement.style.setProperty("--accent-hover", lightenColor(hex, 15));
+    try {
+      const store = await load("settings.json");
+      await store.set("accentColor", hex);
+      if (saveCustom !== undefined) {
+        await store.set("customAccentColor", saveCustom);
+      }
+      await store.save();
+    } catch (error) {
+      console.error("Failed to save accent color:", error);
+    }
+  }, []);
+
+  const handleAccentChange = useCallback(async (color: string) => {
+    const hex = color.toUpperCase();
+    setAccentColor(hex);
+    // Coming from Coloris — always update the custom swatch
+    setCustomColor(hex);
+    await applyAccent(hex, hex);
+  }, [applyAccent]);
+
+  const handlePresetClick = useCallback(async (color: string) => {
+    setAccentColor(color);
+    await applyAccent(color);
+  }, [applyAccent]);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Initialize Coloris once after first render
+  useEffect(() => {
+    if (colorisInitialized.current) return;
+    colorisInitialized.current = true;
+
+    Coloris.init();
+    Coloris({
+      el: "#accent-color-input",
+      theme: "polaroid",
+      themeMode: "dark",
+      alpha: false,
+      format: "hex",
+      wrap: false,
+      focusInput: false,
+      selectInput: false,
+      swatches: [],
+      onChange: (color) => {
+        handleAccentChange(color);
+      },
+    });
+  }, [handleAccentChange]);
 
   const loadData = async () => {
     try {
@@ -37,6 +105,13 @@ function ConfigTab() {
       setGlobalShortcut(shortcut);
       setModes(modesData);
       setQuickActions(actionsData);
+
+      // Load accent color
+      const store = await load("settings.json");
+      const saved = await store.get<string>("accentColor");
+      if (saved) setAccentColor(saved);
+      const savedCustom = await store.get<string | null>("customAccentColor");
+      if (savedCustom) setCustomColor(savedCustom);
     } catch (error) {
       console.error("Failed to load config:", error);
     } finally {
@@ -185,6 +260,8 @@ function ConfigTab() {
     }
   };
 
+  const PRESET_COLORS = ["#F0B67F", "#6BBFFF", "#A78BFA", "#F472B6", "#34D399"];
+
   // Modes available for quick actions (not already assigned)
   const availableModes = modes.filter(
     m => !quickActions.some(a => a.mode_id === m.id)
@@ -228,7 +305,7 @@ function ConfigTab() {
                   tabIndex={0}
                   className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
                     isRecording === "global"
-                      ? "bg-[#F0B67F]/20 border-[#F0B67F] text-[#F0B67F]"
+                      ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
                       : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                   }`}
                 >
@@ -265,7 +342,7 @@ function ConfigTab() {
                       tabIndex={0}
                       className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
                         isRecording === action.mode_id
-                          ? "bg-[#F0B67F]/20 border-[#F0B67F] text-[#F0B67F]"
+                          ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
                           : action.shortcut
                           ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
                           : "bg-white/5 border-white/20 text-white/40 hover:bg-white/10"
@@ -300,7 +377,7 @@ function ConfigTab() {
               <select
                 value={selectedModeId}
                 onChange={(e) => setSelectedModeId(e.target.value)}
-                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[13px] outline-none focus:border-[#F0B67F] transition-colors cursor-pointer appearance-none"
+                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[13px] outline-none focus:border-(--accent) transition-colors cursor-pointer appearance-none"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
                   backgroundRepeat: "no-repeat",
@@ -329,6 +406,69 @@ function ConfigTab() {
               All modes have shortcuts assigned
             </p>
           )}
+        </div>
+      </section>
+
+      {/* Appearance Section */}
+      <section className="mt-8">
+        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
+          Appearance
+        </h2>
+        <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[14px] text-white">Accent Color</span>
+              <p className="text-[12px] text-white/40 mt-0.5">
+                Customize the highlight color across the app
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {PRESET_COLORS.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => handlePresetClick(color)}
+                  className="w-6 h-6 rounded-full border-2 transition-all cursor-pointer p-0"
+                  style={{
+                    backgroundColor: color,
+                    borderColor: accentColor === color ? "white" : "transparent",
+                    transform: accentColor === color ? "scale(1.15)" : "scale(1)",
+                  }}
+                  title={color}
+                />
+              ))}
+              {customColor && !PRESET_COLORS.includes(customColor) && (
+                <button
+                  onClick={() => handlePresetClick(customColor)}
+                  className="w-6 h-6 rounded-full border-2 transition-all cursor-pointer p-0"
+                  style={{
+                    backgroundColor: customColor,
+                    borderColor: accentColor === customColor ? "white" : "transparent",
+                    transform: accentColor === customColor ? "scale(1.15)" : "scale(1)",
+                  }}
+                  title={customColor}
+                />
+              )}
+              {/* Hidden Coloris input */}
+              <input
+                ref={colorInputRef}
+                id="accent-color-input"
+                type="text"
+                value={accentColor}
+                readOnly
+                data-coloris
+                className="w-0 h-0 overflow-hidden opacity-0 absolute pointer-events-none"
+              />
+              <button
+                onClick={() => colorInputRef.current?.click()}
+                className="w-6 h-6 rounded-full border border-white/20 hover:border-white/40 transition-colors cursor-pointer p-0 flex items-center justify-center bg-white/5"
+                title="Pick a color"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
+                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </div>

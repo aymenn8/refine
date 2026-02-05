@@ -13,7 +13,6 @@ interface ProcessingMode {
   id: string;
   name: string;
   description: string;
-  icon: string;
   system_prompt: string;
   user_prompt_template: string;
   is_default: boolean;
@@ -191,7 +190,6 @@ function ModesTab() {
       id: `mode-${Date.now()}`,
       name: "",
       description: "",
-      icon: "",
       system_prompt: "",
       user_prompt_template: "{text}",
       is_default: false,
@@ -236,7 +234,7 @@ function ModesTab() {
             </button>
             <button
               onClick={handleCreateNew}
-              className="px-3 py-1.5 text-xs bg-[#F0B67F] hover:bg-[#F5C88A] border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
             >
               + New Mode
             </button>
@@ -253,7 +251,6 @@ function ModesTab() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      {mode.icon && <span className="text-lg">{mode.icon}</span>}
                       <h3 className="text-[15px] font-semibold text-white m-0">
                         {mode.name}
                       </h3>
@@ -277,7 +274,7 @@ function ModesTab() {
                         <select
                           value={getModeModelOptionId(mode)}
                           onChange={(e) => handleSetModeModel(mode.id, e.target.value)}
-                          className="px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-[11px] outline-none focus:border-[#F0B67F] transition-colors cursor-pointer appearance-none"
+                          className="px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-[11px] outline-none focus:border-(--accent) transition-colors cursor-pointer appearance-none"
                           style={{
                             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
                             backgroundRepeat: 'no-repeat',
@@ -307,8 +304,8 @@ function ModesTab() {
                       className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${
                         mode.is_pinned
                           ? pinnedCount <= 1
-                            ? "bg-[#F0B67F]/10 border-[#F0B67F]/20 text-[#F0B67F]/50 cursor-not-allowed"
-                            : "bg-[#F0B67F]/20 border-[#F0B67F]/30 text-[#F0B67F] hover:bg-[#F0B67F]/30"
+                            ? "bg-(--accent)/10 border-(--accent)/20 text-(--accent)/50 cursor-not-allowed"
+                            : "bg-(--accent)/20 border-(--accent)/30 text-(--accent) hover:bg-(--accent)/30"
                           : pinnedCount >= MAX_PINNED_MODES
                           ? "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
                           : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
@@ -473,6 +470,34 @@ interface ModeEditorProps {
 
 function ModeEditor({ mode, onSave, onCancel, isCreating }: ModeEditorProps) {
   const [form, setForm] = useState<ProcessingMode>(mode);
+  const [aiDescription, setAiDescription] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    if (!aiDescription.trim()) return;
+    setGenerating(true);
+    setAiError(null);
+    try {
+      const result = await invoke<{
+        name: string;
+        description: string;
+        system_prompt: string;
+        user_prompt_template: string;
+      }>("generate_mode", { description: aiDescription });
+      setForm({
+        ...form,
+        name: result.name,
+        description: result.description,
+        system_prompt: result.system_prompt,
+        user_prompt_template: result.user_prompt_template,
+      });
+    } catch (error) {
+      setAiError(typeof error === "string" ? error : "Failed to generate mode");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -500,27 +525,61 @@ function ModeEditor({ mode, onSave, onCancel, isCreating }: ModeEditorProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4 overflow-y-auto">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="block text-[13px] text-white/60 mb-2">Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. TRANSLATE"
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30"
-            />
+        {isCreating && (
+          <div className="p-4 bg-white/5 border border-white/10 rounded-xl mb-2">
+            <label className="block text-[13px] text-white/60 mb-2">
+              AI Assist
+              <span className="text-white/40 ml-2 font-normal">
+                Describe your mode and let AI fill in the fields
+              </span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={aiDescription}
+                onChange={(e) => setAiDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleGenerate();
+                  }
+                }}
+                placeholder="Describe your mode in one sentence..."
+                disabled={generating}
+                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-(--accent)/50 placeholder:text-white/30 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating || !aiDescription.trim()}
+                className="px-4 py-2 text-[13px] bg-(--accent) hover:bg-(--accent-hover) disabled:bg-(--accent)/50 border-none rounded-lg text-white font-medium transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  "Generate with AI"
+                )}
+              </button>
+            </div>
+            {aiError && (
+              <p className="text-[12px] text-red-400 mt-2 m-0">{aiError}</p>
+            )}
           </div>
-          <div className="w-20">
-            <label className="block text-[13px] text-white/60 mb-2">Icon</label>
-            <input
-              type="text"
-              value={form.icon}
-              onChange={(e) => setForm({ ...form, icon: e.target.value })}
-              placeholder=""
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30 text-center"
-            />
-          </div>
+        )}
+        <div>
+          <label className="block text-[13px] text-white/60 mb-2">Name</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="e.g. TRANSLATE"
+            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[14px] outline-none focus:border-white/20 placeholder:text-white/30"
+          />
         </div>
 
         <div>
@@ -571,7 +630,7 @@ function ModeEditor({ mode, onSave, onCancel, isCreating }: ModeEditorProps) {
           </button>
           <button
             type="submit"
-            className="px-4 py-2 text-[13px] bg-[#F0B67F] hover:bg-[#F5C88A] border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+            className="px-4 py-2 text-[13px] bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
           >
             {isCreating ? "Create Mode" : "Save Changes"}
           </button>

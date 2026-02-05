@@ -405,10 +405,10 @@ function ModelsLibraryTab() {
                     className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
                     style={{
                       borderColor: isLocalActive(model.info.id)
-                        ? "#F0B67F"
+                        ? "var(--accent)"
                         : "rgba(255, 255, 255, 0.3)",
                       backgroundColor: isLocalActive(model.info.id)
-                        ? "#F0B67F"
+                        ? "var(--accent)"
                         : "transparent",
                     }}
                   >
@@ -456,10 +456,10 @@ function ModelsLibraryTab() {
                       {model.info.name}
                     </span>
                     {model.info.recommended && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#F0B67F]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-(--accent)" />
                     )}
                     {isLocalActive(model.info.id) && (
-                      <span className="px-2 py-0.5 bg-[#F0B67F]/20 text-[#F0B67F] text-[10px] font-semibold rounded">
+                      <span className="px-2 py-0.5 bg-(--accent)/20 text-(--accent) text-[10px] font-semibold rounded">
                         ACTIVE
                       </span>
                     )}
@@ -476,7 +476,7 @@ function ModelsLibraryTab() {
                 {model.status === "not_downloaded" && (
                   <button
                     onClick={() => handleDownload(model.info.id)}
-                    className="px-3 py-1.5 bg-[#F0B67F] hover:bg-[#F5C88A] rounded-lg text-white text-xs font-medium cursor-pointer transition-colors border-none"
+                    className="px-3 py-1.5 bg-(--accent) hover:bg-(--accent-hover) rounded-lg text-white text-xs font-medium cursor-pointer transition-colors border-none"
                   >
                     Download
                   </button>
@@ -487,7 +487,7 @@ function ModelsLibraryTab() {
                       className="w-4 h-4 animate-spin"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="#F0B67F"
+                      stroke="var(--accent)"
                       strokeWidth="2"
                     >
                       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -552,7 +552,7 @@ function ModelsLibraryTab() {
                   setSelectedModel("");
                   setSaveError("");
                 }}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-[#F0B67F] transition-colors cursor-pointer appearance-none"
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-(--accent) transition-colors cursor-pointer appearance-none"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
                   backgroundRepeat: "no-repeat",
@@ -580,7 +580,7 @@ function ModelsLibraryTab() {
                   setSaveError("");
                 }}
                 disabled={!selectedProvider}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-[#F0B67F] transition-colors cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-(--accent) transition-colors cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
                   backgroundRepeat: "no-repeat",
@@ -609,7 +609,7 @@ function ModelsLibraryTab() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Optional"
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-[#F0B67F] transition-colors placeholder:text-white/30"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-(--accent) transition-colors placeholder:text-white/30"
                 />
               </div>
               {providers.find((p) => p.id === selectedProvider)
@@ -626,7 +626,7 @@ function ModelsLibraryTab() {
                       setSaveError("");
                     }}
                     placeholder="sk-xxxxxxxxxxxxxxxxxxxx"
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-[#F0B67F] transition-colors placeholder:text-white/30 font-mono"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-(--accent) transition-colors placeholder:text-white/30 font-mono"
                   />
                 </div>
               )}
@@ -672,10 +672,10 @@ function ModelsLibraryTab() {
                     className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
                     style={{
                       borderColor: isCloudActive(cred.id)
-                        ? "#F0B67F"
+                        ? "var(--accent)"
                         : "rgba(255, 255, 255, 0.3)",
                       backgroundColor: isCloudActive(cred.id)
-                        ? "#F0B67F"
+                        ? "var(--accent)"
                         : "transparent",
                     }}
                   >
@@ -691,7 +691,7 @@ function ModelsLibraryTab() {
                           getModelName(cred.provider, cred.model_id)}
                       </span>
                       {isCloudActive(cred.id) && (
-                        <span className="px-2 py-0.5 bg-[#F0B67F]/20 text-[#F0B67F] text-[10px] font-semibold rounded">
+                        <span className="px-2 py-0.5 bg-(--accent)/20 text-(--accent) text-[10px] font-semibold rounded">
                           ACTIVE
                         </span>
                       )}

@@ -180,7 +180,7 @@ function HistoryTab() {
           <button
             onClick={handleToggleEnabled}
             className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
-              historyEnabled ? "bg-[#F0B67F]" : "bg-white/20"
+              historyEnabled ? "bg-(--accent)" : "bg-white/20"
             }`}
           >
             <span
@@ -232,7 +232,7 @@ function HistoryTab() {
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-semibold text-[#F0B67F] bg-[#F0B67F]/20 px-2 py-0.5 rounded">
+                          <span className="text-[10px] font-semibold text-(--accent) bg-(--accent)/20 px-2 py-0.5 rounded">
                             {entry.mode_name}
                           </span>
                           <svg

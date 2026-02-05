@@ -10,7 +10,6 @@ interface ProcessingMode {
   id: string;
   name: string;
   description: string;
-  icon: string;
   system_prompt: string;
   user_prompt_template: string;
   is_default: boolean;
@@ -78,25 +77,28 @@ function App() {
     loadData();
 
     // Listen for spotlight open event
-    const unlisten = listen<SpotlightPayload>("spotlight-open", async (event) => {
-      const { text: clipboardText } = event.payload;
-      setText(clipboardText || "");
-      setIsProcessed(false);
-      setCopied(false);
-      setShowHistory(false);
-      setShowMoreModes(false);
-      setError(null);
+    const unlisten = listen<SpotlightPayload>(
+      "spotlight-open",
+      async (event) => {
+        const { text: clipboardText } = event.payload;
+        setText(clipboardText || "");
+        setIsProcessed(false);
+        setCopied(false);
+        setShowHistory(false);
+        setShowMoreModes(false);
+        setError(null);
 
-      // Reload modes to get latest pin status
-      await loadModes();
+        // Reload modes to get latest pin status
+        await loadModes();
 
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-          textareaRef.current.select();
-        }
-      }, 50);
-    });
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus();
+            textareaRef.current.select();
+          }
+        }, 50);
+      }
+    );
 
     return () => {
       unlisten.then((fn) => fn());
@@ -282,14 +284,19 @@ function App() {
                 <span>Back</span>
               </button>
               <div className="flex-1 text-center text-[13px] text-white/40">
-                Processed with <span className="text-white/60">{modes.find(m => m.id === mode)?.name}</span>
+                Processed with{" "}
+                <span className="text-white/60">
+                  {modes.find((m) => m.id === mode)?.name}
+                </span>
               </div>
             </div>
           ) : (
             (() => {
               const pinnedModes = modes.filter((m) => m.is_pinned);
               const unpinnedModes = modes.filter((m) => !m.is_pinned);
-              const selectedUnpinnedMode = unpinnedModes.find((m) => m.id === mode);
+              const selectedUnpinnedMode = unpinnedModes.find(
+                (m) => m.id === mode
+              );
 
               return (
                 <div className="flex gap-1.5 p-1 bg-white/5 rounded-[10px] border border-white/10">
@@ -298,7 +305,7 @@ function App() {
                       key={m.id}
                       className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
                         mode === m.id
-                          ? "bg-[#F0B67F] text-white"
+                          ? "bg-(--accent) text-white"
                           : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
                       }`}
                       onClick={() => {
@@ -307,9 +314,6 @@ function App() {
                       }}
                       disabled={isLoading}
                     >
-                      {m.icon && (
-                        <span className="text-base leading-none">{m.icon}</span>
-                      )}
                       <span>{m.name}</span>
                     </button>
                   ))}
@@ -319,7 +323,7 @@ function App() {
                       <button
                         className={`flex items-center justify-center px-3 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
                           selectedUnpinnedMode
-                            ? "bg-[#F0B67F] text-white"
+                            ? "bg-(--accent) text-white"
                             : showMoreModes
                             ? "bg-white/10 text-white/80"
                             : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
@@ -329,11 +333,6 @@ function App() {
                       >
                         {selectedUnpinnedMode ? (
                           <>
-                            {selectedUnpinnedMode.icon && (
-                              <span className="text-base leading-none mr-2">
-                                {selectedUnpinnedMode.icon}
-                              </span>
-                            )}
                             <span>{selectedUnpinnedMode.name}</span>
                             <svg
                               width="12"
@@ -379,15 +378,10 @@ function App() {
                                 }}
                                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-left transition-colors border-none cursor-pointer ${
                                   mode === m.id
-                                    ? "bg-[#F0B67F]/20 text-white"
+                                    ? "bg-(--accent)/20 text-white"
                                     : "bg-transparent text-white/70 hover:bg-white/10 hover:text-white"
                                 }`}
                               >
-                                {m.icon && (
-                                  <span className="text-base leading-none">
-                                    {m.icon}
-                                  </span>
-                                )}
                                 <span>{m.name}</span>
                               </button>
                             ))}
@@ -420,12 +414,16 @@ function App() {
                 </svg>
                 <div className="flex-1">
                   <p className="text-red-400 text-[13px] font-medium">
-                    {error.includes("No active model") || error.includes("not found") || error.includes("not downloaded")
+                    {error.includes("No active model") ||
+                    error.includes("not found") ||
+                    error.includes("not downloaded")
                       ? "No model configured"
                       : "Processing failed"}
                   </p>
                   <p className="text-red-400/70 text-[12px] mt-0.5">
-                    {error.includes("No active model") || error.includes("not found") || error.includes("not downloaded")
+                    {error.includes("No active model") ||
+                    error.includes("not found") ||
+                    error.includes("not downloaded")
                       ? "Please download a model or add an API key in Settings → Models Library"
                       : error}
                   </p>
@@ -434,7 +432,14 @@ function App() {
                   onClick={() => setError(null)}
                   className="p-1 bg-transparent border-none cursor-pointer text-red-400/50 hover:text-red-400 transition-colors"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <path d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
@@ -447,7 +452,9 @@ function App() {
                 <div className="p-2">
                   <div className="text-white/40 text-[11px] font-medium px-2 py-1 uppercase tracking-wide flex items-center justify-between">
                     <span>Clipboard History</span>
-                    <span className="normal-case font-normal">Last {MAX_HISTORY_ITEMS} items</span>
+                    <span className="normal-case font-normal">
+                      Last {MAX_HISTORY_ITEMS} items
+                    </span>
                   </div>
                   {clipboardHistory.length > 0 ? (
                     clipboardHistory.map((item, index) => (
@@ -456,11 +463,13 @@ function App() {
                         onClick={() => selectHistoryItem(item)}
                         className={`w-full text-left px-3 py-2 rounded-lg text-[13px] text-white/80 truncate transition-colors border-none cursor-pointer ${
                           index === selectedHistoryIndex
-                            ? "bg-[#F0B67F]/20 text-white"
+                            ? "bg-(--accent)/20 text-white"
                             : "bg-transparent hover:bg-white/5"
                         }`}
                       >
-                        {item.length > 80 ? item.substring(0, 80) + "..." : item}
+                        {item.length > 80
+                          ? item.substring(0, 80) + "..."
+                          : item}
                       </button>
                     ))
                   ) : (
@@ -511,7 +520,7 @@ function App() {
                   className={`flex items-center gap-2 px-[18px] py-[9px] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${
                     copied
                       ? "bg-[#4CAF50] hover:bg-[#5CBF60]"
-                      : "bg-[#F0B67F] hover:bg-[#F5C88A]"
+                      : "bg-(--accent) hover:bg-(--accent-hover)"
                   }`}
                 >
                   {copied ? (
@@ -561,7 +570,7 @@ function App() {
                 <button
                   onClick={handleSendToAI}
                   disabled={isLoading || !text.trim()}
-                  className="flex items-center gap-1.5 px-[18px] py-[9px] bg-[#F0B67F] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-[#F5C88A] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-[18px] py-[9px] bg-(--accent) border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-(--accent-hover) disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <>

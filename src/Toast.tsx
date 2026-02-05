@@ -32,7 +32,7 @@ function Toast() {
         {state === "loading" && (
           <>
             <svg
-              className="w-4 h-4 animate-spin text-orange-500"
+              className="w-4 h-4 animate-spin text-(--accent)"
               viewBox="0 0 24 24"
               fill="none"
             >
