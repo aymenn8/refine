@@ -14,6 +14,7 @@
 mod clipboard;
 mod commands;
 mod credentials;
+mod history;
 mod inference;
 mod model;
 mod modes;
@@ -86,7 +87,11 @@ pub fn run() {
             providers::get_provider_models,
             providers::test_api_key,
             model::set_active_cloud_model,
-            model::get_active_model_config
+            model::get_active_model_config,
+            history::get_history,
+            history::clear_history,
+            history::set_history_enabled,
+            history::get_history_enabled
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store

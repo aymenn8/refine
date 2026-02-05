@@ -1,4 +1,5 @@
 use crate::credentials::{get_credential_by_id, retrieve_api_key};
+use crate::history;
 use crate::model::{get_active_model_config, ActiveModelConfig};
 use crate::modes::get_mode_by_id;
 use crate::providers::run_cloud_inference;
@@ -31,7 +32,7 @@ pub async fn process_text(
             .ok_or("No active model selected. Please select a model first.")?,
     };
 
-    match model_config {
+    let result = match model_config {
         ActiveModelConfig::Local { model_id } => {
             // Inférence locale avec llama-cpp
             run_local_inference(&app, &model_id, &process_mode, &text).await
@@ -40,7 +41,20 @@ pub async fn process_text(
             // Inférence cloud via API
             run_api_inference(&app, &credential_id, &process_mode, &text).await
         }
+    };
+
+    // Save to history if successful
+    if let Ok(ref output) = result {
+        let _ = history::add_entry(
+            &app,
+            text,
+            output.clone(),
+            process_mode.id.clone(),
+            process_mode.name.clone(),
+        );
     }
+
+    result
 }
 
 /// Exécute l'inférence locale avec llama-cpp
