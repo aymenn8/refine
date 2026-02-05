@@ -6,11 +6,12 @@ import HomeTab from "./settings/HomeTab";
 import ModesTab from "./settings/ModesTab";
 import FlowsTab from "./settings/FlowsTab";
 import ConfigTab from "./settings/ConfigTab";
+import QuickActionsTab from "./settings/QuickActionsTab";
 import HistoryTab from "./settings/HistoryTab";
 import AboutTab from "./settings/AboutTab";
 import ModelsLibraryTab from "./settings/ModelsLibraryTab";
 
-type TabId = "home" | "modes" | "flows" | "config" | "model" | "history" | "about";
+type TabId = "home" | "modes" | "flows" | "quickactions" | "config" | "model" | "history" | "about";
 
 interface Tab {
   id: TabId;
@@ -65,6 +66,20 @@ const Icons = {
       <polyline points="21 16 21 21 16 21" />
       <line x1="15" y1="15" x2="21" y2="21" />
       <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  ),
+  quickactions: (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
     </svg>
   ),
   config: (
@@ -135,6 +150,7 @@ const TABS: Tab[] = [
   { id: "home", label: "Home", icon: Icons.home },
   { id: "modes", label: "Modes", icon: Icons.modes },
   { id: "flows", label: "Flows", icon: Icons.flows },
+  { id: "quickactions", label: "Quick Actions", icon: Icons.quickactions },
   { id: "config", label: "Configuration", icon: Icons.config },
   { id: "model", label: "Models Library", icon: Icons.model },
   { id: "history", label: "History", icon: Icons.history },
@@ -168,6 +184,8 @@ function Settings() {
         return <ModesTab />;
       case "flows":
         return <FlowsTab />;
+      case "quickactions":
+        return <QuickActionsTab />;
       case "config":
         return <ConfigTab />;
       case "model":
