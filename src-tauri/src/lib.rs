@@ -13,9 +13,11 @@
 // Modules
 mod clipboard;
 mod commands;
+mod credentials;
 mod inference;
 mod model;
 mod modes;
+mod providers;
 mod shortcuts;
 mod state;
 mod tray;
@@ -74,8 +76,17 @@ pub fn run() {
             modes::delete_mode,
             modes::reset_modes_to_defaults,
             modes::toggle_pin_mode,
+            modes::set_mode_model,
             clipboard::get_clipboard_history,
-            clipboard::clear_clipboard_history
+            clipboard::clear_clipboard_history,
+            credentials::save_api_credential,
+            credentials::get_api_credentials,
+            credentials::delete_api_credential,
+            credentials::get_ollama_models,
+            providers::get_provider_models,
+            providers::test_api_key,
+            model::set_active_cloud_model,
+            model::get_active_model_config
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store

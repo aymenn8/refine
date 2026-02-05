@@ -1,5 +1,7 @@
-use crate::model::get_active_model;
+use crate::credentials::{get_credential_by_id, retrieve_api_key};
+use crate::model::{get_active_model_config, ActiveModelConfig};
 use crate::modes::get_mode_by_id;
+use crate::providers::run_cloud_inference;
 use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
@@ -11,18 +13,43 @@ use std::num::NonZeroU32;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-/// Traite le texte avec le modèle actif
+/// Traite le texte avec le modèle actif (local ou cloud)
 #[tauri::command]
 pub async fn process_text(
     app: AppHandle,
     text: String,
     mode: String,
 ) -> Result<String, String> {
-    // Récupérer le modèle actif
-    let active_model_id = get_active_model(app.clone())
-        .await?
-        .ok_or("No active model selected. Please download and activate a model first.")?;
+    // Récupérer le mode depuis le storage
+    let process_mode = get_mode_by_id(&app, &mode)?;
 
+    // Utiliser le model_override du mode si défini, sinon le modèle par défaut
+    let model_config = match &process_mode.model_override {
+        Some(override_config) => override_config.clone(),
+        None => get_active_model_config(app.clone())
+            .await?
+            .ok_or("No active model selected. Please select a model first.")?,
+    };
+
+    match model_config {
+        ActiveModelConfig::Local { model_id } => {
+            // Inférence locale avec llama-cpp
+            run_local_inference(&app, &model_id, &process_mode, &text).await
+        }
+        ActiveModelConfig::Cloud { credential_id } => {
+            // Inférence cloud via API
+            run_api_inference(&app, &credential_id, &process_mode, &text).await
+        }
+    }
+}
+
+/// Exécute l'inférence locale avec llama-cpp
+async fn run_local_inference(
+    app: &AppHandle,
+    model_id: &str,
+    process_mode: &crate::modes::ProcessingMode,
+    text: &str,
+) -> Result<String, String> {
     // Récupérer le chemin du modèle
     let models_dir = app
         .path()
@@ -30,7 +57,7 @@ pub async fn process_text(
         .map_err(|e| format!("Failed to get app data dir: {}", e))?
         .join("models");
 
-    let model_info = crate::model::get_model_by_id(&active_model_id)?;
+    let model_info = crate::model::get_model_by_id(model_id)?;
     let model_path = models_dir.join(&model_info.filename);
 
     if !model_path.exists() {
@@ -40,13 +67,10 @@ pub async fn process_text(
         ));
     }
 
-    // Récupérer le mode depuis le storage
-    let process_mode = get_mode_by_id(&app, &mode)?;
-
     // Construire le prompt
-    let prompt = process_mode.build_prompt(&text);
+    let prompt = process_mode.build_prompt(text);
 
-    // Exécuter l'inférence dans un thread bloquant pour éviter de bloquer le runtime async
+    // Exécuter l'inférence dans un thread bloquant
     let result = tokio::task::spawn_blocking(move || {
         run_inference_llama_cpp(model_path, prompt)
     })
@@ -54,6 +78,33 @@ pub async fn process_text(
     .map_err(|e| format!("Task failed: {}", e))??;
 
     Ok(result)
+}
+
+/// Exécute l'inférence via API cloud
+async fn run_api_inference(
+    app: &AppHandle,
+    credential_id: &str,
+    process_mode: &crate::modes::ProcessingMode,
+    text: &str,
+) -> Result<String, String> {
+    // Récupérer le credential
+    let credential = get_credential_by_id(app, credential_id)?;
+
+    // Récupérer la clé API depuis le Keychain
+    let api_key = retrieve_api_key(&credential)?;
+
+    // Construire le prompt utilisateur
+    let user_prompt = process_mode.user_prompt_template.replace("{text}", text);
+
+    // Appeler l'API du provider
+    run_cloud_inference(
+        credential.provider,
+        &credential.model_id,
+        &api_key,
+        &process_mode.system_prompt,
+        &user_prompt,
+    )
+    .await
 }
 
 /// Exécute l'inférence avec llama.cpp + Metal

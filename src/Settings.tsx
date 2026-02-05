@@ -7,7 +7,7 @@ import ModesTab from "./settings/ModesTab";
 import ConfigTab from "./settings/ConfigTab";
 import HistoryTab from "./settings/HistoryTab";
 import AboutTab from "./settings/AboutTab";
-import ModelTab from "./settings/ModelTab";
+import ModelsLibraryTab from "./settings/ModelsLibraryTab";
 
 type TabId = "home" | "modes" | "config" | "model" | "history" | "about";
 
@@ -116,7 +116,7 @@ const TABS: Tab[] = [
   { id: "home", label: "Home", icon: Icons.home },
   { id: "modes", label: "Modes", icon: Icons.modes },
   { id: "config", label: "Configuration", icon: Icons.config },
-  { id: "model", label: "Modèle IA", icon: Icons.model },
+  { id: "model", label: "Models Library", icon: Icons.model },
   { id: "history", label: "History", icon: Icons.history },
   { id: "about", label: "About", icon: Icons.about },
 ];
@@ -150,7 +150,7 @@ function Settings() {
       case "config":
         return <ConfigTab />;
       case "model":
-        return <ModelTab />;
+        return <ModelsLibraryTab />;
       case "history":
         return <HistoryTab />;
       case "about":

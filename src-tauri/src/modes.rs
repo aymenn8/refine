@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
+use crate::model::ActiveModelConfig;
+
 /// A processing mode configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessingMode {
@@ -14,6 +16,9 @@ pub struct ProcessingMode {
     pub is_default: bool,
     #[serde(default)]
     pub is_pinned: bool,
+    /// Optional model override - if None, uses the default active model
+    #[serde(default)]
+    pub model_override: Option<ActiveModelConfig>,
 }
 
 impl ProcessingMode {
@@ -40,6 +45,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             user_prompt_template: "Translate to English: {text}".to_string(),
             is_default: true,
             is_pinned: true,
+            model_override: None,
         },
         ProcessingMode {
             id: "correct".to_string(),
@@ -50,6 +56,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             user_prompt_template: "Fix spelling/grammar errors only (do NOT translate): {text}".to_string(),
             is_default: true,
             is_pinned: true,
+            model_override: None,
         },
         ProcessingMode {
             id: "ask".to_string(),
@@ -60,6 +67,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             user_prompt_template: "{text}".to_string(),
             is_default: true,
             is_pinned: true,
+            model_override: None,
         },
     ]
 }
@@ -237,6 +245,44 @@ pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), Stri
     store
         .save()
         .map_err(|e| format!("Failed to save store: {}", e))?;
+
+    Ok(())
+}
+
+/// Set the model override for a mode
+#[tauri::command]
+pub async fn set_mode_model(
+    app: AppHandle,
+    mode_id: String,
+    model_config: Option<ActiveModelConfig>,
+) -> Result<(), String> {
+    println!("[set_mode_model] Setting model for mode: {}", mode_id);
+
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("Failed to load store: {}", e))?;
+
+    let mut modes: Vec<ProcessingMode> = store
+        .get(MODES_KEY)
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(get_default_modes);
+
+    // Find and update the mode
+    let mode = modes.iter_mut().find(|m| m.id == mode_id)
+        .ok_or_else(|| format!("Mode not found: {}", mode_id))?;
+
+    mode.model_override = model_config;
+
+    store.set(
+        MODES_KEY,
+        serde_json::to_value(&modes).map_err(|e| format!("Failed to serialize modes: {}", e))?,
+    );
+
+    store
+        .save()
+        .map_err(|e| format!("Failed to save store: {}", e))?;
+
+    println!("[set_mode_model] Model override updated successfully");
 
     Ok(())
 }

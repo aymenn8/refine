@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
+type Provider = "openai" | "anthropic" | "gemini" | "grok" | "mistral" | "ollama";
+
+interface ActiveModelConfig {
+  type: "local" | "cloud";
+  model_id?: string;
+  credential_id?: string;
+}
+
 interface ProcessingMode {
   id: string;
   name: string;
@@ -10,6 +18,25 @@ interface ProcessingMode {
   user_prompt_template: string;
   is_default: boolean;
   is_pinned?: boolean;
+  model_override?: ActiveModelConfig | null;
+}
+
+interface LocalModelInfo {
+  id: string;
+  name: string;
+}
+
+interface ApiCredential {
+  id: string;
+  provider: Provider;
+  model_id: string;
+  display_name: string;
+}
+
+interface ModelOption {
+  id: string;
+  label: string;
+  config: ActiveModelConfig | null;
 }
 
 const MAX_PINNED_MODES = 3;
@@ -23,6 +50,9 @@ function ModesTab() {
     open: false,
     mode: null,
   });
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const [defaultModelName, setDefaultModelName] = useState<string>("");
 
   const loadModes = async () => {
     try {
@@ -35,8 +65,56 @@ function ModesTab() {
     }
   };
 
+  const loadModelOptions = async () => {
+    try {
+      const options: ModelOption[] = [];
+
+      // Load local models
+      const localModels = await invoke<LocalModelInfo[]>("get_available_models_list");
+      for (const model of localModels) {
+        const [status] = await invoke<[string, number]>("check_model_status", { modelId: model.id });
+        if (status === "downloaded") {
+          options.push({
+            id: `local:${model.id}`,
+            label: `${model.name} (Local)`,
+            config: { type: "local", model_id: model.id },
+          });
+        }
+      }
+
+      // Load cloud credentials
+      const credentials = await invoke<ApiCredential[]>("get_api_credentials");
+      for (const cred of credentials) {
+        options.push({
+          id: `cloud:${cred.id}`,
+          label: cred.display_name || `${cred.model_id} (${cred.provider})`,
+          config: { type: "cloud", credential_id: cred.id },
+        });
+      }
+
+      setModelOptions(options);
+
+      // Load default model name
+      const activeConfig = await invoke<ActiveModelConfig | null>("get_active_model_config");
+      if (activeConfig) {
+        if (activeConfig.type === "local" && activeConfig.model_id) {
+          const model = localModels.find((m) => m.id === activeConfig.model_id);
+          setDefaultModelName(model?.name || activeConfig.model_id);
+        } else if (activeConfig.type === "cloud" && activeConfig.credential_id) {
+          const cred = credentials.find((c) => c.id === activeConfig.credential_id);
+          setDefaultModelName(cred?.display_name || cred?.model_id || "Cloud Model");
+        }
+      } else {
+        setDefaultModelName("Not set");
+      }
+    } catch (error) {
+      console.error("Failed to load model options:", error);
+    }
+  };
+
   useEffect(() => {
     loadModes();
+    loadModelOptions();
   }, []);
 
   const handleSave = async (mode: ProcessingMode) => {
@@ -63,11 +141,11 @@ function ModesTab() {
     }
   };
 
-  const handleReset = async () => {
-    if (!confirm("Reset all modes to defaults? Custom modes will be deleted.")) return;
+  const handleResetConfirm = async () => {
     try {
       const result = await invoke<ProcessingMode[]>("reset_modes_to_defaults");
       setModes(result);
+      setShowResetModal(false);
     } catch (error) {
       console.error("Failed to reset modes:", error);
     }
@@ -83,6 +161,29 @@ function ModesTab() {
   };
 
   const pinnedCount = modes.filter((m) => m.is_pinned).length;
+
+  const handleSetModeModel = async (modeId: string, optionId: string) => {
+    const option = modelOptions.find((o) => o.id === optionId);
+    if (!option) return;
+
+    try {
+      await invoke("set_mode_model", { modeId, modelConfig: option.config });
+      await loadModes();
+    } catch (error) {
+      console.error("Failed to set mode model:", error);
+    }
+  };
+
+  const getModeModelOptionId = (mode: ProcessingMode): string => {
+    if (!mode.model_override) return "default";
+    if (mode.model_override.type === "local" && mode.model_override.model_id) {
+      return `local:${mode.model_override.model_id}`;
+    }
+    if (mode.model_override.type === "cloud" && mode.model_override.credential_id) {
+      return `cloud:${mode.model_override.credential_id}`;
+    }
+    return "default";
+  };
 
   const handleCreateNew = () => {
     setIsCreating(true);
@@ -128,7 +229,7 @@ function ModesTab() {
           </h1>
           <div className="flex gap-2">
             <button
-              onClick={handleReset}
+              onClick={() => setShowResetModal(true)}
               className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
             >
               Reset to Defaults
@@ -158,13 +259,43 @@ function ModesTab() {
                       </h3>
                       {mode.is_default && (
                         <span className="text-[10px] text-white/40 bg-white/10 px-1.5 py-0.5 rounded">
-                          default
+                          built-in
                         </span>
                       )}
                     </div>
-                    <p className="text-[13px] text-white/50 m-0 line-clamp-2">
+                    <p className="text-[13px] text-white/50 m-0 mb-2">
                       {mode.description}
                     </p>
+                    {/* Model selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-white/40">Model:</span>
+                      {mode.is_default ? (
+                        <span className="text-[11px] text-white/50">
+                          Default ({defaultModelName || "Not set"})
+                        </span>
+                      ) : (
+                        <select
+                          value={getModeModelOptionId(mode)}
+                          onChange={(e) => handleSetModeModel(mode.id, e.target.value)}
+                          className="px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-[11px] outline-none focus:border-[#F0B67F] transition-colors cursor-pointer appearance-none"
+                          style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'right 6px center',
+                            paddingRight: '20px'
+                          }}
+                        >
+                          {!mode.model_override && (
+                            <option value="default">Default ({defaultModelName || "Not set"})</option>
+                          )}
+                          {modelOptions.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button
@@ -276,6 +407,54 @@ function ModesTab() {
                 className="px-4 py-2 text-[13px] bg-red-500 hover:bg-red-600 border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#f97316"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-[16px] font-semibold text-white m-0">Reset to Defaults</h3>
+                <p className="text-[13px] text-white/50 m-0">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <p className="text-[14px] text-white/70 mb-6">
+              All custom modes will be <strong className="text-white">permanently deleted</strong>. Only the 3 built-in modes will remain.
+            </p>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="px-4 py-2 text-[13px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetConfirm}
+                className="px-4 py-2 text-[13px] bg-orange-500 hover:bg-orange-600 border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+              >
+                Reset
               </button>
             </div>
           </div>

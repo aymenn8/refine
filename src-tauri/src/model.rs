@@ -340,7 +340,15 @@ pub async fn get_model_info(model_id: String) -> Result<ModelInfo, String> {
     get_model_by_id(&model_id)
 }
 
-/// Définit le modèle actif par défaut
+/// Configuration du modèle actif (local ou cloud)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ActiveModelConfig {
+    Local { model_id: String },
+    Cloud { credential_id: String },
+}
+
+/// Définit le modèle actif (local)
 #[tauri::command]
 pub async fn set_active_model(app: AppHandle, model_id: String) -> Result<(), String> {
     use tauri_plugin_store::StoreExt;
@@ -351,12 +359,14 @@ pub async fn set_active_model(app: AppHandle, model_id: String) -> Result<(), St
         return Err("Model must be downloaded before it can be activated".to_string());
     }
 
+    let config = ActiveModelConfig::Local { model_id };
+
     // Sauvegarder dans le store
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    store.set("activeModel", serde_json::json!(model_id));
+    store.set("activeModelConfig", serde_json::to_value(&config).unwrap());
 
     store
         .save()
@@ -365,18 +375,64 @@ pub async fn set_active_model(app: AppHandle, model_id: String) -> Result<(), St
     Ok(())
 }
 
-/// Récupère le modèle actif par défaut
+/// Définit le modèle actif (cloud credential)
 #[tauri::command]
-pub async fn get_active_model(app: AppHandle) -> Result<Option<String>, String> {
+pub async fn set_active_cloud_model(app: AppHandle, credential_id: String) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+
+    // Vérifier que le credential existe
+    crate::credentials::get_credential_by_id(&app, &credential_id)?;
+
+    let config = ActiveModelConfig::Cloud { credential_id };
+
+    // Sauvegarder dans le store
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("Failed to load store: {}", e))?;
+
+    store.set("activeModelConfig", serde_json::to_value(&config).unwrap());
+
+    store
+        .save()
+        .map_err(|e| format!("Failed to save store: {}", e))?;
+
+    Ok(())
+}
+
+/// Récupère la configuration du modèle actif
+#[tauri::command]
+pub async fn get_active_model_config(app: AppHandle) -> Result<Option<ActiveModelConfig>, String> {
     use tauri_plugin_store::StoreExt;
 
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let active_model = store
-        .get("activeModel")
-        .and_then(|v| v.as_str().map(|s| s.to_string()));
+    // Essayer le nouveau format
+    if let Some(config) = store
+        .get("activeModelConfig")
+        .and_then(|v| serde_json::from_value::<ActiveModelConfig>(v.clone()).ok())
+    {
+        return Ok(Some(config));
+    }
 
-    Ok(active_model)
+    // Fallback: ancien format (juste model_id string)
+    if let Some(model_id) = store
+        .get("activeModel")
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+    {
+        return Ok(Some(ActiveModelConfig::Local { model_id }));
+    }
+
+    Ok(None)
+}
+
+/// Récupère le modèle actif (compatibilité)
+#[tauri::command]
+pub async fn get_active_model(app: AppHandle) -> Result<Option<String>, String> {
+    let config = get_active_model_config(app).await?;
+    match config {
+        Some(ActiveModelConfig::Local { model_id }) => Ok(Some(model_id)),
+        _ => Ok(None),
+    }
 }
