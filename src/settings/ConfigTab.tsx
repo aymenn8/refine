@@ -3,8 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { load } from "@tauri-apps/plugin-store";
 import "@melloware/coloris/dist/coloris.css";
 import Coloris from "@melloware/coloris";
+import { playNotificationSound } from "../utils/sound";
 
 interface ProcessingMode {
+  id: string;
+  name: string;
+}
+
+interface Flow {
   id: string;
   name: string;
 }
@@ -13,6 +19,7 @@ interface QuickAction {
   mode_id: string;
   mode_name: string;
   shortcut: string;
+  action_type: string; // "mode" or "flow"
 }
 
 function lightenColor(hex: string, percent: number): string {
@@ -25,7 +32,9 @@ function lightenColor(hex: string, percent: number): string {
 
 function ConfigTab() {
   const [globalShortcut, setGlobalShortcut] = useState("CommandOrControl+Shift+R");
+  const [historyShortcut, setHistoryShortcut] = useState("CommandOrControl+Shift+V");
   const [modes, setModes] = useState<ProcessingMode[]>([]);
+  const [flows, setFlows] = useState<Flow[]>([]);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,6 +42,11 @@ function ConfigTab() {
   const [selectedModeId, setSelectedModeId] = useState("");
   const [isRecording, setIsRecording] = useState<string | null>(null); // mode_id being recorded
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
+
+  // Sound
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundVolume, setSoundVolume] = useState(0.5);
+  const [soundType, setSoundType] = useState("Glass");
 
   // Accent color
   const [accentColor, setAccentColor] = useState("#F0B67F");
@@ -97,21 +111,32 @@ function ConfigTab() {
 
   const loadData = async () => {
     try {
-      const [shortcut, modesData, actionsData] = await Promise.all([
+      const [shortcut, modesData, flowsData, actionsData] = await Promise.all([
         invoke<string>("get_global_shortcut"),
         invoke<ProcessingMode[]>("get_modes"),
+        invoke<Flow[]>("get_flows"),
         invoke<QuickAction[]>("get_quick_actions"),
       ]);
       setGlobalShortcut(shortcut);
       setModes(modesData);
+      setFlows(flowsData);
       setQuickActions(actionsData);
 
-      // Load accent color
+      // Load settings from store
       const store = await load("settings.json");
+      const savedHistoryShortcut = await store.get<string>("historyShortcut");
+      if (savedHistoryShortcut) setHistoryShortcut(savedHistoryShortcut);
       const saved = await store.get<string>("accentColor");
       if (saved) setAccentColor(saved);
       const savedCustom = await store.get<string | null>("customAccentColor");
       if (savedCustom) setCustomColor(savedCustom);
+
+      const savedSoundEnabled = await store.get<boolean>("soundEnabled");
+      if (savedSoundEnabled !== null && savedSoundEnabled !== undefined) setSoundEnabled(savedSoundEnabled);
+      const savedSoundVolume = await store.get<number>("soundVolume");
+      if (savedSoundVolume !== null && savedSoundVolume !== undefined) setSoundVolume(savedSoundVolume);
+      const savedSoundType = await store.get<string>("soundType");
+      if (savedSoundType) setSoundType(savedSoundType);
     } catch (error) {
       console.error("Failed to load config:", error);
     } finally {
@@ -191,6 +216,15 @@ function ConfigTab() {
         } catch (error) {
           console.error("Failed to update shortcut:", error);
         }
+      } else if (targetId === "history") {
+        try {
+          const store = await load("settings.json");
+          await store.set("historyShortcut", shortcut);
+          await store.save();
+          setHistoryShortcut(shortcut);
+        } catch (error) {
+          console.error("Failed to update history shortcut:", error);
+        }
       } else {
         const action = quickActions.find(a => a.mode_id === targetId);
         if (action) {
@@ -199,6 +233,7 @@ function ConfigTab() {
               modeId: action.mode_id,
               modeName: action.mode_name,
               shortcut,
+              actionType: action.action_type || "mode",
             });
             setQuickActions(prev =>
               prev.map(a => a.mode_id === targetId ? { ...a, shortcut } : a)
@@ -225,25 +260,38 @@ function ConfigTab() {
   const handleAddQuickAction = async () => {
     if (!selectedModeId) return;
 
-    const mode = modes.find(m => m.id === selectedModeId);
-    if (!mode) return;
+    // Parse "mode:{id}" or "flow:{id}" format
+    const [type, ...idParts] = selectedModeId.split(":");
+    const targetId = idParts.join(":");
+    const actionType = type === "flow" ? "flow" : "mode";
 
-    // Add with empty shortcut, user will record it
+    let targetName = "";
+    if (actionType === "flow") {
+      const flow = flows.find(f => f.id === targetId);
+      if (!flow) return;
+      targetName = flow.name;
+    } else {
+      const mode = modes.find(m => m.id === targetId);
+      if (!mode) return;
+      targetName = mode.name;
+    }
+
     const newAction: QuickAction = {
-      mode_id: mode.id,
-      mode_name: mode.name,
+      mode_id: targetId,
+      mode_name: targetName,
       shortcut: "",
+      action_type: actionType,
     };
 
     try {
       await invoke("save_quick_action", {
-        modeId: mode.id,
-        modeName: mode.name,
+        modeId: targetId,
+        modeName: targetName,
         shortcut: "",
+        actionType,
       });
       setQuickActions(prev => [...prev, newAction]);
       setSelectedModeId("");
-      // Start recording will happen when user clicks the shortcut button
     } catch (error) {
       console.error("Failed to add quick action:", error);
     }
@@ -264,8 +312,12 @@ function ConfigTab() {
 
   // Modes available for quick actions (not already assigned)
   const availableModes = modes.filter(
-    m => !quickActions.some(a => a.mode_id === m.id)
+    m => !quickActions.some(a => a.mode_id === m.id && a.action_type === "mode")
   );
+  const availableFlows = flows.filter(
+    f => !quickActions.some(a => a.mode_id === f.id && a.action_type === "flow")
+  );
+  const hasAvailableOptions = availableModes.length > 0 || availableFlows.length > 0;
 
   if (loading) {
     return (
@@ -295,26 +347,52 @@ function ConfigTab() {
         {/* General Shortcuts */}
         <div className="mb-4">
           <h3 className="text-[13px] text-white/60 mb-2">General</h3>
-          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[14px] text-white">Open Refine</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => startRecording("global", e.currentTarget)}
-                  onKeyDown={(e) => handleKeyDown(e, "global")}
-                  tabIndex={0}
-                  className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
-                    isRecording === "global"
-                      ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
-                      : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
-                  }`}
-                >
-                  {isRecording === "global"
-                    ? recordedKeys.size > 0
-                      ? formatShortcut(keysToShortcut(recordedKeys))
-                      : "Press keys..."
-                    : formatShortcut(globalShortcut)}
-                </button>
+          <div className="space-y-2">
+            <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] text-white">Open Refine</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => startRecording("global", e.currentTarget)}
+                    onKeyDown={(e) => handleKeyDown(e, "global")}
+                    tabIndex={0}
+                    className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
+                      isRecording === "global"
+                        ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
+                        : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                    }`}
+                  >
+                    {isRecording === "global"
+                      ? recordedKeys.size > 0
+                        ? formatShortcut(keysToShortcut(recordedKeys))
+                        : "Press keys..."
+                      : formatShortcut(globalShortcut)}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] text-white">Clipboard History</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => startRecording("history", e.currentTarget)}
+                    onKeyDown={(e) => handleKeyDown(e, "history")}
+                    tabIndex={0}
+                    className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
+                      isRecording === "history"
+                        ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
+                        : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                    }`}
+                  >
+                    {isRecording === "history"
+                      ? recordedKeys.size > 0
+                        ? formatShortcut(keysToShortcut(recordedKeys))
+                        : "Press keys..."
+                      : formatShortcut(historyShortcut)}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -327,85 +405,135 @@ function ConfigTab() {
             Process selected text instantly without opening Refine
           </p>
 
-          {quickActions.length > 0 && (
-            <div className="space-y-2 mb-3">
-              {quickActions.map((action) => (
-                <div
-                  key={action.mode_id}
-                  className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl"
-                >
-                  <span className="text-[14px] text-white">{action.mode_name}</span>
+          <div className="space-y-2">
+            {quickActions.map((action) => (
+              <div
+                key={action.mode_id}
+                className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl group"
+              >
+                {/* Icon */}
+                {action.action_type === "flow" ? (
+                  <div className="w-8 h-8 rounded-lg bg-(--accent)/10 flex items-center justify-center shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
+                      <polyline points="16 3 21 3 21 8" />
+                      <line x1="4" y1="20" x2="21" y2="3" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-white/40" />
+                  </div>
+                )}
+
+                {/* Name + badge */}
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => startRecording(action.mode_id, e.currentTarget)}
-                      onKeyDown={(e) => handleKeyDown(e, action.mode_id)}
-                      tabIndex={0}
-                      className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
-                        isRecording === action.mode_id
-                          ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
-                          : action.shortcut
-                          ? "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
-                          : "bg-white/5 border-white/20 text-white/40 hover:bg-white/10"
-                      }`}
-                    >
-                      {isRecording === action.mode_id
-                        ? recordedKeys.size > 0
-                          ? formatShortcut(keysToShortcut(recordedKeys))
-                          : "Press keys..."
-                        : action.shortcut
-                        ? formatShortcut(action.shortcut)
-                        : "Set shortcut"}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteQuickAction(action.mode_id)}
-                      className="p-1.5 bg-white/5 hover:bg-red-500/20 rounded-lg text-white/40 hover:text-red-400 cursor-pointer transition-colors border border-white/10"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
-                    </button>
+                    <span className="text-[14px] text-white font-medium truncate">{action.mode_name}</span>
+                    <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                      action.action_type === "flow"
+                        ? "text-(--accent) bg-(--accent)/15"
+                        : "text-white/40 bg-white/8"
+                    }`}>
+                      {action.action_type}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {/* Add Quick Action */}
-          {availableModes.length > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl">
-              <select
-                value={selectedModeId}
-                onChange={(e) => setSelectedModeId(e.target.value)}
-                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[13px] outline-none focus:border-(--accent) transition-colors cursor-pointer appearance-none"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "right 12px center",
-                }}
-              >
-                <option value="">Select a mode...</option>
-                {availableModes.map((mode) => (
-                  <option key={mode.id} value={mode.id}>
-                    {mode.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleAddQuickAction}
-                disabled={!selectedModeId}
-                className="px-4 py-2 bg-white/10 hover:bg-white/15 disabled:bg-white/5 disabled:text-white/30 border-none rounded-lg text-white text-[13px] font-medium cursor-pointer disabled:cursor-not-allowed transition-colors"
-              >
-                Add
-              </button>
-            </div>
-          )}
+                {/* Shortcut + delete */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={(e) => startRecording(action.mode_id, e.currentTarget)}
+                    onKeyDown={(e) => handleKeyDown(e, action.mode_id)}
+                    tabIndex={0}
+                    className={`min-w-[100px] px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none text-center ${
+                      isRecording === action.mode_id
+                        ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
+                        : action.shortcut
+                        ? "bg-white/8 border-white/12 text-white/70 hover:bg-white/12"
+                        : "bg-white/5 border-dashed border-white/20 text-white/30 hover:bg-white/8 hover:text-white/50"
+                    }`}
+                  >
+                    {isRecording === action.mode_id
+                      ? recordedKeys.size > 0
+                        ? formatShortcut(keysToShortcut(recordedKeys))
+                        : "Press keys..."
+                      : action.shortcut
+                      ? formatShortcut(action.shortcut)
+                      : "Set shortcut"}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteQuickAction(action.mode_id)}
+                    className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors border-none bg-transparent opacity-0 group-hover:opacity-100"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
 
-          {availableModes.length === 0 && quickActions.length > 0 && (
-            <p className="text-[12px] text-white/30 text-center py-2">
-              All modes have shortcuts assigned
-            </p>
-          )}
+            {/* Add Quick Action */}
+            {hasAvailableOptions && (
+              <div className="flex items-center gap-2 p-3 bg-white/[0.02] border border-dashed border-white/10 rounded-xl">
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/30">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </div>
+                <select
+                  value={selectedModeId}
+                  onChange={(e) => setSelectedModeId(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[13px] outline-none focus:border-(--accent) transition-colors cursor-pointer appearance-none"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 12px center",
+                  }}
+                >
+                  <option value="">Select a mode or flow...</option>
+                  {availableModes.length > 0 && (
+                    <optgroup label="Modes">
+                      {availableModes.map((mode) => (
+                        <option key={mode.id} value={`mode:${mode.id}`}>
+                          {mode.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {availableFlows.length > 0 && (
+                    <optgroup label="Flows">
+                      {availableFlows.map((flow) => (
+                        <option key={flow.id} value={`flow:${flow.id}`}>
+                          {flow.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                <button
+                  onClick={handleAddQuickAction}
+                  disabled={!selectedModeId}
+                  className="px-4 py-2 bg-(--accent) hover:bg-(--accent-hover) disabled:bg-white/5 disabled:text-white/30 border-none rounded-lg text-white text-[13px] font-medium cursor-pointer disabled:cursor-not-allowed transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+
+            {quickActions.length === 0 && !hasAvailableOptions && (
+              <div className="py-6 text-center">
+                <p className="text-[13px] text-white/30">No modes or flows available</p>
+              </div>
+            )}
+
+            {!hasAvailableOptions && quickActions.length > 0 && (
+              <p className="text-[12px] text-white/30 text-center py-2">
+                All modes and flows have shortcuts assigned
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
@@ -469,6 +597,116 @@ function ConfigTab() {
               </button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Sound Section */}
+      <section className="mt-8">
+        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
+          Sound
+        </h2>
+        <div className="space-y-3">
+          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/60">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                </svg>
+                <span className="text-[14px] text-white">Notification Sound</span>
+              </div>
+              <button
+                onClick={async () => {
+                  const newValue = !soundEnabled;
+                  setSoundEnabled(newValue);
+                  try {
+                    const store = await load("settings.json");
+                    await store.set("soundEnabled", newValue);
+                    await store.save();
+                  } catch (error) {
+                    console.error("Failed to save sound setting:", error);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
+                  soundEnabled ? "bg-(--accent)" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    soundEnabled ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {soundEnabled && (
+            <>
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] text-white">Alert Sound</span>
+                  <div className="flex items-center gap-2">
+                    {["Glass", "Ping", "Funk"].map((name) => (
+                      <button
+                        key={name}
+                        onClick={async () => {
+                          setSoundType(name);
+                          try {
+                            const store = await load("settings.json");
+                            await store.set("soundType", name);
+                            await store.save();
+                          } catch (error) {
+                            console.error("Failed to save sound type:", error);
+                          }
+                          invoke("play_system_sound", { name, volume: soundVolume });
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all border ${
+                          soundType === name
+                            ? "bg-(--accent) text-white border-transparent"
+                            : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white/80"
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-[14px] text-white shrink-0">Volume</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={soundVolume}
+                    onChange={async (e) => {
+                      const val = parseFloat(e.target.value);
+                      setSoundVolume(val);
+                      try {
+                        const store = await load("settings.json");
+                        await store.set("soundVolume", val);
+                        await store.save();
+                      } catch (error) {
+                        console.error("Failed to save volume:", error);
+                      }
+                    }}
+                    className="flex-1 h-1 accent-(--accent) cursor-pointer"
+                  />
+                  <button
+                    onClick={() => playNotificationSound()}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[12px] text-white/60 hover:text-white/80 cursor-pointer transition-colors shrink-0"
+                    title="Preview sound"
+                  >
+                    Preview
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>

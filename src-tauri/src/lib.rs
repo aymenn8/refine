@@ -14,6 +14,7 @@
 mod clipboard;
 mod commands;
 mod credentials;
+mod flows;
 mod history;
 mod inference;
 mod model;
@@ -21,6 +22,7 @@ mod modes;
 mod providers;
 mod quick_actions;
 mod shortcuts;
+mod sound;
 mod state;
 mod tray;
 mod window;
@@ -50,12 +52,11 @@ pub fn run() {
                 .with_handler(move |app, shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
                         // Check if this is a quick action shortcut
-                        if let Some(mode_id) = shortcuts::get_quick_action_mode_for_shortcut(app, &shortcut) {
+                        if let Some((action_id, action_type)) = shortcuts::get_quick_action_for_shortcut(app, &shortcut) {
                             // Execute quick action in background
                             let app_clone = app.clone();
-                            let mode_id_clone = mode_id.clone();
                             tauri::async_runtime::spawn(async move {
-                                if let Err(e) = quick_actions::execute_quick_action(app_clone, mode_id_clone).await {
+                                if let Err(e) = quick_actions::execute_quick_action(app_clone, action_id, action_type).await {
                                     eprintln!("[quick_action] Error: {}", e);
                                 }
                             });
@@ -86,8 +87,13 @@ pub fn run() {
             model::set_active_model,
             model::get_active_model,
             inference::process_text,
+            inference::process_flow,
             inference::get_total_words_refined,
             inference::generate_mode,
+            flows::get_flows,
+            flows::save_flow,
+            flows::delete_flow,
+            flows::toggle_pin_flow,
             modes::get_modes,
             modes::save_mode,
             modes::delete_mode,
@@ -111,7 +117,8 @@ pub fn run() {
             quick_actions::get_quick_actions,
             quick_actions::save_quick_action,
             quick_actions::delete_quick_action,
-            shortcuts::reload_quick_action_shortcuts
+            shortcuts::reload_quick_action_shortcuts,
+            sound::play_system_sound
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store

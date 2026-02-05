@@ -43,6 +43,7 @@ const MAX_PINNED_MODES = 3;
 function ModesTab() {
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingMode, setEditingMode] = useState<ProcessingMode | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; mode: ProcessingMode | null }>({
@@ -241,9 +242,30 @@ function ModesTab() {
           </div>
         </div>
 
+        {/* Search */}
+        <div className="mb-4 relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search modes..."
+            className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[13px] outline-none focus:border-white/20 placeholder:text-white/30"
+          />
+        </div>
+
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3">
-            {modes.map((mode) => (
+            {modes
+              .filter((m) => {
+                if (!searchQuery) return true;
+                const q = searchQuery.toLowerCase();
+                return m.name.toLowerCase().includes(q) || m.description.toLowerCase().includes(q);
+              })
+              .map((mode) => (
               <div
                 key={mode.id}
                 className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/8 transition-colors"

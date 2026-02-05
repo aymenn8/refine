@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { playNotificationSound } from "./utils/sound";
 
 type ToastState = "loading" | "done" | "error";
 
@@ -17,6 +18,7 @@ function Toast() {
   const setToastState = useCallback((newState: ToastState, msg?: string) => {
     setState(newState);
     if (msg) setErrorMsg(msg);
+    if (newState === "done") playNotificationSound();
   }, []);
 
   useEffect(() => {

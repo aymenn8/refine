@@ -235,8 +235,8 @@ pub fn register_quick_action_shortcuts(app: &AppHandle) {
     }
 }
 
-/// Check if a shortcut matches a quick action and return the mode_id
-pub fn get_quick_action_mode_for_shortcut(app: &AppHandle, shortcut: &Shortcut) -> Option<String> {
+/// Check if a shortcut matches a quick action and return (target_id, action_type)
+pub fn get_quick_action_for_shortcut(app: &AppHandle, shortcut: &Shortcut) -> Option<(String, String)> {
     let actions = crate::quick_actions::get_quick_actions_sync(app);
 
     for action in actions {
@@ -246,7 +246,7 @@ pub fn get_quick_action_mode_for_shortcut(app: &AppHandle, shortcut: &Shortcut) 
 
         if let Some(parsed) = parse_shortcut(&action.shortcut) {
             if parsed == *shortcut {
-                return Some(action.mode_id);
+                return Some((action.mode_id, action.action_type));
             }
         }
     }

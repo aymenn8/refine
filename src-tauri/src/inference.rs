@@ -1,4 +1,5 @@
 use crate::credentials::{get_credential_by_id, retrieve_api_key};
+use crate::flows::get_flow_by_id;
 use crate::history;
 use crate::model::{get_active_model_config, ActiveModelConfig};
 use crate::modes::get_mode_by_id;
@@ -12,7 +13,7 @@ use llama_cpp_2::model::AddBos;
 use llama_cpp_2::token::data_array::LlamaTokenDataArray;
 use std::num::NonZeroU32;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -62,17 +63,14 @@ fn increment_words_refined(app: &AppHandle, word_count: u64) {
     }
 }
 
-/// Traite le texte avec le modèle actif (local ou cloud)
-#[tauri::command]
-pub async fn process_text(
-    app: AppHandle,
-    text: String,
-    mode: String,
+/// Core text processing logic (no history/stats) — used by both process_text and process_flow
+pub async fn process_text_internal(
+    app: &AppHandle,
+    text: &str,
+    mode_id: &str,
 ) -> Result<String, String> {
-    // Récupérer le mode depuis le storage
-    let process_mode = get_mode_by_id(&app, &mode)?;
+    let process_mode = get_mode_by_id(app, mode_id)?;
 
-    // Utiliser le model_override du mode si défini, sinon le modèle par défaut
     let model_config = match &process_mode.model_override {
         Some(override_config) => override_config.clone(),
         None => get_active_model_config(app.clone())
@@ -80,23 +78,31 @@ pub async fn process_text(
             .ok_or("No active model selected. Please select a model first.")?,
     };
 
-    let result = match model_config {
+    match model_config {
         ActiveModelConfig::Local { model_id } => {
-            // Inférence locale avec llama-cpp
-            run_local_inference(&app, &model_id, &process_mode, &text).await
+            run_local_inference(app, &model_id, &process_mode, text).await
         }
         ActiveModelConfig::Cloud { credential_id } => {
-            // Inférence cloud via API
-            run_api_inference(&app, &credential_id, &process_mode, &text).await
+            run_api_inference(app, &credential_id, &process_mode, text).await
         }
-    };
+    }
+}
+
+/// Traite le texte avec le modèle actif (local ou cloud)
+#[tauri::command]
+pub async fn process_text(
+    app: AppHandle,
+    text: String,
+    mode: String,
+) -> Result<String, String> {
+    let result = process_text_internal(&app, &text, &mode).await;
 
     // Save to history and increment stats if successful
     if let Ok(ref output) = result {
-        // Count words in output
         let word_count = output.split_whitespace().count() as u64;
         increment_words_refined(&app, word_count);
 
+        let process_mode = get_mode_by_id(&app, &mode)?;
         let _ = history::add_entry(
             &app,
             text,
@@ -107,6 +113,70 @@ pub async fn process_text(
     }
 
     result
+}
+
+#[derive(Clone, serde::Serialize)]
+struct FlowStepProgress {
+    step_index: usize,
+    total_steps: usize,
+    mode_name: String,
+    status: String, // "processing" | "done"
+}
+
+/// Process text through a flow (chain of modes)
+#[tauri::command]
+pub async fn process_flow(
+    app: AppHandle,
+    text: String,
+    flow_id: String,
+) -> Result<String, String> {
+    let flow = get_flow_by_id(&app, &flow_id)?;
+
+    if flow.steps.is_empty() {
+        return Err("Flow has no steps".to_string());
+    }
+
+    let total_steps = flow.steps.len();
+    let mut current_text = text.clone();
+
+    for (i, step_mode_id) in flow.steps.iter().enumerate() {
+        let mode_name = get_mode_by_id(&app, step_mode_id)
+            .map(|m| m.name.clone())
+            .unwrap_or_else(|_| step_mode_id.clone());
+
+        // Emit "processing" for this step
+        let _ = app.emit("flow-step-progress", FlowStepProgress {
+            step_index: i,
+            total_steps,
+            mode_name: mode_name.clone(),
+            status: "processing".to_string(),
+        });
+
+        current_text = process_text_internal(&app, &current_text, step_mode_id).await?;
+
+        // Emit "done" for this step
+        let _ = app.emit("flow-step-progress", FlowStepProgress {
+            step_index: i,
+            total_steps,
+            mode_name,
+            status: "done".to_string(),
+        });
+    }
+
+    // Save to history and increment stats once at the end
+    let word_count = current_text.split_whitespace().count() as u64;
+    increment_words_refined(&app, word_count);
+
+    let label = format!("Flow: {}", flow.name);
+    let _ = history::add_entry(
+        &app,
+        text,
+        current_text.clone(),
+        flow.id,
+        label,
+    );
+
+    Ok(current_text)
 }
 
 /// Exécute l'inférence locale avec llama-cpp

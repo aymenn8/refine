@@ -7,12 +7,18 @@ use tauri_plugin_store::StoreExt;
 
 const QUICK_ACTIONS_KEY: &str = "quickActions";
 
+fn default_action_type() -> String {
+    "mode".to_string()
+}
+
 /// A quick action shortcut configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuickAction {
     pub mode_id: String,
     pub mode_name: String,
     pub shortcut: String, // e.g., "CommandOrControl+Shift+C"
+    #[serde(default = "default_action_type")]
+    pub action_type: String, // "mode" or "flow"
 }
 
 /// Get all quick actions from store
@@ -37,7 +43,10 @@ pub async fn save_quick_action(
     mode_id: String,
     mode_name: String,
     shortcut: String,
+    action_type: Option<String>,
 ) -> Result<(), String> {
+    let action_type = action_type.unwrap_or_else(|| "mode".to_string());
+
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
@@ -47,8 +56,8 @@ pub async fn save_quick_action(
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
-    // Check if mode already has a quick action
-    if let Some(existing) = actions.iter_mut().find(|a| a.mode_id == mode_id) {
+    // Check if this target already has a quick action (match by mode_id AND action_type)
+    if let Some(existing) = actions.iter_mut().find(|a| a.mode_id == mode_id && a.action_type == action_type) {
         existing.shortcut = shortcut;
         existing.mode_name = mode_name;
     } else {
@@ -56,6 +65,7 @@ pub async fn save_quick_action(
             mode_id,
             mode_name,
             shortcut,
+            action_type,
         });
     }
 
@@ -153,7 +163,7 @@ fn show_error_and_hide(app: &AppHandle, message: &str) {
 
 
 /// Execute a quick action: copy selected text, process, paste result
-pub async fn execute_quick_action(app: AppHandle, mode_id: String) -> Result<(), String> {
+pub async fn execute_quick_action(app: AppHandle, mode_id: String, action_type: String) -> Result<(), String> {
     // 1. Save current clipboard content to detect if selection exists
     let previous_clipboard = get_clipboard_content().unwrap_or_default();
 
@@ -197,7 +207,11 @@ pub async fn execute_quick_action(app: AppHandle, mode_id: String) -> Result<(),
     show_toast(&app);
 
     // 3. Process the text
-    let result = crate::inference::process_text(app.clone(), clipboard_content, mode_id).await;
+    let result = if action_type == "flow" {
+        crate::inference::process_flow(app.clone(), clipboard_content, mode_id).await
+    } else {
+        crate::inference::process_text(app.clone(), clipboard_content, mode_id).await
+    };
 
     match result {
         Ok(processed_text) => {
