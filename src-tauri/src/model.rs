@@ -319,10 +319,30 @@ pub async fn cancel_download(app: AppHandle) -> Result<(), String> {
 /// * `Err(String)` si une erreur se produit
 #[tauri::command]
 pub async fn delete_model(app: AppHandle, model_id: String) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+
     let model_path = get_model_path(&app, &model_id)?;
 
     if model_path.exists() {
         fs::remove_file(&model_path).map_err(|e| format!("Failed to delete model: {}", e))?;
+    }
+
+    // Clear active model config if this was the active model
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("Failed to load store: {}", e))?;
+
+    // Check if the deleted model was the active one
+    let should_clear = store
+        .get("activeModelConfig")
+        .and_then(|v| serde_json::from_value::<ActiveModelConfig>(v.clone()).ok())
+        .map(|config| matches!(config, ActiveModelConfig::Local { model_id: id } if id == model_id))
+        .unwrap_or(false);
+
+    if should_clear {
+        store.delete("activeModelConfig");
+        store.delete("activeModel");
+        store.save().map_err(|e| format!("Failed to save store: {}", e))?;
     }
 
     Ok(())

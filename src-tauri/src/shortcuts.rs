@@ -74,6 +74,21 @@ pub fn parse_shortcut(shortcut_str: &str) -> Option<Shortcut> {
                     "n" => Some(Code::KeyN),
                     "m" => Some(Code::KeyM),
                     "space" => Some(Code::Space),
+                    "i" => Some(Code::KeyI),
+                    "o" => Some(Code::KeyO),
+                    "p" => Some(Code::KeyP),
+                    "u" => Some(Code::KeyU),
+                    "y" => Some(Code::KeyY),
+                    "1" => Some(Code::Digit1),
+                    "2" => Some(Code::Digit2),
+                    "3" => Some(Code::Digit3),
+                    "4" => Some(Code::Digit4),
+                    "5" => Some(Code::Digit5),
+                    "6" => Some(Code::Digit6),
+                    "7" => Some(Code::Digit7),
+                    "8" => Some(Code::Digit8),
+                    "9" => Some(Code::Digit9),
+                    "0" => Some(Code::Digit0),
                     _ => None,
                 };
             }
@@ -203,4 +218,66 @@ pub fn load_shortcut_from_store(app: &AppHandle) -> Shortcut {
 
     parse_shortcut(&shortcut_str)
         .unwrap_or_else(|| Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyR))
+}
+
+/// Register all quick action shortcuts
+pub fn register_quick_action_shortcuts(app: &AppHandle) {
+    let actions = crate::quick_actions::get_quick_actions_sync(app);
+
+    for action in actions {
+        if action.shortcut.is_empty() {
+            continue;
+        }
+
+        if let Some(shortcut) = parse_shortcut(&action.shortcut) {
+            let _ = app.global_shortcut().register(shortcut);
+        }
+    }
+}
+
+/// Check if a shortcut matches a quick action and return the mode_id
+pub fn get_quick_action_mode_for_shortcut(app: &AppHandle, shortcut: &Shortcut) -> Option<String> {
+    let actions = crate::quick_actions::get_quick_actions_sync(app);
+
+    for action in actions {
+        if action.shortcut.is_empty() {
+            continue;
+        }
+
+        if let Some(parsed) = parse_shortcut(&action.shortcut) {
+            if parsed == *shortcut {
+                return Some(action.mode_id);
+            }
+        }
+    }
+
+    None
+}
+
+/// Reload quick action shortcuts (unregister old, register new)
+#[tauri::command]
+pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<(), String> {
+    // Get current quick actions
+    let actions = crate::quick_actions::get_quick_actions_sync(&app);
+
+    // Unregister all quick action shortcuts first
+    // (We can't easily track which ones were registered, so we try to unregister all)
+    for action in &actions {
+        if !action.shortcut.is_empty() {
+            if let Some(shortcut) = parse_shortcut(&action.shortcut) {
+                let _ = app.global_shortcut().unregister(shortcut);
+            }
+        }
+    }
+
+    // Register all current quick action shortcuts
+    for action in &actions {
+        if !action.shortcut.is_empty() {
+            if let Some(shortcut) = parse_shortcut(&action.shortcut) {
+                let _ = app.global_shortcut().register(shortcut);
+            }
+        }
+    }
+
+    Ok(())
 }

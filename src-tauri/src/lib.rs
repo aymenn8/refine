@@ -19,6 +19,7 @@ mod inference;
 mod model;
 mod modes;
 mod providers;
+mod quick_actions;
 mod shortcuts;
 mod state;
 mod tray;
@@ -46,9 +47,22 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(move |app, _shortcut, event| {
+                .with_handler(move |app, shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
-                        window::capture_and_show(app);
+                        // Check if this is a quick action shortcut
+                        if let Some(mode_id) = shortcuts::get_quick_action_mode_for_shortcut(app, &shortcut) {
+                            // Execute quick action in background
+                            let app_clone = app.clone();
+                            let mode_id_clone = mode_id.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e) = quick_actions::execute_quick_action(app_clone, mode_id_clone).await {
+                                    eprintln!("[quick_action] Error: {}", e);
+                                }
+                            });
+                        } else {
+                            // Regular spotlight open
+                            window::capture_and_show(app);
+                        }
                     }
                 })
                 .build(),
@@ -91,7 +105,11 @@ pub fn run() {
             history::get_history,
             history::clear_history,
             history::set_history_enabled,
-            history::get_history_enabled
+            history::get_history_enabled,
+            quick_actions::get_quick_actions,
+            quick_actions::save_quick_action,
+            quick_actions::delete_quick_action,
+            shortcuts::reload_quick_action_shortcuts
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store
@@ -111,6 +129,9 @@ pub fn run() {
 
             // Enregistrer le raccourci global
             app.global_shortcut().register(shortcut)?;
+
+            // Enregistrer les raccourcis des quick actions
+            shortcuts::register_quick_action_shortcuts(app.handle());
 
             // Setup System Tray
             tray::setup_tray(app.handle())?;

@@ -118,7 +118,6 @@ const TABS: Tab[] = [
   { id: "config", label: "Configuration", icon: Icons.config },
   { id: "model", label: "Models Library", icon: Icons.model },
   { id: "history", label: "History", icon: Icons.history },
-  { id: "about", label: "About", icon: Icons.about },
 ];
 
 function Settings() {
@@ -229,15 +228,18 @@ function Settings() {
             ))}
           </nav>
 
-          <div className="px-4 py-3 border-t border-white/10 mt-auto">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-[24px] text-white/70">
-                Refine
+          <div className="px-3 py-3 mt-auto">
+            <button
+              onClick={() => setActiveTab("about")}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all w-full"
+            >
+              <span className="text-[15px] text-white/70 tracking-wide">
+                refine
               </span>
-              <span className="text-[10px] text-white/40 bg-white/10 px-1.5 py-0.5 rounded-[5px]">
-                v0.1.0
+              <span className="text-[10px] text-white/50 bg-white/10 px-1.5 py-0.5 rounded font-medium">
+                BETA
               </span>
-            </div>
+            </button>
           </div>
         </aside>
 

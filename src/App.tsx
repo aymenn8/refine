@@ -36,6 +36,7 @@ function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0);
   const [showMoreModes, setShowMoreModes] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const moreModesRef = useRef<HTMLDivElement>(null);
 
@@ -84,6 +85,7 @@ function App() {
       setCopied(false);
       setShowHistory(false);
       setShowMoreModes(false);
+      setError(null);
 
       // Reload modes to get latest pin status
       await loadModes();
@@ -115,6 +117,7 @@ function App() {
 
     setOriginalText(text);
     setIsLoading(true);
+    setError(null);
     try {
       const transformedText = await invoke<string>("process_text", {
         text: text,
@@ -123,8 +126,10 @@ function App() {
 
       setText(transformedText);
       setIsProcessed(true);
-    } catch (error) {
-      console.error("Failed to process text:", error);
+    } catch (err) {
+      console.error("Failed to process text:", err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -397,6 +402,45 @@ function App() {
           )}
 
           <div className="flex flex-col gap-4 flex-1 relative">
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#ef4444"
+                  strokeWidth="2"
+                  className="shrink-0 mt-0.5"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-red-400 text-[13px] font-medium">
+                    {error.includes("No active model") || error.includes("not found") || error.includes("not downloaded")
+                      ? "No model configured"
+                      : "Processing failed"}
+                  </p>
+                  <p className="text-red-400/70 text-[12px] mt-0.5">
+                    {error.includes("No active model") || error.includes("not found") || error.includes("not downloaded")
+                      ? "Please download a model or add an API key in Settings → Models Library"
+                      : error}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  className="p-1 bg-transparent border-none cursor-pointer text-red-400/50 hover:text-red-400 transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
             {/* Clipboard History Dropdown */}
             {showHistory && (
               <div className="absolute top-0 left-0 right-0 z-10 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl max-h-[240px] overflow-y-auto">
@@ -431,7 +475,10 @@ function App() {
             <textarea
               ref={textareaRef}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                if (error) setError(null);
+              }}
               onKeyDown={handleKeyDown}
               placeholder={getPlaceholder()}
               disabled={isLoading}
