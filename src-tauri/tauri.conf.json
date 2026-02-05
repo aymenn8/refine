@@ -39,6 +39,20 @@
         "skipTaskbar": false,
         "center": true,
         "visible": false
+      },
+      {
+        "label": "toast",
+        "title": "",
+        "url": "/toast",
+        "width": 200,
+        "height": 44,
+        "resizable": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false
       }
     ],
     "security": {

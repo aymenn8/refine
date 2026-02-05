@@ -150,6 +150,11 @@ pub fn run() {
                 let _ = window.hide();
             }
 
+            if let Some(window) = app.get_webview_window("toast") {
+                // No vibrancy for toast - keep it fully transparent
+                let _ = window.hide();
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

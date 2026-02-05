@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Manager, LogicalPosition};
 use tauri_plugin_store::StoreExt;
 
 const QUICK_ACTIONS_KEY: &str = "quickActions";
@@ -110,48 +110,98 @@ pub fn get_quick_actions_sync(app: &AppHandle) -> Vec<QuickAction> {
         .unwrap_or_default()
 }
 
+
+/// Show the toast window at top-right of screen with loading state
+fn show_toast(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("toast") {
+        // Position at top right - get primary monitor
+        if let Ok(Some(monitor)) = window.primary_monitor() {
+            let screen_width = monitor.size().width as f64 / monitor.scale_factor();
+            let x = screen_width - 220.0; // 200px window + 20px margin
+            let _ = window.set_position(LogicalPosition::new(x, 12.0));
+        }
+
+        // Set state to loading via JS
+        let _ = window.eval("window.__setToastState && window.__setToastState('loading')");
+
+        // Show window
+        let _ = window.show();
+    }
+}
+
+/// Show done state and hide toast after delay
+fn show_done_and_hide(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("toast") {
+        let _ = window.eval("window.__setToastState && window.__setToastState('done')");
+        thread::sleep(Duration::from_millis(800));
+        let _ = window.hide();
+    }
+}
+
+/// Show error state and hide toast after delay
+fn show_error_and_hide(app: &AppHandle, message: &str) {
+    if let Some(window) = app.get_webview_window("toast") {
+        let escaped_msg = message.replace('\\', "\\\\").replace('\'', "\\'");
+        let _ = window.eval(&format!(
+            "window.__setToastState && window.__setToastState('error', '{}')",
+            escaped_msg
+        ));
+        thread::sleep(Duration::from_millis(1500));
+        let _ = window.hide();
+    }
+}
+
+
 /// Execute a quick action: copy selected text, process, paste result
 pub async fn execute_quick_action(app: AppHandle, mode_id: String) -> Result<(), String> {
-    println!("[quick_action] Executing quick action for mode: {}", mode_id);
+    // 1. Save current clipboard content to detect if selection exists
+    let previous_clipboard = get_clipboard_content().unwrap_or_default();
 
-    // Emit loading state to tray
-    let _ = app.emit("quick-action-loading", true);
+    // 2. Clear clipboard with a unique marker
+    let marker = format!("__refine_marker_{}__", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos());
+    set_clipboard_content(&marker)?;
 
-    // Small delay to ensure we don't interfere with the shortcut
+    // Small delay
     thread::sleep(Duration::from_millis(50));
 
-    // 1. Simulate Cmd+X to CUT selected text (this removes it and copies to clipboard)
-    let cut_result = Command::new("osascript")
+    // 3. Simulate Cmd+C to COPY selected text (not cut yet)
+    let copy_result = Command::new("osascript")
         .arg("-e")
-        .arg("tell application \"System Events\" to keystroke \"x\" using command down")
+        .arg("tell application \"System Events\" to keystroke \"c\" using command down")
         .output();
 
-    if let Err(e) = cut_result {
-        let _ = app.emit("quick-action-loading", false);
-        return Err(format!("Failed to cut: {}", e));
+    if let Err(e) = copy_result {
+        // Restore clipboard
+        let _ = set_clipboard_content(&previous_clipboard);
+        return Err(format!("Failed to copy: {}", e));
     }
 
     // Wait for clipboard to update
     thread::sleep(Duration::from_millis(150));
 
-    // 2. Get the clipboard content
+    // 4. Get the clipboard content
     let clipboard_content = get_clipboard_content()?;
 
-    if clipboard_content.trim().is_empty() {
-        let _ = app.emit("quick-action-loading", false);
+    // 5. Check if clipboard changed (if still marker = nothing was selected)
+    if clipboard_content == marker || clipboard_content.trim().is_empty() {
+        let _ = set_clipboard_content(&previous_clipboard);
+        show_toast(&app);
+        show_error_and_hide(&app, "No text selected");
         return Err("No text selected".to_string());
     }
 
-    println!("[quick_action] Copied text: {} chars", clipboard_content.len());
+    // Now we know there's a selection - show toast
+    show_toast(&app);
 
     // 3. Process the text
     let result = crate::inference::process_text(app.clone(), clipboard_content, mode_id).await;
 
     match result {
         Ok(processed_text) => {
-            println!("[quick_action] Processed text: {} chars", processed_text.len());
-
-            // 4. Set the clipboard to the processed text
+            // Set the clipboard to the processed text
             set_clipboard_content(&processed_text)?;
 
             // Small delay
@@ -164,18 +214,17 @@ pub async fn execute_quick_action(app: AppHandle, mode_id: String) -> Result<(),
                 .output();
 
             if let Err(e) = paste_result {
-                let _ = app.emit("quick-action-loading", false);
+                show_error_and_hide(&app, "Failed to paste");
                 return Err(format!("Failed to paste: {}", e));
             }
 
-            let _ = app.emit("quick-action-loading", false);
-            let _ = app.emit("quick-action-success", ());
+            // Show "Done!" then hide
+            show_done_and_hide(&app);
 
             Ok(())
         }
         Err(e) => {
-            let _ = app.emit("quick-action-loading", false);
-            let _ = app.emit("quick-action-error", e.clone());
+            show_error_and_hide(&app, "Processing failed");
             Err(e)
         }
     }
