@@ -44,6 +44,10 @@ function ConfigTab() {
   const [soundVolume, setSoundVolume] = useState(0.5);
   const [soundType, setSoundType] = useState("Glass");
 
+  // Analytics
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+
   // Accent color
   const [accentColor, setAccentColor] = useState("#F0B67F");
   const [customColor, setCustomColor] = useState<string | null>(null);
@@ -136,6 +140,8 @@ function ConfigTab() {
         setSoundVolume(savedSoundVolume);
       const savedSoundType = await store.get<string>("soundType");
       if (savedSoundType) setSoundType(savedSoundType);
+      const savedAnalytics = await store.get<boolean>("analyticsEnabled");
+      if (savedAnalytics !== null && savedAnalytics !== undefined) setAnalyticsEnabled(savedAnalytics);
     } catch (error) {
       console.error("Failed to load config:", error);
     } finally {
@@ -562,8 +568,133 @@ function ConfigTab() {
           )}
         </div>
       </section>
+
+      {/* Analytics Section - subtle at the bottom */}
+      <section className="mt-12 mb-6">
+        <h2 className="text-xs font-semibold text-white/20 uppercase tracking-wide mb-3">
+          Privacy
+        </h2>
+        <div className="p-4 bg-white/[0.03] border border-white/[0.06] rounded-xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[13px] text-white/50">Anonymous Usage Analytics</span>
+              <p className="text-[11px] text-white/25 mt-0.5 max-w-[300px]">
+                Help improve Refine by sharing anonymous usage data. No personal data is ever collected.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                if (analyticsEnabled) {
+                  setShowAnalyticsModal(true);
+                } else {
+                  toggleAnalytics(true);
+                }
+              }}
+              className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
+                analyticsEnabled ? "bg-(--accent)/60" : "bg-white/10"
+              }`}
+            >
+              <span
+                className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                  analyticsEnabled ? "left-6" : "left-1"
+                }`}
+              />
+            </button>
+          </div>
+          <div className="mt-3 pt-3 border-t border-white/[0.05]">
+            <p className="text-[10px] text-white/20 leading-relaxed">
+              We only track: app launches, feature usage counts (modes, flows, quick actions), model downloads, and license activations. We <strong className="text-white/30">never</strong> collect your text, prompts, API keys, personal info, or anything that could identify you.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Analytics opt-out confirmation modal */}
+      {showAnalyticsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-[380px] w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/40">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-[15px] font-semibold text-white">Disable Analytics?</h3>
+                <p className="text-[11px] text-white/40">Your choice is respected instantly</p>
+              </div>
+            </div>
+
+            <div className="bg-white/5 rounded-xl p-4 mb-4">
+              <p className="text-[12px] text-white/50 leading-relaxed mb-3">
+                Refine uses <strong className="text-white/70">Aptabase</strong>, a privacy-first analytics service. Here's exactly what we track:
+              </p>
+              <ul className="space-y-1.5 text-[11px] text-white/40">
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                  App opened (daily active users count)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                  Text processed (mode or flow, provider type)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                  Quick action triggered (count only)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                  Mode or flow created (count only)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                  Model downloaded (model name)
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                  License activated (plan type)
+                </li>
+              </ul>
+              <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                <p className="text-[11px] text-white/30 leading-relaxed">
+                  We <strong className="text-white/50">never</strong> collect your text content, prompts, API keys, IP address, device identifiers, or any personal information.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAnalyticsModal(false)}
+                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[13px] text-white/60 font-medium cursor-pointer transition-colors"
+              >
+                Keep enabled
+              </button>
+              <button
+                onClick={() => {
+                  toggleAnalytics(false);
+                  setShowAnalyticsModal(false);
+                }}
+                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[13px] text-white/40 font-medium cursor-pointer transition-colors"
+              >
+                Disable
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
+  async function toggleAnalytics(enabled: boolean) {
+    setAnalyticsEnabled(enabled);
+    try {
+      const store = await load("settings.json");
+      await store.set("analyticsEnabled", enabled);
+      await store.save();
+    } catch (error) {
+      console.error("Failed to save analytics setting:", error);
+    }
+  }
 }
 
 export default ConfigTab;

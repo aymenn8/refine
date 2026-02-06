@@ -275,6 +275,10 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
         },
     );
 
+    crate::analytics::track(&app, "model_downloaded", Some(serde_json::json!({
+        "model_id": model_id,
+    })));
+
     Ok(())
 }
 

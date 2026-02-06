@@ -211,6 +211,7 @@ pub async fn execute_quick_action(app: AppHandle, mode_id: String, action_type: 
 
     // Now we know there's a selection - show toast
     show_toast(&app);
+    crate::analytics::track(&app, "quick_action_used", None);
 
     // 3. Process the text
     let result = if action_type == "flow" {

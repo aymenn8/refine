@@ -47,10 +47,15 @@ pub async fn save_flow(app: AppHandle, flow: Flow) -> Result<(), String> {
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
+    let is_new_flow = !flows.iter().any(|f| f.id == flow.id);
     if let Some(existing) = flows.iter_mut().find(|f| f.id == flow.id) {
         *existing = flow;
     } else {
         flows.push(flow);
+    }
+
+    if is_new_flow {
+        crate::analytics::track(&app, "flow_created", None);
     }
 
     store.set(

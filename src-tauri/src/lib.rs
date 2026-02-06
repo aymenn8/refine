@@ -11,6 +11,7 @@
 //! - `window` : Logique de capture et affichage du spotlight
 
 // Modules
+mod analytics;
 mod clipboard;
 mod commands;
 mod credentials;
@@ -45,6 +46,7 @@ use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_aptabase::Builder::new("A-EU-6987116306").build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -145,6 +147,9 @@ pub fn run() {
 
             // Enregistrer les raccourcis des quick actions
             shortcuts::register_quick_action_shortcuts(app.handle());
+
+            // Track app launch
+            analytics::track(app.handle(), "app_launched", None);
 
             // Setup System Tray
             tray::setup_tray(app.handle())?;

@@ -125,12 +125,17 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
     println!("[save_mode] Current modes count: {}", modes.len());
 
     // Check if mode with this ID exists
+    let is_new_mode = !modes.iter().any(|m| m.id == mode.id);
     if let Some(existing) = modes.iter_mut().find(|m| m.id == mode.id) {
         println!("[save_mode] Updating existing mode");
         *existing = mode;
     } else {
         println!("[save_mode] Adding new mode");
         modes.push(mode);
+    }
+
+    if is_new_mode {
+        crate::analytics::track(&app, "mode_created", None);
     }
 
     println!("[save_mode] New modes count: {}", modes.len());

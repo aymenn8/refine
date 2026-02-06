@@ -102,6 +102,13 @@ pub async fn process_text(
         let word_count = output.split_whitespace().count() as u64;
         increment_words_refined(&app, word_count);
 
+        // Determine provider type for analytics
+        let provider = get_provider_type(&app, &mode).await;
+        crate::analytics::track(&app, "text_processed", Some(serde_json::json!({
+            "type": "mode",
+            "provider": provider,
+        })));
+
         let process_mode = get_mode_by_id(&app, &mode)?;
         let _ = history::add_entry(
             &app,
@@ -167,6 +174,10 @@ pub async fn process_flow(
     let word_count = current_text.split_whitespace().count() as u64;
     increment_words_refined(&app, word_count);
 
+    crate::analytics::track(&app, "text_processed", Some(serde_json::json!({
+        "type": "flow",
+    })));
+
     let label = format!("Flow: {}", flow.name);
     let _ = history::add_entry(
         &app,
@@ -177,6 +188,31 @@ pub async fn process_flow(
     );
 
     Ok(current_text)
+}
+
+/// Determine provider type for analytics (returns "local" or the credential provider name)
+async fn get_provider_type(app: &AppHandle, mode_id: &str) -> String {
+    let mode = match get_mode_by_id(app, mode_id) {
+        Ok(m) => m,
+        Err(_) => return "unknown".to_string(),
+    };
+
+    let config = match &mode.model_override {
+        Some(c) => c.clone(),
+        None => match get_active_model_config(app.clone()).await {
+            Ok(Some(c)) => c,
+            _ => return "unknown".to_string(),
+        },
+    };
+
+    match config {
+        ActiveModelConfig::Local { .. } => "local".to_string(),
+        ActiveModelConfig::Cloud { credential_id } => {
+            crate::credentials::get_credential_by_id(app, &credential_id)
+                .map(|c| format!("{:?}", c.provider).to_lowercase())
+                .unwrap_or_else(|_| "cloud".to_string())
+        }
+    }
 }
 
 /// Exécute l'inférence locale avec llama-cpp

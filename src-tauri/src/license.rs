@@ -413,6 +413,10 @@ pub async fn activate_license(app: AppHandle, license_key: String) -> Result<Lic
 
     println!("[license] License activated successfully (type: {})", license_type);
 
+    crate::analytics::track(&app, "license_activated", Some(serde_json::json!({
+        "type": license_type,
+    })));
+
     Ok(LicenseStatus {
         is_active: true,
         license_type: Some(license_type),
