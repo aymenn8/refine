@@ -222,29 +222,27 @@ function ModesTab() {
   return (
     <>
       <div className="p-6 md:px-8 h-full flex flex-col">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em] mb-1">
-              Modes
-            </h1>
-            <p className="text-[13px] text-white/40 m-0">
-              Define how your text is processed. Each mode has its own system prompt and instructions that guide the AI.
-            </p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => setShowResetModal(true)}
-              className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
-            >
-              Reset to Defaults
-            </button>
-            <button
-              onClick={handleCreateNew}
-              className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
-            >
-              + New Mode
-            </button>
-          </div>
+        <div className="mb-4">
+          <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em] mb-1">
+            Modes
+          </h1>
+          <p className="text-[13px] text-white/40 m-0">
+            Define how your text is processed. Each mode has its own system prompt and instructions that guide the AI.
+          </p>
+        </div>
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <button
+            onClick={() => setShowResetModal(true)}
+            className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
+          >
+            Reset to Defaults
+          </button>
+          <button
+            onClick={handleCreateNew}
+            className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+          >
+            + New Mode
+          </button>
         </div>
 
         {/* Search */}

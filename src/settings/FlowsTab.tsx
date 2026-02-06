@@ -110,15 +110,15 @@ function FlowsTab() {
   return (
     <>
       <div className="p-6 md:px-8 h-full flex flex-col">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em] mb-1">
-              Flows
-            </h1>
-            <p className="text-[13px] text-white/40 m-0">
-              Chain multiple modes together into a pipeline. Your text is processed through each step sequentially.
-            </p>
-          </div>
+        <div className="mb-4">
+          <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em] mb-1">
+            Flows
+          </h1>
+          <p className="text-[13px] text-white/40 m-0">
+            Chain multiple modes together into a pipeline. Your text is processed through each step sequentially.
+          </p>
+        </div>
+        <div className="mb-4 flex items-center justify-end">
           <button
             onClick={handleCreateNew}
             className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"

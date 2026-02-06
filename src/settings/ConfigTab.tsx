@@ -259,12 +259,14 @@ function ConfigTab() {
 
   return (
     <div className="p-6 md:px-8 h-full overflow-y-auto">
-      <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-1">
-        Configuration
-      </h1>
-      <p className="text-[13px] text-white/40 m-0 mb-6">
-        Customize keyboard shortcuts, appearance, and notification preferences.
-      </p>
+      <div className="mb-6">
+        <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-1">
+          Configuration
+        </h1>
+        <p className="text-[13px] text-white/40 m-0">
+          Customize keyboard shortcuts, appearance, and notification preferences.
+        </p>
+      </div>
 
       {/* Keyboard Shortcuts Section */}
       <section>
