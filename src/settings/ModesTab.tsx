@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { parsePremiumError, useLicense } from "../hooks/useLicense";
+import { PremiumPopup } from "../components/PremiumPopup";
 
 type Provider = "openai" | "anthropic" | "gemini" | "grok" | "mistral" | "ollama";
 
@@ -41,6 +43,7 @@ interface ModelOption {
 const MAX_PINNED_MODES = 3;
 
 function ModesTab() {
+  const { hasLicense } = useLicense();
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,6 +54,7 @@ function ModesTab() {
     mode: null,
   });
   const [showResetModal, setShowResetModal] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [defaultModelName, setDefaultModelName] = useState<string>("");
 
@@ -124,7 +128,12 @@ function ModesTab() {
       setEditingMode(null);
       setIsCreating(false);
     } catch (error) {
-      console.error("Failed to save mode:", error);
+      const feature = parsePremiumError(String(error));
+      if (feature) {
+        setPremiumFeature(feature);
+      } else {
+        console.error("Failed to save mode:", error);
+      }
     }
   };
 
@@ -186,6 +195,10 @@ function ModesTab() {
   };
 
   const handleCreateNew = () => {
+    if (!hasLicense) {
+      setPremiumFeature("CustomModes");
+      return;
+    }
     setIsCreating(true);
     setEditingMode({
       id: `mode-${Date.now()}`,
@@ -239,9 +252,12 @@ function ModesTab() {
           </button>
           <button
             onClick={handleCreateNew}
-            className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer flex items-center gap-1.5"
           >
             + New Mode
+            {!hasLicense && (
+              <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-white/20 text-white/90">PRO</span>
+            )}
           </button>
         </div>
 
@@ -433,6 +449,14 @@ function ModesTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Premium Popup */}
+      {premiumFeature && (
+        <PremiumPopup
+          feature={premiumFeature}
+          onClose={() => setPremiumFeature(null)}
+        />
       )}
 
       {/* Reset Confirmation Modal */}

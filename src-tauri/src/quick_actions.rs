@@ -56,6 +56,12 @@ pub async fn save_quick_action(
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
+    // Premium check: free users can only have 1 quick action
+    let is_new = !actions.iter().any(|a| a.mode_id == mode_id && a.action_type == action_type);
+    if is_new && actions.len() >= 1 {
+        crate::license::require_feature(&app, crate::license::Feature::ExtraQuickActions)?;
+    }
+
     // Check if this target already has a quick action (match by mode_id AND action_type)
     if let Some(existing) = actions.iter_mut().find(|a| a.mode_id == mode_id && a.action_type == action_type) {
         existing.shortcut = shortcut;

@@ -31,6 +31,9 @@ pub async fn get_flows(app: AppHandle) -> Result<Vec<Flow>, String> {
 /// Save a flow (add or update)
 #[tauri::command]
 pub async fn save_flow(app: AppHandle, flow: Flow) -> Result<(), String> {
+    // Premium check: flows require a license
+    crate::license::require_feature(&app, crate::license::Feature::Flows)?;
+
     if flow.steps.is_empty() {
         return Err("A flow must have at least one step".to_string());
     }

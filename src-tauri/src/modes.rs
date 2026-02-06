@@ -98,6 +98,21 @@ pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
 pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), String> {
     println!("[save_mode] Called with mode id: {}, name: {}", mode.id, mode.name);
 
+    // Premium check: creating a new custom (non-default) mode requires a license
+    if !mode.is_default {
+        let store_check = app
+            .store("settings.json")
+            .map_err(|e| format!("Failed to load store: {}", e))?;
+        let existing_modes: Vec<ProcessingMode> = store_check
+            .get(MODES_KEY)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_else(get_default_modes);
+        let is_new = !existing_modes.iter().any(|m| m.id == mode.id);
+        if is_new {
+            crate::license::require_feature(&app, crate::license::Feature::CustomModes)?;
+        }
+    }
+
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;

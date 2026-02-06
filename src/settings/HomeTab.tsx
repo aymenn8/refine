@@ -146,6 +146,12 @@ function HomeTab({ onNavigate }: HomeTabProps) {
 
   return (
     <div className="p-6 space-y-8">
+      {/* Logo */}
+      <div className="flex items-center gap-3">
+        <img src="/logo-white-no-bg.png" alt="Refine" className="h-7 opacity-80" />
+        <span className="text-[15px] font-medium text-white/70 tracking-wide">refine</span>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="text-center">

@@ -109,6 +109,12 @@ pub async fn save_api_credential(
     display_name: String,
     api_key: String,
 ) -> Result<ApiCredential, String> {
+    // Premium check: API keys and Ollama require a license
+    match provider {
+        Provider::Ollama => crate::license::require_feature(&app, crate::license::Feature::Ollama)?,
+        Provider::OpenAI => crate::license::require_feature(&app, crate::license::Feature::ApiKeys)?,
+    }
+
     println!("[save_api_credential] Saving credential for {:?} - {}", provider, model_id);
 
     // Create new credential

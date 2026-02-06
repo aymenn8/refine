@@ -37,6 +37,7 @@ function ConfigTab() {
 
   const [isRecording, setIsRecording] = useState<string | null>(null);
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
 
   // Sound
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -203,11 +204,44 @@ function ConfigTab() {
 
     if (hasModifier && mainKey) {
       const shortcut = keysToShortcut(newKeys);
+      setShortcutError(null);
+
+      // Check for conflicts
+      try {
+        const conflict = await invoke<string | null>("check_shortcut_conflict", {
+          shortcutStr: shortcut,
+          excludeId: targetId,
+        });
+        if (conflict) {
+          setShortcutError(`Already used by "${conflict}"`);
+          setIsRecording(null);
+          setRecordedKeys(new Set());
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to check conflict:", error);
+      }
+
+      // Also check against each other (global vs history)
+      if (targetId === "global" && shortcut === historyShortcut) {
+        setShortcutError('Already used by "Clipboard History"');
+        setIsRecording(null);
+        setRecordedKeys(new Set());
+        return;
+      }
+      if (targetId === "history" && shortcut === globalShortcut) {
+        setShortcutError('Already used by "Open Refine"');
+        setIsRecording(null);
+        setRecordedKeys(new Set());
+        return;
+      }
 
       if (targetId === "global") {
         try {
           await invoke("update_global_shortcut", { shortcutStr: shortcut });
           setGlobalShortcut(shortcut);
+          // Reload all shortcuts to keep registrations in sync
+          await invoke("reload_quick_action_shortcuts");
         } catch (error) {
           console.error("Failed to update shortcut:", error);
         }
@@ -233,6 +267,7 @@ function ConfigTab() {
   ) => {
     setIsRecording(targetId);
     setRecordedKeys(new Set());
+    setShortcutError(null);
     setTimeout(() => buttonRef?.focus(), 10);
   };
 
@@ -318,6 +353,11 @@ function ConfigTab() {
             </div>
           </div>
         </div>
+        {shortcutError && (
+          <div className="mt-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[12px] text-red-400">
+            {shortcutError}
+          </div>
+        )}
       </section>
 
       {/* Appearance Section */}

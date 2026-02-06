@@ -31,6 +31,7 @@ llama-cpp-2 = { version = "0.1", features = ["metal"] }
 keyring = { version = "3", features = ["apple-native"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = "0.4"
+hmac = "0.12.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"

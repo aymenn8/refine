@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useLicense } from "./hooks/useLicense";
 import "./Settings.css";
 
 import HomeTab from "./settings/HomeTab";
@@ -17,6 +18,7 @@ interface Tab {
   id: TabId;
   label: string;
   icon: React.ReactNode;
+  pro?: boolean;
 }
 
 // SF Symbols style icons
@@ -148,15 +150,16 @@ const Icons = {
 
 const TABS: Tab[] = [
   { id: "home", label: "Home", icon: Icons.home },
-  { id: "modes", label: "Modes", icon: Icons.modes },
-  { id: "flows", label: "Flows", icon: Icons.flows },
+  { id: "modes", label: "Modes", icon: Icons.modes, pro: true },
+  { id: "flows", label: "Flows", icon: Icons.flows, pro: true },
   { id: "quickactions", label: "Quick Actions", icon: Icons.quickactions },
   { id: "config", label: "Configuration", icon: Icons.config },
-  { id: "model", label: "Models Library", icon: Icons.model },
+  { id: "model", label: "Models Library", icon: Icons.model, pro: true },
   { id: "history", label: "History", icon: Icons.history },
 ];
 
 function Settings() {
+  const { hasLicense } = useLicense();
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [hoveredButton, setHoveredButton] = useState<'close' | 'minimize' | null>(null);
 
@@ -245,6 +248,11 @@ function Settings() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-[200px] border-r border-white/10 flex flex-col py-3">
+          <div className="px-3 mb-2">
+            <span className="text-[10px] text-white/40 bg-white/8 px-1.5 py-0.5 rounded font-medium">
+              BETA
+            </span>
+          </div>
           <nav className="flex-1 flex flex-col gap-0.5 px-3">
             {TABS.map((tab) => (
               <button
@@ -264,6 +272,9 @@ function Settings() {
                   {tab.icon}
                 </span>
                 <span className="font-medium">{tab.label}</span>
+                {tab.pro && !hasLicense && (
+                  <span className="text-[8px] font-bold tracking-wider px-1 py-0.5 rounded bg-(--accent)/20 text-(--accent) ml-auto">PRO</span>
+                )}
               </button>
             ))}
           </nav>
@@ -273,12 +284,12 @@ function Settings() {
               onClick={() => setActiveTab("about")}
               className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all w-full"
             >
-              <span className="text-[15px] text-white/70 tracking-wide">
-                refine
-              </span>
-              <span className="text-[10px] text-white/50 bg-white/10 px-1.5 py-0.5 rounded font-medium">
-                BETA
-              </span>
+              <img src="/logo-white-no-bg.png" alt="Refine" className="h-4 opacity-70" />
+              {hasLicense && (
+                <span className="text-[8px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-(--accent)/20 text-(--accent)">
+                  PRO
+                </span>
+              )}
             </button>
           </div>
         </aside>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { parsePremiumError, useLicense } from "../hooks/useLicense";
+import { PremiumPopup } from "../components/PremiumPopup";
 
 interface ProcessingMode {
   id: string;
@@ -19,6 +21,8 @@ interface QuickAction {
 }
 
 function QuickActionsTab() {
+  const { hasLicense } = useLicense();
+  const [premiumFeature, setPremiumFeature] = useState<string | null>(null);
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
@@ -26,6 +30,7 @@ function QuickActionsTab() {
   const [selectedModeId, setSelectedModeId] = useState("");
   const [isRecording, setIsRecording] = useState<string | null>(null);
   const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -103,6 +108,24 @@ function QuickActionsTab() {
 
     if (hasModifier && mainKey) {
       const shortcut = keysToShortcut(newKeys);
+      setShortcutError(null);
+
+      // Check for conflicts (exclude current action being edited)
+      try {
+        const conflict = await invoke<string | null>("check_shortcut_conflict", {
+          shortcutStr: shortcut,
+          excludeId: targetId,
+        });
+        if (conflict) {
+          setShortcutError(`"${formatShortcut(shortcut)}" is already used by "${conflict}"`);
+          setIsRecording(null);
+          setRecordedKeys(new Set());
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to check conflict:", error);
+      }
+
       const action = quickActions.find(a => a.mode_id === targetId);
       if (action) {
         try {
@@ -128,11 +151,18 @@ function QuickActionsTab() {
   const startRecording = (targetId: string, buttonRef: HTMLButtonElement | null) => {
     setIsRecording(targetId);
     setRecordedKeys(new Set());
+    setShortcutError(null);
     setTimeout(() => buttonRef?.focus(), 10);
   };
 
   const handleAddQuickAction = async () => {
     if (!selectedModeId) return;
+
+    // Premium check: free users can only have 1 quick action
+    if (!hasLicense && quickActions.length >= 1) {
+      setPremiumFeature("ExtraQuickActions");
+      return;
+    }
 
     const [type, ...idParts] = selectedModeId.split(":");
     const targetId = idParts.join(":");
@@ -164,7 +194,12 @@ function QuickActionsTab() {
       }]);
       setSelectedModeId("");
     } catch (error) {
-      console.error("Failed to add quick action:", error);
+      const feature = parsePremiumError(String(error));
+      if (feature) {
+        setPremiumFeature(feature);
+      } else {
+        console.error("Failed to add quick action:", error);
+      }
     }
   };
 
@@ -206,7 +241,10 @@ function QuickActionsTab() {
           Quick Actions
         </h1>
         <p className="text-[13px] text-white/40 m-0">
-          Process text from any app without opening Refine. Select text anywhere on your Mac, press the shortcut, and the result automatically replaces your selection. Assign a mode or flow to each shortcut.
+          Process text from any app without opening Refine. Select text anywhere on your Mac, press the shortcut, and the result automatically replaces your selection.
+          {!hasLicense && (
+            <span className="text-white/30"> Free plan: 1 quick action. </span>
+          )}
         </p>
       </div>
 
@@ -359,6 +397,20 @@ function QuickActionsTab() {
           )}
         </div>
       </div>
+      {/* Shortcut conflict error */}
+      {shortcutError && (
+        <div className="mt-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[12px] text-red-400">
+          {shortcutError}
+        </div>
+      )}
+
+      {/* Premium Popup */}
+      {premiumFeature && (
+        <PremiumPopup
+          feature={premiumFeature}
+          onClose={() => setPremiumFeature(null)}
+        />
+      )}
     </div>
   );
 }

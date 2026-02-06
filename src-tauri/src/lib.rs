@@ -17,6 +17,7 @@ mod credentials;
 mod flows;
 mod history;
 mod inference;
+pub mod license;
 mod model;
 mod modes;
 mod providers;
@@ -115,7 +116,13 @@ pub fn run() {
             quick_actions::save_quick_action,
             quick_actions::delete_quick_action,
             shortcuts::reload_quick_action_shortcuts,
-            sound::play_system_sound
+            shortcuts::check_shortcut_conflict,
+            sound::play_system_sound,
+            license::get_license_status,
+            license::activate_license,
+            license::deactivate_license,
+            license::revalidate_license,
+            license::check_feature_access
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store

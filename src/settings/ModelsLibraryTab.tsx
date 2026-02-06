@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { parsePremiumError, useLicense } from "../hooks/useLicense";
+import { PremiumPopup } from "../components/PremiumPopup";
 
 // Types
 type ModelStatus = "not_downloaded" | "downloading" | "downloaded" | "error";
@@ -106,6 +108,7 @@ const PROVIDERS: ProviderDef[] = [
 ];
 
 function ModelsLibraryTab() {
+  const { hasLicense } = useLicense();
   // Local models state
   const [localModels, setLocalModels] = useState<ModelState[]>([]);
   const [activeConfig, setActiveConfig] = useState<ActiveModelConfig | null>(null);
@@ -121,6 +124,7 @@ function ModelsLibraryTab() {
   const [formUrl, setFormUrl] = useState("");
   const [formName, setFormName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState<string | null>(null);
   const [saveError, setSaveError] = useState("");
 
   const currentProvider = PROVIDERS.find((p) => p.id === formProvider);
@@ -265,6 +269,12 @@ function ModelsLibraryTab() {
   const handleAddModel = async () => {
     if (!formProvider || !formModel) return;
     if (currentProvider?.requiresApiKey && !formApiKey) return;
+    // Premium check: block cloud models (API keys / Ollama) without license
+    if (!hasLicense) {
+      const feature = formProvider === "ollama" ? "Ollama" : "ApiKeys";
+      setPremiumFeature(feature);
+      return;
+    }
     setSaving(true);
     setSaveError("");
     try {
@@ -278,7 +288,12 @@ function ModelsLibraryTab() {
       setCredentials((prev) => [...prev, credential]);
       resetForm();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : String(error));
+      const feature = parsePremiumError(String(error));
+      if (feature) {
+        setPremiumFeature(feature);
+      } else {
+        setSaveError(error instanceof Error ? error.message : String(error));
+      }
     } finally { setSaving(false); }
   };
 
@@ -442,8 +457,11 @@ function ModelsLibraryTab() {
 
       {/* API MODELS */}
       <section>
-        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
+        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3 flex items-center gap-2">
           API Models
+          {!hasLicense && (
+            <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-(--accent)/20 text-(--accent) border border-(--accent)/30 normal-case">PRO</span>
+          )}
         </h2>
 
         {/* Saved credentials list */}
@@ -578,6 +596,14 @@ function ModelsLibraryTab() {
           </button>
         </div>
       </section>
+
+      {/* Premium Popup */}
+      {premiumFeature && (
+        <PremiumPopup
+          feature={premiumFeature}
+          onClose={() => setPremiumFeature(null)}
+        />
+      )}
     </div>
   );
 }

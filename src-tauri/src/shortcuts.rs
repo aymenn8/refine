@@ -254,23 +254,24 @@ pub fn get_quick_action_for_shortcut(app: &AppHandle, shortcut: &Shortcut) -> Op
     None
 }
 
-/// Reload quick action shortcuts (unregister old, register new)
+/// Reload quick action shortcuts (unregister ALL global shortcuts, then re-register everything)
+///
+/// This approach is necessary because when a shortcut is changed, the old shortcut
+/// string is no longer in the store - so we can't selectively unregister it.
+/// Instead, we unregister everything and re-register from scratch.
 #[tauri::command]
 pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<(), String> {
-    // Get current quick actions
+    // 1. Unregister ALL global shortcuts
+    app.global_shortcut()
+        .unregister_all()
+        .map_err(|e| e.to_string())?;
+
+    // 2. Re-register the main spotlight shortcut
+    let main_shortcut = load_shortcut_from_store(&app);
+    let _ = app.global_shortcut().register(main_shortcut);
+
+    // 3. Re-register all quick action shortcuts
     let actions = crate::quick_actions::get_quick_actions_sync(&app);
-
-    // Unregister all quick action shortcuts first
-    // (We can't easily track which ones were registered, so we try to unregister all)
-    for action in &actions {
-        if !action.shortcut.is_empty() {
-            if let Some(shortcut) = parse_shortcut(&action.shortcut) {
-                let _ = app.global_shortcut().unregister(shortcut);
-            }
-        }
-    }
-
-    // Register all current quick action shortcuts
     for action in &actions {
         if !action.shortcut.is_empty() {
             if let Some(shortcut) = parse_shortcut(&action.shortcut) {
@@ -280,4 +281,58 @@ pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<(), String>
     }
 
     Ok(())
+}
+
+/// Check if a shortcut string is already in use by another binding.
+/// Returns the name/label of the conflicting binding, or null if available.
+#[tauri::command]
+pub async fn check_shortcut_conflict(
+    app: AppHandle,
+    shortcut_str: String,
+    exclude_id: Option<String>,
+) -> Result<Option<String>, String> {
+    let new_shortcut = match parse_shortcut(&shortcut_str) {
+        Some(s) => s,
+        None => return Ok(None), // Can't parse = no conflict
+    };
+
+    // Check against global spotlight shortcut
+    let global_str = if let Ok(store) = app.store("settings.json") {
+        store
+            .get("globalShortcut")
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| "CommandOrControl+Shift+R".to_string())
+    } else {
+        "CommandOrControl+Shift+R".to_string()
+    };
+
+    // Only check if we're not editing the global shortcut itself
+    if exclude_id.as_deref() != Some("global") {
+        if let Some(global_parsed) = parse_shortcut(&global_str) {
+            if global_parsed == new_shortcut {
+                return Ok(Some("Open Refine".to_string()));
+            }
+        }
+    }
+
+    // Check against all quick action shortcuts
+    let actions = crate::quick_actions::get_quick_actions_sync(&app);
+    for action in &actions {
+        if action.shortcut.is_empty() {
+            continue;
+        }
+        // Skip the action we're currently editing
+        if let Some(ref exc) = exclude_id {
+            if *exc == action.mode_id {
+                continue;
+            }
+        }
+        if let Some(parsed) = parse_shortcut(&action.shortcut) {
+            if parsed == new_shortcut {
+                return Ok(Some(format!("Quick Action: {}", action.mode_name)));
+            }
+        }
+    }
+
+    Ok(None)
 }

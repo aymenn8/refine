@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { parsePremiumError, useLicense } from "../hooks/useLicense";
+import { PremiumPopup } from "../components/PremiumPopup";
 
 interface ProcessingMode {
   id: string;
@@ -14,6 +16,7 @@ interface Flow {
 }
 
 function FlowsTab() {
+  const { hasLicense } = useLicense();
   const [flows, setFlows] = useState<Flow[]>([]);
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +27,7 @@ function FlowsTab() {
     open: false,
     flow: null,
   });
+  const [premiumFeature, setPremiumFeature] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -51,7 +55,12 @@ function FlowsTab() {
       setEditingFlow(null);
       setIsCreating(false);
     } catch (error) {
-      console.error("Failed to save flow:", error);
+      const feature = parsePremiumError(String(error));
+      if (feature) {
+        setPremiumFeature(feature);
+      } else {
+        console.error("Failed to save flow:", error);
+      }
     }
   };
 
@@ -75,6 +84,10 @@ function FlowsTab() {
   };
 
   const handleCreateNew = () => {
+    if (!hasLicense) {
+      setPremiumFeature("Flows");
+      return;
+    }
     setIsCreating(true);
     setEditingFlow({
       id: `flow-${Date.now()}`,
@@ -121,9 +134,12 @@ function FlowsTab() {
         <div className="mb-4 flex items-center justify-end">
           <button
             onClick={handleCreateNew}
-            className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer flex items-center gap-1.5"
           >
             + New Flow
+            {!hasLicense && (
+              <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-white/20 text-white/90">PRO</span>
+            )}
           </button>
         </div>
 
@@ -222,6 +238,14 @@ function FlowsTab() {
           </div>
         )}
       </div>
+
+      {/* Premium Popup */}
+      {premiumFeature && (
+        <PremiumPopup
+          feature={premiumFeature}
+          onClose={() => setPremiumFeature(null)}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteModal.open && deleteModal.flow && (
