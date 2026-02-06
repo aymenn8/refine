@@ -2,6 +2,7 @@ import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLicense } from "../hooks/useLicense";
 import { LICENSE_CONFIG } from "../config/license";
+import { getVersion } from "@tauri-apps/api/app";
 
 const LICENSE_TYPE_LABELS: Record<string, string> = {
   monthly: "Monthly",
@@ -9,13 +10,31 @@ const LICENSE_TYPE_LABELS: Record<string, string> = {
   lifetime: "Lifetime",
 };
 
-function AboutTab() {
+interface AboutTabProps {
+  updater: {
+    checking: boolean;
+    available: boolean;
+    version: string | null;
+    checkForUpdate: () => Promise<void>;
+    downloadAndInstall: () => Promise<void>;
+    downloading: boolean;
+    progress: number;
+    ready: boolean;
+  };
+}
+
+function AboutTab({ updater }: AboutTabProps) {
   const { hasLicense, licenseType, loading, activate, deactivate } = useLicense();
   const [licenseKey, setLicenseKey] = useState("");
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
+
+  useState(() => {
+    getVersion().then(setAppVersion);
+  });
 
   const handleActivate = async () => {
     if (!licenseKey.trim()) return;
@@ -63,6 +82,24 @@ function AboutTab() {
         <p className="text-white/40 text-sm text-center max-w-xs mt-2">
           Refine your text with AI, locally or via cloud APIs. Fast, private, and always at your fingertips.
         </p>
+
+        {/* Version + update check */}
+        <div className="flex items-center gap-3 mt-2">
+          {appVersion && (
+            <span className="text-[11px] text-white/25 font-mono">v{appVersion}</span>
+          )}
+          <button
+            onClick={() => updater.checkForUpdate()}
+            disabled={updater.checking}
+            className="text-[11px] text-white/30 hover:text-white/50 bg-transparent border-none cursor-pointer transition-colors disabled:cursor-wait"
+          >
+            {updater.checking
+              ? "Checking..."
+              : updater.available
+              ? `v${updater.version} available`
+              : "Check for updates"}
+          </button>
+        </div>
 
         {/* Divider */}
         <div className="w-full border-t border-white/10 mt-4" />

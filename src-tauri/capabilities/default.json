@@ -32,6 +32,8 @@
     "store:allow-length",
     "store:allow-has",
     "store:allow-delete",
-    "aptabase:allow-track-event"
+    "aptabase:allow-track-event",
+    "updater:default",
+    "process:allow-restart"
   ]
 }
