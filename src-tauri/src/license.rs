@@ -5,6 +5,15 @@ use sha2::Sha256;
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
+/// Returns a device-specific instance name, e.g. "Refine — MacBook-Pro-de-Aymen"
+fn get_instance_name() -> String {
+    let hostname = hostname::get()
+        .ok()
+        .and_then(|h| h.into_string().ok())
+        .unwrap_or_else(|| "Unknown".to_string());
+    format!("Refine — {}", hostname)
+}
+
 const LICENSE_KEY: &str = "licenseData";
 
 /// HMAC secret key embedded in the binary — prevents trivial editing of settings.json.
@@ -82,6 +91,7 @@ pub struct LicenseInfo {
     pub license_key: String,
     pub status: String, // "active", "expired", "invalid"
     pub license_type: String, // "monthly", "yearly", "lifetime"
+    pub instance_id: Option<String>, // Lemon Squeezy instance ID for deactivation
     pub activated_at: i64,
     pub last_validated_at: i64,
     pub hmac_signature: String,
@@ -102,10 +112,11 @@ type HmacSha256 = Hmac<Sha256>;
 
 fn compute_hmac(license: &LicenseInfo) -> String {
     let payload = format!(
-        "{}:{}:{}:{}:{}",
+        "{}:{}:{}:{}:{}:{}",
         license.license_key,
         license.status,
         license.license_type,
+        license.instance_id.as_deref().unwrap_or(""),
         license.activated_at,
         license.last_validated_at
     );
@@ -232,6 +243,7 @@ fn needs_revalidation(license: &LicenseInfo) -> bool {
 #[derive(Debug, Deserialize)]
 struct LemonSqueezyValidateResponse {
     valid: bool,
+    license_key: Option<LemonSqueezyLicenseKey>,
     meta: Option<LemonSqueezyMeta>,
     error: Option<String>,
 }
@@ -239,16 +251,30 @@ struct LemonSqueezyValidateResponse {
 #[derive(Debug, Deserialize)]
 struct LemonSqueezyMeta {
     variant_name: Option<String>,
+    product_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LemonSqueezyLicenseKey {
+    expires_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LemonSqueezyInstance {
+    id: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct LemonSqueezyActivateResponse {
     activated: bool,
+    instance: Option<LemonSqueezyInstance>,
+    license_key: Option<LemonSqueezyLicenseKey>,
     meta: Option<LemonSqueezyMeta>,
     error: Option<String>,
 }
 
-async fn activate_with_lemon_squeezy(license_key: &str) -> Result<(bool, String), String> {
+/// Returns (success, license_type, instance_id)
+async fn activate_with_lemon_squeezy(license_key: &str) -> Result<(bool, String, Option<String>), String> {
     let client = reqwest::Client::new();
 
     let response = client
@@ -256,7 +282,7 @@ async fn activate_with_lemon_squeezy(license_key: &str) -> Result<(bool, String)
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
             "license_key": license_key,
-            "instance_name": "Refine Desktop"
+            "instance_name": get_instance_name()
         }))
         .send()
         .await
@@ -272,15 +298,13 @@ async fn activate_with_lemon_squeezy(license_key: &str) -> Result<(bool, String)
         return Err(msg);
     }
 
-    // Determine license type from variant name
-    let license_type = determine_license_type(
-        body.meta
-            .as_ref()
-            .and_then(|m| m.variant_name.as_deref())
-            .unwrap_or(""),
-    );
+    let variant_name = body.meta.as_ref().and_then(|m| m.variant_name.as_deref()).unwrap_or("");
+    let product_name = body.meta.as_ref().and_then(|m| m.product_name.as_deref()).unwrap_or("");
+    let expires_at = body.license_key.as_ref().and_then(|k| k.expires_at.as_deref());
+    let license_type = determine_license_type(variant_name, product_name, expires_at);
+    let instance_id = body.instance.map(|i| i.id);
 
-    Ok((true, license_type))
+    Ok((true, license_type, instance_id))
 }
 
 async fn validate_with_lemon_squeezy(license_key: &str) -> Result<(bool, String), String> {
@@ -291,7 +315,7 @@ async fn validate_with_lemon_squeezy(license_key: &str) -> Result<(bool, String)
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
             "license_key": license_key,
-            "instance_name": "Refine Desktop"
+            "instance_name": get_instance_name()
         }))
         .send()
         .await
@@ -309,30 +333,39 @@ async fn validate_with_lemon_squeezy(license_key: &str) -> Result<(bool, String)
         return Err(msg);
     }
 
-    let license_type = determine_license_type(
-        body.meta
-            .as_ref()
-            .and_then(|m| m.variant_name.as_deref())
-            .unwrap_or(""),
-    );
+    let variant_name = body.meta.as_ref().and_then(|m| m.variant_name.as_deref()).unwrap_or("");
+    let product_name = body.meta.as_ref().and_then(|m| m.product_name.as_deref()).unwrap_or("");
+    let expires_at = body.license_key.as_ref().and_then(|k| k.expires_at.as_deref());
+    let license_type = determine_license_type(variant_name, product_name, expires_at);
 
     Ok((true, license_type))
 }
 
-/// Map Lemon Squeezy variant name to our license type.
-/// Adjust the matching strings to match your actual Lemon Squeezy product variant names.
-fn determine_license_type(variant_name: &str) -> String {
-    let lower = variant_name.to_lowercase();
-    if lower.contains("lifetime") {
-        "lifetime".to_string()
-    } else if lower.contains("yearly") || lower.contains("annual") {
-        "yearly".to_string()
-    } else {
-        "monthly".to_string()
+/// Map Lemon Squeezy product/variant names to our license type.
+/// Checks variant_name first, then product_name, then falls back to expires_at.
+fn determine_license_type(variant_name: &str, product_name: &str, expires_at: Option<&str>) -> String {
+    // Check both variant_name and product_name for keywords
+    for name in [variant_name, product_name] {
+        let lower = name.to_lowercase();
+        if lower.contains("lifetime") {
+            return "lifetime".to_string();
+        }
+        if lower.contains("yearly") || lower.contains("annual") {
+            return "yearly".to_string();
+        }
+        if lower.contains("monthly") {
+            return "monthly".to_string();
+        }
+    }
+
+    // Fall back to expires_at: no expiry = lifetime
+    match expires_at {
+        None | Some("") => "lifetime".to_string(),
+        Some(_) => "yearly".to_string(),
     }
 }
 
-async fn deactivate_with_lemon_squeezy(license_key: &str) -> Result<(), String> {
+async fn deactivate_with_lemon_squeezy(license_key: &str, instance_id: &str) -> Result<(), String> {
     let client = reqwest::Client::new();
 
     let response = client
@@ -340,7 +373,7 @@ async fn deactivate_with_lemon_squeezy(license_key: &str) -> Result<(), String> 
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
             "license_key": license_key,
-            "instance_name": "Refine Desktop"
+            "instance_id": instance_id
         }))
         .send()
         .await
@@ -389,7 +422,7 @@ pub async fn activate_license(app: AppHandle, license_key: String) -> Result<Lic
 
     println!("[license] Activating license...");
 
-    let (valid, license_type) = activate_with_lemon_squeezy(&key).await?;
+    let (valid, license_type, instance_id) = activate_with_lemon_squeezy(&key).await?;
 
     if !valid {
         return Err("Invalid license key".to_string());
@@ -400,6 +433,7 @@ pub async fn activate_license(app: AppHandle, license_key: String) -> Result<Lic
         license_key: key,
         status: "active".to_string(),
         license_type: license_type.clone(),
+        instance_id,
         activated_at: now,
         last_validated_at: now,
         hmac_signature: String::new(),
@@ -427,9 +461,11 @@ pub async fn activate_license(app: AppHandle, license_key: String) -> Result<Lic
 /// Deactivate the current license
 #[tauri::command]
 pub async fn deactivate_license(app: AppHandle) -> Result<(), String> {
-    // Try to deactivate on Lemon Squeezy first
+    // Try to deactivate on Lemon Squeezy first (needs instance_id to free the activation slot)
     if let Some(license) = get_license_from_store(&app) {
-        let _ = deactivate_with_lemon_squeezy(&license.license_key).await;
+        if let Some(ref instance_id) = license.instance_id {
+            let _ = deactivate_with_lemon_squeezy(&license.license_key, instance_id).await;
+        }
     }
 
     clear_license_from_store(&app)?;
@@ -455,6 +491,7 @@ pub async fn revalidate_license(app: AppHandle) -> Result<LicenseStatus, String>
                     license_key: license.license_key,
                     status: "active".to_string(),
                     license_type: license_type.clone(),
+                    instance_id: license.instance_id,
                     activated_at: license.activated_at,
                     last_validated_at: now,
                     hmac_signature: String::new(),

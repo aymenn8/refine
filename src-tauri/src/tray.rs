@@ -1,30 +1,40 @@
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     AppHandle, Emitter, Manager,
 };
 
-/// Configure le system tray (icône dans la barre de menu) avec ses menus
-///
-/// Crée une icône dans la barre de menu macOS avec trois options :
-/// - **Open Refine** : Ouvre le spotlight avec le focus
-/// - **Settings...** : Ouvre la fenêtre des paramètres
-/// - **Quit** : Quitte l'application
-///
-/// # Arguments
-/// * `app` - Handle de l'application Tauri
-///
-/// # Returns
-/// * `Ok(())` si le tray est créé avec succès
-/// * `Err(Box<dyn std::error::Error>)` si une erreur se produit
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    // Create menu items
+    let version = app.config().version.clone().unwrap_or_default();
+
+    // Menu items
     let open_item = MenuItem::with_id(app, "open", "Open Refine", true, None::<&str>)?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let history_item = MenuItem::with_id(app, "history", "History...", true, None::<&str>)?;
 
-    // Create menu
-    let menu = Menu::with_items(app, &[&open_item, &settings_item, &quit_item])?;
+    let separator1 = PredefinedMenuItem::separator(app)?;
+
+    let version_item = MenuItem::with_id(app, "version", format!("Version {}", version), false, None::<&str>)?;
+    let update_item = MenuItem::with_id(app, "check_update", "Check for Updates...", true, None::<&str>)?;
+
+    let separator2 = PredefinedMenuItem::separator(app)?;
+
+    let quit_item = MenuItem::with_id(app, "quit", "Quit Refine", true, None::<&str>)?;
+
+    // Build menu
+    let menu = Menu::with_items(
+        app,
+        &[
+            &open_item,
+            &settings_item,
+            &history_item,
+            &separator1,
+            &version_item,
+            &update_item,
+            &separator2,
+            &quit_item,
+        ],
+    )?;
 
     // Create tray icon
     let _tray = TrayIconBuilder::new()
@@ -44,6 +54,21 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(window) = app.get_webview_window("settings") {
                     let _ = window.show();
                     let _ = window.set_focus();
+                }
+            }
+            "history" => {
+                if let Some(window) = app.get_webview_window("settings") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = window.emit("navigate-tab", "history");
+                }
+            }
+            "check_update" => {
+                if let Some(window) = app.get_webview_window("settings") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = window.emit("navigate-tab", "about");
+                    let _ = window.emit("check-update", ());
                 }
             }
             "quit" => {

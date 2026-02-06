@@ -20,8 +20,8 @@ export function useLicense() {
       const s = await invoke<LicenseStatus>("get_license_status");
       setStatus(s);
 
-      // Auto-revalidate if needed
-      if (s.needs_revalidation) {
+      // Always revalidate active licenses on load to keep type/status fresh
+      if (s.is_active) {
         try {
           const updated = await invoke<LicenseStatus>("revalidate_license");
           setStatus(updated);

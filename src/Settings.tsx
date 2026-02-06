@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useLicense } from "./hooks/useLicense";
 import { useUpdater } from "./hooks/useUpdater";
 import "./Settings.css";
@@ -160,10 +161,25 @@ const TABS: Tab[] = [
 ];
 
 function Settings() {
-  const { hasLicense } = useLicense();
+  const license = useLicense();
   const updater = useUpdater();
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [hoveredButton, setHoveredButton] = useState<'close' | 'minimize' | null>(null);
+
+  // Listen for tray menu navigation events
+  useEffect(() => {
+    const unlisten1 = listen<string>("navigate-tab", (event) => {
+      setActiveTab(event.payload as TabId);
+    });
+    const unlisten2 = listen("check-update", () => {
+      setActiveTab("about");
+      updater.checkForUpdate();
+    });
+    return () => {
+      unlisten1.then((f) => f());
+      unlisten2.then((f) => f());
+    };
+  }, [updater]);
 
   const handleClose = async () => {
     try {
@@ -198,7 +214,7 @@ function Settings() {
       case "history":
         return <HistoryTab />;
       case "about":
-        return <AboutTab updater={updater} />;
+        return <AboutTab updater={updater} license={license} />;
     }
   };
 
@@ -274,7 +290,7 @@ function Settings() {
                   {tab.icon}
                 </span>
                 <span className="font-medium">{tab.label}</span>
-                {tab.pro && !hasLicense && (
+                {tab.pro && !license.hasLicense && (
                   <span className="text-[8px] font-bold tracking-wider px-1 py-0.5 rounded bg-(--accent)/20 text-(--accent) ml-auto">PRO</span>
                 )}
               </button>
@@ -315,7 +331,8 @@ function Settings() {
               className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all w-full"
             >
               <img src="/logo-white-no-bg.png" alt="Refine" className="h-4 opacity-70" />
-              {hasLicense && (
+              <span className="text-[12px] font-medium text-white/50">refine</span>
+              {license.hasLicense && (
                 <span className="text-[8px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-(--accent)/20 text-(--accent)">
                   PRO
                 </span>
