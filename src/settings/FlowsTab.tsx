@@ -11,10 +11,7 @@ interface Flow {
   name: string;
   description: string;
   steps: string[];
-  is_pinned: boolean;
 }
-
-const MAX_PINNED_FLOWS = 3;
 
 function FlowsTab() {
   const [flows, setFlows] = useState<Flow[]>([]);
@@ -69,17 +66,6 @@ function FlowsTab() {
     }
   };
 
-  const handleTogglePin = async (flowId: string) => {
-    try {
-      await invoke("toggle_pin_flow", { flowId });
-      await loadData();
-    } catch (error) {
-      console.error("Failed to toggle pin:", error);
-    }
-  };
-
-  const pinnedCount = flows.filter((f) => f.is_pinned).length;
-
   const getModeName = (modeId: string) => {
     return modes.find((m) => m.id === modeId)?.name || modeId;
   };
@@ -95,7 +81,6 @@ function FlowsTab() {
       name: "",
       description: "",
       steps: [""],
-      is_pinned: false,
     });
   };
 
@@ -126,9 +111,14 @@ function FlowsTab() {
     <>
       <div className="p-6 md:px-8 h-full flex flex-col">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em]">
-            Flows
-          </h1>
+          <div>
+            <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em] mb-1">
+              Flows
+            </h1>
+            <p className="text-[13px] text-white/40 m-0">
+              Chain multiple modes together into a pipeline. Your text is processed through each step sequentially.
+            </p>
+          </div>
           <button
             onClick={handleCreateNew}
             className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
@@ -212,37 +202,6 @@ function FlowsTab() {
                       </p>
                     </div>
                     <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => handleTogglePin(flow.id)}
-                        disabled={!flow.is_pinned && pinnedCount >= MAX_PINNED_FLOWS}
-                        className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${
-                          flow.is_pinned
-                            ? "bg-(--accent)/20 border-(--accent)/30 text-(--accent) hover:bg-(--accent)/30"
-                            : pinnedCount >= MAX_PINNED_FLOWS
-                            ? "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
-                            : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
-                        }`}
-                        title={
-                          flow.is_pinned
-                            ? "Unpin from Spotlight"
-                            : pinnedCount >= MAX_PINNED_FLOWS
-                            ? `Maximum ${MAX_PINNED_FLOWS} pinned flows`
-                            : "Pin to Spotlight"
-                        }
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill={flow.is_pinned ? "currentColor" : "none"}
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-                        </svg>
-                      </button>
                       <button
                         onClick={() => setEditingFlow(flow)}
                         className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"

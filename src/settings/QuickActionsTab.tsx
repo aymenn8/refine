@@ -206,7 +206,7 @@ function QuickActionsTab() {
           Quick Actions
         </h1>
         <p className="text-[13px] text-white/40 m-0">
-          Assign global shortcuts to process selected text instantly without opening Refine
+          Process text from any app without opening Refine. Select text anywhere on your Mac, press the shortcut, and the result automatically replaces your selection. Assign a mode or flow to each shortcut.
         </p>
       </div>
 

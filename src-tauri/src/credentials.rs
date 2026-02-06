@@ -12,10 +12,6 @@ const SERVICE_NAME: &str = "com.refine.app";
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     OpenAI,
-    Anthropic,
-    Gemini,
-    Grok,
-    Mistral,
     Ollama,
 }
 
@@ -118,7 +114,7 @@ pub async fn save_api_credential(
     // Create new credential
     let credential = ApiCredential::new(provider, model_id, display_name);
 
-    // Store API key in Keychain
+    // Store API key (or Ollama URL) in Keychain
     store_api_key(&credential, &api_key)?;
 
     // Get existing credentials and add new one
@@ -176,50 +172,4 @@ pub fn get_credential_by_id(app: &AppHandle, credential_id: &str) -> Result<ApiC
         .into_iter()
         .find(|c| c.id == credential_id)
         .ok_or_else(|| format!("Credential not found: {}", credential_id))
-}
-
-/// Get Ollama models from local server
-#[tauri::command]
-pub async fn get_ollama_models() -> Result<Vec<OllamaModel>, String> {
-    #[derive(Deserialize)]
-    struct OllamaResponse {
-        models: Vec<OllamaModelInfo>,
-    }
-
-    #[derive(Deserialize)]
-    struct OllamaModelInfo {
-        name: String,
-    }
-
-    let client = reqwest::Client::new();
-    let response = client
-        .get("http://localhost:11434/api/tags")
-        .timeout(std::time::Duration::from_secs(5))
-        .send()
-        .await
-        .map_err(|e| format!("Failed to connect to Ollama: {}", e))?;
-
-    if !response.status().is_success() {
-        return Err("Ollama server returned an error".to_string());
-    }
-
-    let data: OllamaResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse Ollama response: {}", e))?;
-
-    Ok(data
-        .models
-        .into_iter()
-        .map(|m| OllamaModel {
-            id: m.name.clone(),
-            name: m.name,
-        })
-        .collect())
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OllamaModel {
-    pub id: String,
-    pub name: String,
 }

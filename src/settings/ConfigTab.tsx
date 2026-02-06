@@ -7,15 +7,32 @@ import { playNotificationSound } from "../utils/sound";
 
 function lightenColor(hex: string, percent: number): string {
   const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.min(255, (num >> 16) + Math.round(((255 - (num >> 16)) * percent) / 100));
-  const g = Math.min(255, ((num >> 8) & 0x00ff) + Math.round(((255 - ((num >> 8) & 0x00ff)) * percent) / 100));
-  const b = Math.min(255, (num & 0x0000ff) + Math.round(((255 - (num & 0x0000ff)) * percent) / 100));
-  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1).toUpperCase()}`;
+  const r = Math.min(
+    255,
+    (num >> 16) + Math.round(((255 - (num >> 16)) * percent) / 100)
+  );
+  const g = Math.min(
+    255,
+    ((num >> 8) & 0x00ff) +
+      Math.round(((255 - ((num >> 8) & 0x00ff)) * percent) / 100)
+  );
+  const b = Math.min(
+    255,
+    (num & 0x0000ff) + Math.round(((255 - (num & 0x0000ff)) * percent) / 100)
+  );
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b)
+    .toString(16)
+    .slice(1)
+    .toUpperCase()}`;
 }
 
 function ConfigTab() {
-  const [globalShortcut, setGlobalShortcut] = useState("CommandOrControl+Shift+R");
-  const [historyShortcut, setHistoryShortcut] = useState("CommandOrControl+Shift+V");
+  const [globalShortcut, setGlobalShortcut] = useState(
+    "CommandOrControl+Shift+R"
+  );
+  const [historyShortcut, setHistoryShortcut] = useState(
+    "CommandOrControl+Shift+V"
+  );
   const [loading, setLoading] = useState(true);
 
   const [isRecording, setIsRecording] = useState<string | null>(null);
@@ -32,33 +49,45 @@ function ConfigTab() {
   const colorisInitialized = useRef(false);
   const colorInputRef = useRef<HTMLInputElement>(null);
 
-  const applyAccent = useCallback(async (hex: string, saveCustom?: string | null) => {
-    setAccentColor(hex);
-    document.documentElement.style.setProperty("--accent", hex);
-    document.documentElement.style.setProperty("--accent-hover", lightenColor(hex, 15));
-    try {
-      const store = await load("settings.json");
-      await store.set("accentColor", hex);
-      if (saveCustom !== undefined) {
-        await store.set("customAccentColor", saveCustom);
+  const applyAccent = useCallback(
+    async (hex: string, saveCustom?: string | null) => {
+      setAccentColor(hex);
+      document.documentElement.style.setProperty("--accent", hex);
+      document.documentElement.style.setProperty(
+        "--accent-hover",
+        lightenColor(hex, 15)
+      );
+      try {
+        const store = await load("settings.json");
+        await store.set("accentColor", hex);
+        if (saveCustom !== undefined) {
+          await store.set("customAccentColor", saveCustom);
+        }
+        await store.save();
+      } catch (error) {
+        console.error("Failed to save accent color:", error);
       }
-      await store.save();
-    } catch (error) {
-      console.error("Failed to save accent color:", error);
-    }
-  }, []);
+    },
+    []
+  );
 
-  const handleAccentChange = useCallback(async (color: string) => {
-    const hex = color.toUpperCase();
-    setAccentColor(hex);
-    setCustomColor(hex);
-    await applyAccent(hex, hex);
-  }, [applyAccent]);
+  const handleAccentChange = useCallback(
+    async (color: string) => {
+      const hex = color.toUpperCase();
+      setAccentColor(hex);
+      setCustomColor(hex);
+      await applyAccent(hex, hex);
+    },
+    [applyAccent]
+  );
 
-  const handlePresetClick = useCallback(async (color: string) => {
-    setAccentColor(color);
-    await applyAccent(color);
-  }, [applyAccent]);
+  const handlePresetClick = useCallback(
+    async (color: string) => {
+      setAccentColor(color);
+      await applyAccent(color);
+    },
+    [applyAccent]
+  );
 
   useEffect(() => {
     loadData();
@@ -99,9 +128,11 @@ function ConfigTab() {
       if (savedCustom) setCustomColor(savedCustom);
 
       const savedSoundEnabled = await store.get<boolean>("soundEnabled");
-      if (savedSoundEnabled !== null && savedSoundEnabled !== undefined) setSoundEnabled(savedSoundEnabled);
+      if (savedSoundEnabled !== null && savedSoundEnabled !== undefined)
+        setSoundEnabled(savedSoundEnabled);
       const savedSoundVolume = await store.get<number>("soundVolume");
-      if (savedSoundVolume !== null && savedSoundVolume !== undefined) setSoundVolume(savedSoundVolume);
+      if (savedSoundVolume !== null && savedSoundVolume !== undefined)
+        setSoundVolume(savedSoundVolume);
       const savedSoundType = await store.get<string>("soundType");
       if (savedSoundType) setSoundType(savedSoundType);
     } catch (error) {
@@ -161,8 +192,14 @@ function ConfigTab() {
 
     setRecordedKeys(newKeys);
 
-    const hasModifier = newKeys.has("Meta") || newKeys.has("Control") || newKeys.has("Shift") || newKeys.has("Alt");
-    const mainKey = Array.from(newKeys).find(k => !["Meta", "Control", "Shift", "Alt"].includes(k));
+    const hasModifier =
+      newKeys.has("Meta") ||
+      newKeys.has("Control") ||
+      newKeys.has("Shift") ||
+      newKeys.has("Alt");
+    const mainKey = Array.from(newKeys).find(
+      (k) => !["Meta", "Control", "Shift", "Alt"].includes(k)
+    );
 
     if (hasModifier && mainKey) {
       const shortcut = keysToShortcut(newKeys);
@@ -190,7 +227,10 @@ function ConfigTab() {
     }
   };
 
-  const startRecording = (targetId: string, buttonRef: HTMLButtonElement | null) => {
+  const startRecording = (
+    targetId: string,
+    buttonRef: HTMLButtonElement | null
+  ) => {
     setIsRecording(targetId);
     setRecordedKeys(new Set());
     setTimeout(() => buttonRef?.focus(), 10);
@@ -202,7 +242,13 @@ function ConfigTab() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex items-center gap-3 text-white/60">
-          <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            className="w-5 h-5 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
           </svg>
           <span className="text-sm">Loading...</span>
@@ -213,9 +259,12 @@ function ConfigTab() {
 
   return (
     <div className="p-6 md:px-8 h-full overflow-y-auto">
-      <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-6">
+      <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-1">
         Configuration
       </h1>
+      <p className="text-[13px] text-white/40 m-0 mb-6">
+        Customize keyboard shortcuts, appearance, and notification preferences.
+      </p>
 
       {/* Keyboard Shortcuts Section */}
       <section>
@@ -290,8 +339,10 @@ function ConfigTab() {
                   className="w-6 h-6 rounded-full border-2 transition-all cursor-pointer p-0"
                   style={{
                     backgroundColor: color,
-                    borderColor: accentColor === color ? "white" : "transparent",
-                    transform: accentColor === color ? "scale(1.15)" : "scale(1)",
+                    borderColor:
+                      accentColor === color ? "white" : "transparent",
+                    transform:
+                      accentColor === color ? "scale(1.15)" : "scale(1)",
                   }}
                   title={color}
                 />
@@ -302,8 +353,10 @@ function ConfigTab() {
                   className="w-6 h-6 rounded-full border-2 transition-all cursor-pointer p-0"
                   style={{
                     backgroundColor: customColor,
-                    borderColor: accentColor === customColor ? "white" : "transparent",
-                    transform: accentColor === customColor ? "scale(1.15)" : "scale(1)",
+                    borderColor:
+                      accentColor === customColor ? "white" : "transparent",
+                    transform:
+                      accentColor === customColor ? "scale(1.15)" : "scale(1)",
                   }}
                   title={customColor}
                 />
@@ -322,7 +375,17 @@ function ConfigTab() {
                 className="w-6 h-6 rounded-full border border-white/20 hover:border-white/40 transition-colors cursor-pointer p-0 flex items-center justify-center bg-white/5"
                 title="Pick a color"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="opacity-50"
+                >
                   <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
                 </svg>
               </button>
@@ -340,12 +403,24 @@ function ConfigTab() {
           <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/60">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-white/60"
+                >
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                   <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
                 </svg>
-                <span className="text-[14px] text-white">Notification Sound</span>
+                <span className="text-[14px] text-white">
+                  Notification Sound
+                </span>
               </div>
               <button
                 onClick={async () => {
@@ -390,7 +465,10 @@ function ConfigTab() {
                           } catch (error) {
                             console.error("Failed to save sound type:", error);
                           }
-                          invoke("play_system_sound", { name, volume: soundVolume });
+                          invoke("play_system_sound", {
+                            name,
+                            volume: soundVolume,
+                          });
                         }}
                         className={`px-3 py-1.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all border ${
                           soundType === name
@@ -407,7 +485,9 @@ function ConfigTab() {
 
               <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-[14px] text-white shrink-0">Volume</span>
+                  <span className="text-[14px] text-white shrink-0">
+                    Volume
+                  </span>
                   <input
                     type="range"
                     min="0"

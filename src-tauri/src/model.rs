@@ -75,13 +75,25 @@ fn get_available_models() -> Vec<ModelInfo> {
             id: "qwen3-4b-q4".to_string(),
             name: "Qwen3 4B Instruct".to_string(),
             version: "4B".to_string(),
-            size_bytes: 2_700_000_000, // ~2.5 GB
-            description: "Modèle Qwen3 4B très performant pour la correction et traduction. Excellent rapport qualité/performance avec support Metal.".to_string(),
+            size_bytes: 2_700_000_000,
+            description: "Fast and accurate for text correction and translation. Great quality/performance ratio with Metal GPU support.".to_string(),
             url: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf".to_string(),
             filename: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf".to_string(),
             sha256: "".to_string(),
             quantization: "Q4_K_M".to_string(),
             recommended: true,
+        },
+        ModelInfo {
+            id: "gemma3-4b-q4".to_string(),
+            name: "Gemma 3 4B Instruct".to_string(),
+            version: "4B".to_string(),
+            size_bytes: 2_490_000_000,
+            description: "Google's compact model with 128K context window. Multilingual support for 140+ languages.".to_string(),
+            url: "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf".to_string(),
+            filename: "google_gemma-3-4b-it-Q4_K_M.gguf".to_string(),
+            sha256: "".to_string(),
+            quantization: "Q4_K_M".to_string(),
+            recommended: false,
         },
     ]
 }

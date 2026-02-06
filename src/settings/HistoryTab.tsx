@@ -153,9 +153,12 @@ function HistoryTab() {
 
   return (
     <div className="p-6 md:px-8 h-full overflow-y-auto">
-      <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-6">
+      <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-1">
         History
       </h1>
+      <p className="text-[13px] text-white/40 m-0 mb-6">
+        Browse your past text processing results. Copy any previous output to reuse it.
+      </p>
 
       {/* Toggle Section */}
       <div className="p-4 bg-white/5 border border-white/10 rounded-xl mb-6">
