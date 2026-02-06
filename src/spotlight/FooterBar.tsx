@@ -1,3 +1,5 @@
+import { useState, useRef } from "react";
+
 interface FooterBarProps {
   isProcessed: boolean;
   isLoading: boolean;
@@ -6,6 +8,7 @@ interface FooterBarProps {
   historyShortcut: string;
   onCopy: () => void;
   onSend: () => void;
+  onHistoryShortcutChange?: (shortcut: string) => void;
 }
 
 function formatShortcut(shortcut: string): string {
@@ -18,6 +21,20 @@ function formatShortcut(shortcut: string): string {
     .replace(/\+/g, "");
 }
 
+function keysToShortcut(keys: Set<string>): string {
+  const parts: string[] = [];
+  if (keys.has("Meta") || keys.has("Control")) parts.push("CommandOrControl");
+  if (keys.has("Shift")) parts.push("Shift");
+  if (keys.has("Alt")) parts.push("Alt");
+  for (const key of keys) {
+    if (!["Meta", "Control", "Shift", "Alt"].includes(key)) {
+      parts.push(key.toUpperCase());
+      break;
+    }
+  }
+  return parts.join("+");
+}
+
 export function FooterBar({
   isProcessed,
   isLoading,
@@ -26,7 +43,57 @@ export function FooterBar({
   historyShortcut,
   onCopy,
   onSend,
+  onHistoryShortcutChange,
 }: FooterBarProps) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const handleStartRecording = () => {
+    if (!onHistoryShortcutChange) return;
+    setIsRecording(true);
+    setRecordedKeys(new Set());
+    setTimeout(() => btnRef.current?.focus(), 10);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isRecording) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === "Escape") {
+      setIsRecording(false);
+      setRecordedKeys(new Set());
+      return;
+    }
+
+    const newKeys = new Set(recordedKeys);
+    if (e.metaKey) newKeys.add("Meta");
+    if (e.ctrlKey) newKeys.add("Control");
+    if (e.shiftKey) newKeys.add("Shift");
+    if (e.altKey) newKeys.add("Alt");
+
+    const isModifier = ["Meta", "Control", "Shift", "Alt"].includes(e.key);
+    if (!isModifier && e.key.length === 1) {
+      newKeys.add(e.key.toUpperCase());
+    }
+
+    setRecordedKeys(newKeys);
+
+    const hasModifier =
+      newKeys.has("Meta") || newKeys.has("Control") || newKeys.has("Shift") || newKeys.has("Alt");
+    const mainKey = Array.from(newKeys).find(
+      (k) => !["Meta", "Control", "Shift", "Alt"].includes(k)
+    );
+
+    if (hasModifier && mainKey) {
+      const shortcut = keysToShortcut(newKeys);
+      onHistoryShortcutChange?.(shortcut);
+      setIsRecording(false);
+      setRecordedKeys(new Set());
+    }
+  };
+
   return (
     <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white/5 rounded-[10px] border border-white/10">
       <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
@@ -36,8 +103,24 @@ export function FooterBar({
         <Kbd>Tab</Kbd>
         <span>browse</span>
         <Dot />
-        <Kbd>{formatShortcut(historyShortcut)}</Kbd>
-        <span>history</span>
+        <button
+          ref={btnRef}
+          onClick={handleStartRecording}
+          onKeyDown={handleKeyDown}
+          className={`inline-flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer outline-none ${
+            isRecording ? "text-(--accent)" : "text-white/50 hover:text-white/70"
+          } transition-colors`}
+          title="Click to change shortcut"
+        >
+          <Kbd highlight={isRecording}>
+            {isRecording
+              ? recordedKeys.size > 0
+                ? formatShortcut(keysToShortcut(recordedKeys))
+                : "..."
+              : formatShortcut(historyShortcut)}
+          </Kbd>
+          <span className="text-xs font-medium">history</span>
+        </button>
         <Dot />
         <Kbd>Esc</Kbd>
         <span>{isProcessed ? "back" : "close"}</span>
@@ -97,9 +180,13 @@ export function FooterBar({
   );
 }
 
-function Kbd({ children }: { children: React.ReactNode }) {
+function Kbd({ children, highlight }: { children: React.ReactNode; highlight?: boolean }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-6 px-[7px] py-1 bg-white/10 border border-white/15 rounded-[5px] text-[11px] font-semibold text-white/70">
+    <kbd className={`inline-flex items-center justify-center min-w-6 px-[7px] py-1 border rounded-[5px] text-[11px] font-semibold transition-colors ${
+      highlight
+        ? "bg-(--accent)/20 border-(--accent)/30 text-(--accent)"
+        : "bg-white/10 border-white/15 text-white/70"
+    }`}>
       {children}
     </kbd>
   );

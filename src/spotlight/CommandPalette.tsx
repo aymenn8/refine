@@ -41,12 +41,27 @@ export function CommandPalette({
       steps?: string[];
     }[] = [];
     filteredModes.forEach((m) =>
-      items.push({ type: "mode", id: m.id, name: m.name, description: m.description })
+      items.push({
+        type: "mode",
+        id: m.id,
+        name: m.name,
+        description: m.description,
+      })
     );
     filteredFlows.forEach((f) =>
-      items.push({ type: "flow", id: f.id, name: f.name, description: f.description, steps: f.steps })
+      items.push({
+        type: "flow",
+        id: f.id,
+        name: f.name,
+        description: f.description,
+        steps: f.steps,
+      })
     );
-    return { items, modeCount: filteredModes.length, flowCount: filteredFlows.length };
+    return {
+      items,
+      modeCount: filteredModes.length,
+      flowCount: filteredFlows.length,
+    };
   }, [modes, flows, search]);
 
   // Clamp index when results change
@@ -92,7 +107,10 @@ export function CommandPalette({
   // Click outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         onClose();
       }
     };
@@ -157,7 +175,8 @@ export function CommandPalette({
                   .filter((item) => item.type === "mode")
                   .map((item) => {
                     const flatIndex = paletteItems.items.indexOf(item);
-                    const isSelected = currentMode === item.id && currentType === "mode";
+                    const isSelected =
+                      currentMode === item.id && currentType === "mode";
                     const isHighlighted = flatIndex === index;
                     return (
                       <button
@@ -200,7 +219,7 @@ export function CommandPalette({
             {paletteItems.flowCount > 0 && (
               <>
                 {paletteItems.modeCount > 0 && (
-                  <div className="my-1 border-t border-white/[0.06]" />
+                  <div className="my-1 border-t border-white/10" />
                 )}
                 <div className="text-[10px] text-white/30 uppercase tracking-wider px-3 py-1.5 font-medium">
                   Flows
@@ -209,9 +228,12 @@ export function CommandPalette({
                   .filter((item) => item.type === "flow")
                   .map((item) => {
                     const flatIndex = paletteItems.items.indexOf(item);
-                    const isSelected = currentMode === item.id && currentType === "flow";
+                    const isSelected =
+                      currentMode === item.id && currentType === "flow";
                     const isHighlighted = flatIndex === index;
-                    const stepNames = item.steps ? resolveStepNames(item.steps) : [];
+                    const stepNames = item.steps
+                      ? resolveStepNames(item.steps)
+                      : [];
                     return (
                       <button
                         key={item.id}

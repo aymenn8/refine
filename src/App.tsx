@@ -352,7 +352,19 @@ function App() {
           )}
 
           {/* Main content area */}
-          <div className="flex flex-col flex-1 min-h-0 gap-3">
+          <div className="relative flex flex-col flex-1 min-h-0 gap-3">
+            {/* Command palette overlay — covers full content area */}
+            {showPalette && (
+              <CommandPalette
+                modes={modes}
+                flows={flows}
+                currentMode={mode}
+                currentType={selectedType}
+                onSelect={selectFromPalette}
+                onClose={closePalette}
+              />
+            )}
+
             {/* Error */}
             {error && (
               <div className="shrink-0 flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
@@ -394,17 +406,6 @@ function App() {
                 />
               )}
 
-              {showPalette && (
-                <CommandPalette
-                  modes={modes}
-                  flows={flows}
-                  currentMode={mode}
-                  currentType={selectedType}
-                  onSelect={selectFromPalette}
-                  onClose={closePalette}
-                />
-              )}
-
               <textarea
                 ref={textareaRef}
                 value={text}
@@ -429,6 +430,16 @@ function App() {
             historyShortcut={historyShortcut}
             onCopy={handleCopy}
             onSend={handleSendToAI}
+            onHistoryShortcutChange={async (shortcut) => {
+              try {
+                const store = await import("@tauri-apps/plugin-store").then(m => m.load("settings.json"));
+                await store.set("historyShortcut", shortcut);
+                await store.save();
+                setHistoryShortcut(shortcut);
+              } catch (error) {
+                console.error("Failed to update history shortcut:", error);
+              }
+            }}
           />
         </div>
       </div>
