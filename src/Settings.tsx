@@ -166,6 +166,15 @@ function Settings() {
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [hoveredButton, setHoveredButton] = useState<'close' | 'minimize' | null>(null);
 
+  // First-launch: redirect to onboarding if not completed
+  useEffect(() => {
+    invoke<boolean>("check_onboarding_completed").then((completed) => {
+      if (!completed) {
+        window.location.href = "/onboarding";
+      }
+    }).catch(() => {});
+  }, []);
+
   // Listen for tray menu navigation events
   useEffect(() => {
     const unlisten1 = listen<string>("navigate-tab", (event) => {

@@ -6,12 +6,13 @@ use uuid::Uuid;
 use chrono::Utc;
 
 const CREDENTIALS_KEY: &str = "apiCredentials";
-const SERVICE_NAME: &str = "com.refine.app";
+const SERVICE_NAME: &str = "com.refine";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     OpenAI,
+    Anthropic,
     Ollama,
 }
 
@@ -112,7 +113,7 @@ pub async fn save_api_credential(
     // Premium check: API keys and Ollama require a license
     match provider {
         Provider::Ollama => crate::license::require_feature(&app, crate::license::Feature::Ollama)?,
-        Provider::OpenAI => crate::license::require_feature(&app, crate::license::Feature::ApiKeys)?,
+        Provider::OpenAI | Provider::Anthropic => crate::license::require_feature(&app, crate::license::Feature::ApiKeys)?,
     }
 
     println!("[save_api_credential] Saving credential for {:?} - {}", provider, model_id);

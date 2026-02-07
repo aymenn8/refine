@@ -1,0 +1,44 @@
+.onboarding-step {
+  animation: fadeSlideIn 0.3s ease-out;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.onb-btn-primary {
+  padding: 10px 28px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--accent);
+  color: white;
+}
+.onb-btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.onb-btn-ghost {
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+}
+.onb-btn-ghost:hover {
+  color: rgba(255, 255, 255, 0.6);
+}

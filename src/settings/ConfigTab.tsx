@@ -4,27 +4,8 @@ import { load } from "@tauri-apps/plugin-store";
 import "@melloware/coloris/dist/coloris.css";
 import Coloris from "@melloware/coloris";
 import { playNotificationSound } from "../utils/sound";
-
-function lightenColor(hex: string, percent: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.min(
-    255,
-    (num >> 16) + Math.round(((255 - (num >> 16)) * percent) / 100)
-  );
-  const g = Math.min(
-    255,
-    ((num >> 8) & 0x00ff) +
-      Math.round(((255 - ((num >> 8) & 0x00ff)) * percent) / 100)
-  );
-  const b = Math.min(
-    255,
-    (num & 0x0000ff) + Math.round(((255 - (num & 0x0000ff)) * percent) / 100)
-  );
-  return `#${((1 << 24) | (r << 16) | (g << 8) | b)
-    .toString(16)
-    .slice(1)
-    .toUpperCase()}`;
-}
+import { lightenColor } from "../utils/accent";
+import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 
 function ConfigTab() {
   const [globalShortcut, setGlobalShortcut] = useState(
@@ -47,6 +28,10 @@ function ConfigTab() {
   // Analytics
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+
+  // General
+  const [autoUpdate, setAutoUpdate] = useState(true);
+  const [launchOnLogin, setLaunchOnLogin] = useState(false);
 
   // Accent color
   const [accentColor, setAccentColor] = useState("#F0B67F");
@@ -142,6 +127,12 @@ function ConfigTab() {
       if (savedSoundType) setSoundType(savedSoundType);
       const savedAnalytics = await store.get<boolean>("analyticsEnabled");
       if (savedAnalytics !== null && savedAnalytics !== undefined) setAnalyticsEnabled(savedAnalytics);
+      const savedAutoUpdate = await store.get<boolean>("autoUpdateEnabled");
+      if (savedAutoUpdate !== null && savedAutoUpdate !== undefined) setAutoUpdate(savedAutoUpdate);
+      try {
+        const autoStartEnabled = await isEnabled();
+        setLaunchOnLogin(autoStartEnabled);
+      } catch { /* autostart not available */ }
     } catch (error) {
       console.error("Failed to load config:", error);
     } finally {
@@ -309,8 +300,75 @@ function ConfigTab() {
         </p>
       </div>
 
-      {/* Keyboard Shortcuts Section */}
+      {/* General Section */}
       <section>
+        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
+          General
+        </h2>
+        <div className="space-y-2">
+          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] text-white">Automatically check for updates</span>
+              <button
+                onClick={async () => {
+                  const newValue = !autoUpdate;
+                  setAutoUpdate(newValue);
+                  try {
+                    const store = await load("settings.json");
+                    await store.set("autoUpdateEnabled", newValue);
+                    await store.save();
+                  } catch (error) {
+                    console.error("Failed to save auto-update setting:", error);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
+                  autoUpdate ? "bg-(--accent)" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    autoUpdate ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-[14px] text-white">Launch on login</span>
+              <button
+                onClick={async () => {
+                  const newValue = !launchOnLogin;
+                  setLaunchOnLogin(newValue);
+                  try {
+                    if (newValue) {
+                      await enable();
+                    } else {
+                      await disable();
+                    }
+                  } catch (error) {
+                    console.error("Failed to toggle autostart:", error);
+                    setLaunchOnLogin(!newValue);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
+                  launchOnLogin ? "bg-(--accent)" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    launchOnLogin ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Keyboard Shortcuts Section */}
+      <section className="mt-8">
         <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
           Keyboard Shortcuts
         </h2>

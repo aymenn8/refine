@@ -21,14 +21,24 @@ pub struct ProcessingMode {
 }
 
 impl ProcessingMode {
-    /// Build the complete prompt for llama.cpp using Qwen3 chat template
-    pub fn build_prompt(&self, text: &str) -> String {
+    /// Build the complete prompt for llama.cpp using the appropriate chat template
+    pub fn build_prompt(&self, text: &str, model_id: &str) -> String {
         let user_prompt = self.user_prompt_template.replace("{text}", text);
-        format!(
-            "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
-            self.system_prompt,
-            user_prompt
-        )
+        if model_id.starts_with("gemma") {
+            // Gemma chat template
+            format!(
+                "<start_of_turn>user\n{}\n\n{}<end_of_turn>\n<start_of_turn>model\n",
+                self.system_prompt,
+                user_prompt
+            )
+        } else {
+            // ChatML template (Qwen, etc.)
+            format!(
+                "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
+                self.system_prompt,
+                user_prompt
+            )
+        }
     }
 }
 

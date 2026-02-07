@@ -1,4 +1,4 @@
-//! # Refine App - Application de correction et traduction de texte
+//! # Refine - Application de correction et traduction de texte
 //!
 //! Cette application macOS permet de capturer rapidement du texte sélectionné,
 //! de le corriger ou de le traduire, et de remplacer le texte original.
@@ -33,6 +33,7 @@ use state::GlobalShortcutState;
 use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+use tauri_plugin_store::StoreExt;
 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
 
 /// Point d'entrée principal de l'application Tauri
@@ -49,6 +50,7 @@ pub fn run() {
         .plugin(tauri_plugin_aptabase::Builder::new("A-EU-6987116306").build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -126,7 +128,9 @@ pub fn run() {
             license::activate_license,
             license::deactivate_license,
             license::revalidate_license,
-            license::check_feature_access
+            license::check_feature_access,
+            commands::check_onboarding_completed,
+            commands::complete_onboarding
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store
@@ -167,7 +171,24 @@ pub fn run() {
                 #[cfg(target_os = "macos")]
                 apply_vibrancy(&window, NSVisualEffectMaterial::WindowBackground, None, Some(12.0))
                     .expect("Failed to apply vibrancy effect to settings");
-                let _ = window.hide();
+
+                // First launch: show settings (will redirect to onboarding)
+                let onboarding_done = app
+                    .handle()
+                    .store("settings.json")
+                    .ok()
+                    .and_then(|s| {
+                        let val = s.get("onboardingCompleted")?;
+                        val.as_bool()
+                    })
+                    .unwrap_or(false);
+
+                if !onboarding_done {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                } else {
+                    let _ = window.hide();
+                }
             }
 
             if let Some(window) = app.get_webview_window("toast") {

@@ -5,6 +5,7 @@ import { load } from "@tauri-apps/plugin-store";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { playNotificationSound } from "./utils/sound";
+import { applyAccentColor } from "./utils/accent";
 import { SelectorBar } from "./spotlight/SelectorBar";
 import { ProcessedBar } from "./spotlight/ProcessedBar";
 import { CommandPalette } from "./spotlight/CommandPalette";
@@ -219,6 +220,7 @@ function App() {
       setShowPalette(false);
       setError(null);
 
+      await applyAccentColor();
       await loadModes();
       await loadFlows();
       const store = await load("settings.json");

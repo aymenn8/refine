@@ -1,12 +1,12 @@
 [package]
-name = "refine-app"
+name = "refine"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "refine_app_lib"
+name = "refine_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -36,6 +36,7 @@ tauri-plugin-aptabase = { path = "plugins/tauri-plugin-aptabase" }
 tauri-plugin-updater = "2.10.0"
 tauri-plugin-process = "2.3.1"
 hostname = "0.4.2"
+tauri-plugin-autostart = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"

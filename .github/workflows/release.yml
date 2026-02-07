@@ -53,7 +53,7 @@ jobs:
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # Apple code signing (optional, add when ready)
@@ -64,6 +64,8 @@ jobs:
           # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
+          owner: aymenn8
+          repo: refine-releases
           tagName: ${{ github.ref_name }}
           releaseName: "Refine ${{ github.ref_name }}"
           releaseBody: "See the assets to download and install this version."

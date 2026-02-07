@@ -108,7 +108,7 @@ pub fn get_model_by_id(model_id: &str) -> Result<ModelInfo, String> {
 
 /// Retourne le chemin du dossier de stockage des modèles
 ///
-/// Sur macOS: ~/Library/Application Support/com.refine.app/models/
+/// Sur macOS: ~/Library/Application Support/com.refine/models/
 fn get_models_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
         .path()

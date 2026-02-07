@@ -46,7 +46,7 @@ cat ~/.tauri/refine.key | pbcopy
 Dans `src-tauri/tauri.conf.json`, l'endpoint est configuré sur :
 
 ```
-https://github.com/aymenn8/refine-app/releases/latest/download/latest.json
+https://github.com/aymenn8/refine-releases/releases/latest/download/latest.json
 ```
 
 ### C. Clé publique

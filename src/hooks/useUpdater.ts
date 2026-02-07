@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { load } from "@tauri-apps/plugin-store";
 
 interface UpdateState {
   checking: boolean;
@@ -53,7 +54,14 @@ export function useUpdater() {
   }, []);
 
   useEffect(() => {
-    checkForUpdate();
+    (async () => {
+      try {
+        const store = await load("settings.json");
+        const autoUpdate = await store.get<boolean>("autoUpdateEnabled");
+        if (autoUpdate === false) return;
+      } catch { /* default to checking */ }
+      checkForUpdate();
+    })();
   }, [checkForUpdate]);
 
   async function downloadAndInstall() {

@@ -18,7 +18,7 @@ const LICENSE_KEY: &str = "licenseData";
 
 /// HMAC secret key embedded in the binary — prevents trivial editing of settings.json.
 /// In production, consider using a more complex derivation or obfuscation.
-const HMAC_SECRET: &[u8] = b"refine-app-license-hmac-secret-k3y-2024";
+const HMAC_SECRET: &[u8] = b"refine-license-hmac-secret-k3y-2024";
 
 // --- Re-validation intervals ---
 const REVALIDATION_INTERVAL_SUBSCRIPTION: i64 = 3 * 24 * 60 * 60; // 3 days

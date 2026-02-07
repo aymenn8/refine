@@ -240,7 +240,7 @@ async fn run_local_inference(
     }
 
     // Construire le prompt
-    let prompt = process_mode.build_prompt(text);
+    let prompt = process_mode.build_prompt(text, model_id);
 
     // Exécuter l'inférence dans un thread bloquant
     let result = tokio::task::spawn_blocking(move || {
@@ -365,6 +365,12 @@ fn run_inference_llama_cpp(model_path: PathBuf, prompt: String) -> Result<String
         }
     }
 
+    // Strip known special tokens that may leak into output
+    let output = output
+        .replace("<|file_separator|>", "")
+        .replace("<end_of_turn>", "")
+        .replace("<|im_end|>", "");
+
     Ok(output.trim().to_string())
 }
 
@@ -401,10 +407,17 @@ pub async fn generate_mode(app: AppHandle, description: String) -> Result<Genera
                 ));
             }
 
-            let prompt = format!(
-                "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
-                GENERATE_MODE_SYSTEM_PROMPT, description
-            );
+            let prompt = if model_id.starts_with("gemma") {
+                format!(
+                    "<start_of_turn>user\n{}\n\n{}<end_of_turn>\n<start_of_turn>model\n",
+                    GENERATE_MODE_SYSTEM_PROMPT, description
+                )
+            } else {
+                format!(
+                    "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
+                    GENERATE_MODE_SYSTEM_PROMPT, description
+                )
+            };
 
             tokio::task::spawn_blocking(move || run_inference_llama_cpp(model_path, prompt))
                 .await

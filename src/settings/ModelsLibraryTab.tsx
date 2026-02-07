@@ -6,7 +6,7 @@ import { PremiumPopup } from "../components/PremiumPopup";
 
 // Types
 type ModelStatus = "not_downloaded" | "downloading" | "downloaded" | "error";
-type Provider = "openai" | "ollama";
+type Provider = "openai" | "anthropic" | "ollama";
 
 interface ModelInfo {
   id: string;
@@ -64,6 +64,7 @@ interface ProviderDef {
 // Map model/provider IDs to logo files in /logos/
 const LOGO_MAP: Record<string, string> = {
   openai: "/logos/openai.svg",
+  anthropic: "/logos/anthropic.svg",
   ollama: "/logos/ollama.svg",
   qwen: "/logos/qwen.svg",
   gemma: "/logos/gemma.svg",
@@ -96,6 +97,13 @@ const PROVIDERS: ProviderDef[] = [
     requiresApiKey: true,
     requiresUrl: false,
     modelPlaceholder: "e.g. gpt-4o, gpt-4o-mini, o4-mini",
+  },
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    requiresApiKey: true,
+    requiresUrl: false,
+    modelPlaceholder: "e.g. claude-sonnet-4-5-20250929, claude-haiku-4-5-20251001",
   },
   {
     id: "ollama",
@@ -148,7 +156,7 @@ function ModelsLibraryTab() {
         key: `cloud:${c.id}`,
         label: c.display_name || c.model_id,
         logoId: c.provider,
-        sub: c.provider === "ollama" ? "Ollama" : `OpenAI · ${c.model_id}`,
+        sub: c.provider === "ollama" ? "Ollama" : c.provider === "anthropic" ? `Anthropic · ${c.model_id}` : `OpenAI · ${c.model_id}`,
         setActive: () => handleSetActiveCloud(c.id),
       });
     }

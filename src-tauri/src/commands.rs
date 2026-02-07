@@ -4,6 +4,24 @@ use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_store::StoreExt;
+
+#[tauri::command]
+pub async fn check_onboarding_completed(app: AppHandle) -> Result<bool, String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    Ok(store
+        .get("onboardingCompleted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false))
+}
+
+#[tauri::command]
+pub async fn complete_onboarding(app: AppHandle) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("onboardingCompleted", serde_json::Value::Bool(true));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
 
 /// Applique le texte de remplacement dans le clipboard et cache la fenêtre principale
 ///
