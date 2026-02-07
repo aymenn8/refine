@@ -8,10 +8,18 @@ YELLOW='\033[1;33m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# Read current version and auto-increment patch
+# Read current version
 CURRENT=$(grep '"version"' package.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')
-IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+if [ -n "$1" ]; then
+  # Use provided version
+  VERSION="${1#v}"
+else
+  # Auto-increment patch
+  IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+  VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+fi
+
 TAG="v${VERSION}"
 
 echo ""
