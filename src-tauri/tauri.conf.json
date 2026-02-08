@@ -71,7 +71,7 @@
     ],
     "createUpdaterArtifacts": "v1Compatible",
     "macOS": {
-      "entitlements": null,
+      "entitlements": "entitlements.plist",
       "exceptionDomain": null,
       "frameworks": [],
       "minimumSystemVersion": "10.15"
