@@ -13,7 +13,7 @@ use tauri_plugin_store::StoreExt;
 /// - Key : `A-Z`, `Space`, etc.
 ///
 /// # Exemples
-/// ```
+/// ```text
 /// parse_shortcut("CommandOrControl+Shift+R") // Command+Shift+R sur macOS, Ctrl+Shift+R sur Windows
 /// parse_shortcut("Command+Alt+E")            // Command+Alt+E
 /// parse_shortcut("Shift+Space")              // Shift+Space

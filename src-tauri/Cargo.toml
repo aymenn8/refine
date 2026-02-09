@@ -42,6 +42,7 @@ tauri-plugin-autostart = "2"
 objc = "0.2"
 cocoa = "0.26"
 core-graphics = "0.24"
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 
 [lints.rust]
 unexpected_cfgs = "allow"

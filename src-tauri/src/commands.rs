@@ -6,6 +6,19 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_store::StoreExt;
 
+#[cfg(target_os = "macos")]
+use tauri_nspanel::ManagerExt;
+
+#[cfg(target_os = "macos")]
+fn run_on_main_thread<F>(app: &AppHandle, task: F) -> Result<(), String>
+where
+    F: FnOnce(AppHandle) + Send + 'static,
+{
+    let app_handle = app.clone();
+    app.run_on_main_thread(move || task(app_handle))
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn check_onboarding_completed(app: AppHandle) -> Result<bool, String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
@@ -42,7 +55,17 @@ pub async fn apply_replacement(app: AppHandle, text: String) -> Result<(), Strin
         .write_text(&text)
         .map_err(|e| e.to_string())?;
 
-    // Cacher la fenêtre
+    // Cacher la fenêtre via panel API
+    #[cfg(target_os = "macos")]
+    run_on_main_thread(&app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("main") {
+            panel.hide();
+        } else if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.hide();
+        }
+    })?;
+
+    #[cfg(not(target_os = "macos"))]
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
     }
@@ -60,9 +83,20 @@ pub async fn apply_replacement(app: AppHandle, text: String) -> Result<(), Strin
 /// * `Err(String)` si une erreur se produit
 #[tauri::command]
 pub async fn hide_window(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    run_on_main_thread(&app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("main") {
+            panel.hide();
+        } else if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.hide();
+        }
+    })?;
+
+    #[cfg(not(target_os = "macos"))]
     if let Some(window) = app.get_webview_window("main") {
         window.hide().map_err(|e| e.to_string())?;
     }
+
     Ok(())
 }
 
@@ -79,12 +113,31 @@ pub async fn hide_window(app: AppHandle) -> Result<(), String> {
 /// * `Err(String)` si une erreur se produit
 #[tauri::command]
 pub async fn show_main_window(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    run_on_main_thread(&app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("main") {
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.center();
+                let _ = window.emit("text-captured", String::new());
+            }
+            panel.show_and_make_key();
+            crate::native_mac::activate_our_app();
+        } else if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.center();
+            let _ = window.set_focus();
+            let _ = window.emit("text-captured", String::new());
+        }
+    })?;
+
+    #[cfg(not(target_os = "macos"))]
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.center();
         let _ = window.set_focus();
         let _ = window.emit("text-captured", String::new());
     }
+
     Ok(())
 }
 
@@ -159,7 +212,17 @@ pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), S
         .write_text(&text)
         .map_err(|e| e.to_string())?;
 
-    // Cacher la fenêtre
+    // Cacher la fenêtre via panel API
+    #[cfg(target_os = "macos")]
+    run_on_main_thread(&app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("main") {
+            panel.hide();
+        } else if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.hide();
+        }
+    })?;
+
+    #[cfg(not(target_os = "macos"))]
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.hide();
     }

@@ -1,24 +1,30 @@
-#![allow(deprecated)]
-
 use serde::Serialize;
-use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 #[cfg(target_os = "macos")]
-use cocoa::appkit::{NSWindow, NSWindowCollectionBehavior};
-#[cfg(target_os = "macos")]
-use cocoa::base::{id, nil};
-#[cfg(target_os = "macos")]
-use objc::runtime::YES;
+use tauri_nspanel::{
+    tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt,
+};
 
-/// NSWindow levels
 #[cfg(target_os = "macos")]
-const NS_FLOATING_WINDOW_LEVEL: i64 = 3;
+tauri_panel! {
+    panel!(SpotlightPanel {
+        config: {
+            can_become_key_window: true,
+            can_become_main_window: false,
+            is_floating_panel: true
+        }
+    })
 
-/// Stocke la référence à l'app précédente pour pouvoir la réactiver
-#[cfg(target_os = "macos")]
-static PREVIOUS_APP: Mutex<Option<usize>> = Mutex::new(None);
+    panel!(ToastPanel {
+        config: {
+            can_become_key_window: false,
+            can_become_main_window: false,
+            is_floating_panel: true
+        }
+    })
+}
 
 /// Payload envoyé au frontend lors de l'ouverture du spotlight
 #[derive(Clone, Serialize)]
@@ -27,140 +33,191 @@ pub struct SpotlightPayload {
     pub previous_app: String,
 }
 
-/// Configure the window as floating overlay
+pub use crate::native_mac::activate_previous_app;
+
 #[cfg(target_os = "macos")]
-pub fn configure_overlay_window(window: &tauri::WebviewWindow) {
-    let ns_window = window.ns_window().unwrap() as id;
-
-    unsafe {
-        // Set window level to floating (always on top)
-        let _: () = msg_send![ns_window, setLevel: NS_FLOATING_WINDOW_LEVEL];
-
-        // Set collection behavior: can join all spaces + fullscreen auxiliary
-        let behavior = NSWindowCollectionBehavior::NSWindowCollectionBehaviorCanJoinAllSpaces
-            | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenAuxiliary
-            | NSWindowCollectionBehavior::NSWindowCollectionBehaviorTransient;
-        ns_window.setCollectionBehavior_(behavior);
-
-        // Don't hide on deactivate
-        let _: () = msg_send![ns_window, setHidesOnDeactivate: NO];
-
-        // Allow mouse events
-        let _: () = msg_send![ns_window, setAcceptsMouseMovedEvents: YES];
+fn run_on_main_thread<F>(app: &AppHandle, task: F)
+where
+    F: FnOnce(AppHandle) + Send + 'static,
+{
+    let app_handle = app.clone();
+    if let Err(e) = app.run_on_main_thread(move || task(app_handle)) {
+        eprintln!("[window] Failed to schedule main-thread task: {}", e);
     }
 }
 
+/// Convert the main and toast windows to NSPanel instances.
+/// Must be called once during setup, after vibrancy is applied.
 #[cfg(target_os = "macos")]
-use objc::*;
-
-#[cfg(target_os = "macos")]
-const NO: i8 = 0;
-
-#[cfg(not(target_os = "macos"))]
-pub fn configure_overlay_window(_window: &tauri::WebviewWindow) {}
-
-#[cfg(not(target_os = "macos"))]
-static PREVIOUS_APP: Mutex<Option<usize>> = Mutex::new(None);
-
-/// Récupère et stocke l'application active (avant Refine)
-#[cfg(target_os = "macos")]
-fn get_and_store_frontmost_app() -> String {
-    unsafe {
-        let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
-        let frontmost_app: id = msg_send![workspace, frontmostApplication];
-
-        if frontmost_app == nil {
-            return String::new();
+pub fn init_panels(app: &AppHandle) {
+    // Convert main window to NSPanel
+    if let Some(window) = app.get_webview_window("main") {
+        if let Ok(panel) = window.to_panel::<SpotlightPanel>() {
+            panel.set_level(PanelLevel::ScreenSaver.value());
+            panel.set_collection_behavior(
+                CollectionBehavior::new()
+                    .can_join_all_spaces()
+                    .full_screen_auxiliary()
+                    .into(),
+            );
+            panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
+            panel.set_hides_on_deactivate(false);
+            panel.set_floating_panel(true);
+            panel.set_accepts_mouse_moved_events(true);
+            panel.hide();
         }
+    }
 
-        // Stocker la référence pour réactivation ultérieure
-        // On stocke l'adresse mémoire comme usize (pas idéal mais fonctionne pour la session)
-        if let Ok(mut prev) = PREVIOUS_APP.lock() {
-            *prev = Some(frontmost_app as usize);
+    // Convert toast window to NSPanel
+    if let Some(window) = app.get_webview_window("toast") {
+        if let Ok(panel) = window.to_panel::<ToastPanel>() {
+            panel.set_level(PanelLevel::ScreenSaver.value());
+            panel.set_collection_behavior(
+                CollectionBehavior::new()
+                    .can_join_all_spaces()
+                    .full_screen_auxiliary()
+                    .into(),
+            );
+            panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
+            panel.set_hides_on_deactivate(false);
+            panel.set_floating_panel(true);
+            panel.set_ignores_mouse_events(false);
+            panel.hide();
         }
-
-        let name: id = msg_send![frontmost_app, localizedName];
-        if name == nil {
-            return String::new();
-        }
-
-        let utf8: *const i8 = msg_send![name, UTF8String];
-        if utf8.is_null() {
-            return String::new();
-        }
-
-        std::ffi::CStr::from_ptr(utf8)
-            .to_string_lossy()
-            .into_owned()
     }
 }
 
 #[cfg(not(target_os = "macos"))]
-fn get_and_store_frontmost_app() -> String {
-    String::new()
+pub fn init_panels(_app: &AppHandle) {}
+
+/// Show the toast panel (called from quick_actions)
+#[cfg(target_os = "macos")]
+pub fn show_toast_panel(app: &AppHandle) {
+    run_on_main_thread(app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("toast") {
+            panel.order_front_regardless();
+        } else if let Some(window) = app_handle.get_webview_window("toast") {
+            let _ = window.show();
+        }
+    });
 }
 
-/// Réactive l'application précédemment stockée
+/// Hide the toast panel
 #[cfg(target_os = "macos")]
-pub fn activate_previous_app() {
-    unsafe {
-        if let Ok(prev) = PREVIOUS_APP.lock() {
-            if let Some(app_ptr) = *prev {
-                let app = app_ptr as id;
-                // NSApplicationActivateIgnoringOtherApps = 1 << 1
-                let _: i8 = msg_send![app, activateWithOptions: 2u64];
+pub fn hide_toast_panel(app: &AppHandle) {
+    run_on_main_thread(app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("toast") {
+            panel.hide();
+        } else if let Some(window) = app_handle.get_webview_window("toast") {
+            let _ = window.hide();
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn show_toast_panel(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("toast") {
+        let _ = window.show();
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn hide_toast_panel(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("toast") {
+        let _ = window.hide();
+    }
+}
+
+/// Affiche la fenêtre principale (spotlight) par-dessus les apps en plein écran.
+///
+/// Utilise NSPanel via tauri-nspanel pour overlay sans quitter le Space plein écran.
+pub fn capture_and_show(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        run_on_main_thread(app, |app_handle| {
+            if let Ok(panel) = app_handle.get_webview_panel("main") {
+                if panel.is_visible() {
+                    panel.hide();
+                    return;
+                }
+
+                // Détecter et stocker l'application active AVANT d'afficher Refine
+                let previous_app = crate::native_mac::get_and_store_frontmost_app();
+
+                // Lire le clipboard actuel
+                let clipboard_text = app_handle.clipboard().read_text().unwrap_or_default();
+
+                // Center the underlying webview window (do not convert the panel back to a window)
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.center();
+                }
+
+                // Phase 1: Show the panel without activating the app (no Space switch)
+                panel.show_and_make_key();
+
+                // Phase 2: Activate app to receive keyboard events.
+                crate::native_mac::activate_our_app();
+
+                // Make the webview content view the first responder for keyboard input
+                let content_view = panel.content_view();
+                panel.make_first_responder(Some(&content_view));
+
+                // Emit event to the frontend
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let payload = SpotlightPayload {
+                        text: clipboard_text,
+                        previous_app,
+                    };
+                    let _ = window.emit("spotlight-open", payload);
+                }
+            } else if let Some(window) = app_handle.get_webview_window("main") {
+                if window.is_visible().unwrap_or(false) {
+                    let _ = window.hide();
+                    return;
+                }
+
+                let previous_app = crate::native_mac::get_and_store_frontmost_app();
+                let clipboard_text = app_handle.clipboard().read_text().unwrap_or_default();
+
+                let _ = window.show();
+                let _ = window.center();
+                let _ = window.set_focus();
+
+                let payload = SpotlightPayload {
+                    text: clipboard_text,
+                    previous_app,
+                };
+                let _ = window.emit("spotlight-open", payload);
+            }
+        });
+        return;
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        if let Some(window) = app.get_webview_window("main") {
+            if window.is_visible().unwrap_or(false) {
+                let _ = window.hide();
+                return;
             }
         }
     }
-}
 
-#[cfg(not(target_os = "macos"))]
-pub fn activate_previous_app() {}
+    #[cfg(not(target_os = "macos"))]
+    {
+        let previous_app = crate::native_mac::get_and_store_frontmost_app();
+        let clipboard_text = app.clipboard().read_text().unwrap_or_default();
 
-/// Affiche la fenêtre principale (spotlight)
-///
-/// Cette fonction implémente un comportement toggle :
-/// - Si la fenêtre est visible → la cache
-/// - Si la fenêtre est cachée → lit le clipboard et affiche la fenêtre
-///
-/// # Processus
-/// 1. Vérifie si la fenêtre est déjà visible (toggle)
-/// 2. Détecte le nom de l'application active
-/// 3. Lit le contenu du clipboard
-/// 4. Affiche la fenêtre avec le texte et le nom de l'app
-///
-/// # Arguments
-/// * `app` - Handle de l'application Tauri
-pub fn capture_and_show(app: &AppHandle) {
-    // Vérifier si la fenêtre est déjà visible
-    if let Some(window) = app.get_webview_window("main") {
-        if window.is_visible().unwrap_or(false) {
-            // Si la fenêtre est visible, la cacher
-            let _ = window.hide();
-            return;
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.center();
+            let _ = window.set_focus();
+
+            let payload = SpotlightPayload {
+                text: clipboard_text,
+                previous_app,
+            };
+            let _ = window.emit("spotlight-open", payload);
         }
-    }
-
-    // Détecter et stocker l'application active AVANT d'afficher Refine
-    let previous_app = get_and_store_frontmost_app();
-
-    // Lire le clipboard actuel (l'utilisateur a fait Cmd+C lui-même)
-    let clipboard_text = app.clipboard().read_text().unwrap_or_default();
-
-    // Afficher la fenêtre
-    if let Some(window) = app.get_webview_window("main") {
-        // Configure as overlay panel
-        configure_overlay_window(&window);
-
-        let _ = window.show();
-        let _ = window.center();
-        let _ = window.set_focus();
-
-        // Envoyer le payload avec le texte et le nom de l'app
-        let payload = SpotlightPayload {
-            text: clipboard_text,
-            previous_app,
-        };
-        let _ = window.emit("spotlight-open", payload);
     }
 }

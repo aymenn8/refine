@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Manager, LogicalPosition};
+use tauri::{AppHandle, LogicalPosition, Manager};
 use tauri_plugin_store::StoreExt;
 
 const QUICK_ACTIONS_KEY: &str = "quickActions";
@@ -57,13 +57,18 @@ pub async fn save_quick_action(
         .unwrap_or_default();
 
     // Premium check: free users can only have 1 quick action
-    let is_new = !actions.iter().any(|a| a.mode_id == mode_id && a.action_type == action_type);
+    let is_new = !actions
+        .iter()
+        .any(|a| a.mode_id == mode_id && a.action_type == action_type);
     if is_new && actions.len() >= 1 {
         crate::license::require_feature(&app, crate::license::Feature::ExtraQuickActions)?;
     }
 
     // Check if this target already has a quick action (match by mode_id AND action_type)
-    if let Some(existing) = actions.iter_mut().find(|a| a.mode_id == mode_id && a.action_type == action_type) {
+    if let Some(existing) = actions
+        .iter_mut()
+        .find(|a| a.mode_id == mode_id && a.action_type == action_type)
+    {
         existing.shortcut = shortcut;
         existing.mode_name = mode_name;
     } else {
@@ -126,7 +131,6 @@ pub fn get_quick_actions_sync(app: &AppHandle) -> Vec<QuickAction> {
         .unwrap_or_default()
 }
 
-
 /// Show the toast window at top-right of screen with loading state
 fn show_toast(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("toast") {
@@ -139,19 +143,19 @@ fn show_toast(app: &AppHandle) {
 
         // Set state to loading via JS
         let _ = window.eval("window.__setToastState && window.__setToastState('loading')");
-
-        // Show window
-        let _ = window.show();
     }
+
+    // Show via panel API (works over fullscreen apps)
+    crate::window::show_toast_panel(app);
 }
 
 /// Show done state and hide toast after delay
 fn show_done_and_hide(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("toast") {
         let _ = window.eval("window.__setToastState && window.__setToastState('done')");
-        thread::sleep(Duration::from_millis(800));
-        let _ = window.hide();
     }
+    thread::sleep(Duration::from_millis(800));
+    crate::window::hide_toast_panel(app);
 }
 
 /// Show error state and hide toast after delay
@@ -162,22 +166,28 @@ fn show_error_and_hide(app: &AppHandle, message: &str) {
             "window.__setToastState && window.__setToastState('error', '{}')",
             escaped_msg
         ));
-        thread::sleep(Duration::from_millis(1500));
-        let _ = window.hide();
     }
+    thread::sleep(Duration::from_millis(1500));
+    crate::window::hide_toast_panel(app);
 }
 
-
 /// Execute a quick action: copy selected text, process, paste result
-pub async fn execute_quick_action(app: AppHandle, mode_id: String, action_type: String) -> Result<(), String> {
+pub async fn execute_quick_action(
+    app: AppHandle,
+    mode_id: String,
+    action_type: String,
+) -> Result<(), String> {
     // 1. Save current clipboard content to detect if selection exists
     let previous_clipboard = get_clipboard_content().unwrap_or_default();
 
     // 2. Clear clipboard with a unique marker
-    let marker = format!("__refine_marker_{}__", std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos());
+    let marker = format!(
+        "__refine_marker_{}__",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
     set_clipboard_content(&marker)?;
 
     // Small delay
@@ -257,8 +267,7 @@ fn get_clipboard_content() -> Result<String, String> {
         .output()
         .map_err(|e| format!("Failed to read clipboard: {}", e))?;
 
-    String::from_utf8(output.stdout)
-        .map_err(|e| format!("Invalid clipboard content: {}", e))
+    String::from_utf8(output.stdout).map_err(|e| format!("Invalid clipboard content: {}", e))
 }
 
 /// Set clipboard content using pbcopy
@@ -277,7 +286,9 @@ fn set_clipboard_content(content: &str) -> Result<(), String> {
             .map_err(|e| format!("Failed to write to clipboard: {}", e))?;
     }
 
-    child.wait().map_err(|e| format!("Failed to set clipboard: {}", e))?;
+    child
+        .wait()
+        .map_err(|e| format!("Failed to set clipboard: {}", e))?;
 
     Ok(())
 }

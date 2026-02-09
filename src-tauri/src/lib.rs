@@ -21,6 +21,7 @@ mod inference;
 pub mod license;
 mod model;
 mod modes;
+mod native_mac;
 mod providers;
 mod quick_actions;
 mod shortcuts;
@@ -50,8 +51,12 @@ pub fn run() {
         .plugin(tauri_plugin_aptabase::Builder::new("A-EU-6987116306").build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_nspanel::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(
@@ -59,11 +64,19 @@ pub fn run() {
                 .with_handler(move |app, shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
                         // Check if this is a quick action shortcut
-                        if let Some((action_id, action_type)) = shortcuts::get_quick_action_for_shortcut(app, &shortcut) {
+                        if let Some((action_id, action_type)) =
+                            shortcuts::get_quick_action_for_shortcut(app, &shortcut)
+                        {
                             // Execute quick action in background
                             let app_clone = app.clone();
                             tauri::async_runtime::spawn(async move {
-                                if let Err(e) = quick_actions::execute_quick_action(app_clone, action_id, action_type).await {
+                                if let Err(e) = quick_actions::execute_quick_action(
+                                    app_clone,
+                                    action_id,
+                                    action_type,
+                                )
+                                .await
+                                {
                                     eprintln!("[quick_action] Error: {}", e);
                                 }
                             });
@@ -163,14 +176,24 @@ pub fn run() {
             // Appliquer l'effet de vibrancy (verre poli macOS) sur les fenêtres
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "macos")]
-                apply_vibrancy(&window, NSVisualEffectMaterial::WindowBackground, None, Some(12.0))
-                    .expect("Failed to apply vibrancy effect");
+                apply_vibrancy(
+                    &window,
+                    NSVisualEffectMaterial::WindowBackground,
+                    None,
+                    Some(12.0),
+                )
+                .expect("Failed to apply vibrancy effect");
                 let _ = window.hide();
             }
             if let Some(window) = app.get_webview_window("settings") {
                 #[cfg(target_os = "macos")]
-                apply_vibrancy(&window, NSVisualEffectMaterial::WindowBackground, None, Some(12.0))
-                    .expect("Failed to apply vibrancy effect to settings");
+                apply_vibrancy(
+                    &window,
+                    NSVisualEffectMaterial::WindowBackground,
+                    None,
+                    Some(12.0),
+                )
+                .expect("Failed to apply vibrancy effect to settings");
 
                 // First launch: show settings (will redirect to onboarding)
                 let onboarding_done = app
@@ -195,6 +218,9 @@ pub fn run() {
                 // No vibrancy for toast - keep it fully transparent
                 let _ = window.hide();
             }
+
+            // Convert main + toast windows to NSPanel for fullscreen overlay support
+            window::init_panels(app.handle());
 
             Ok(())
         })
