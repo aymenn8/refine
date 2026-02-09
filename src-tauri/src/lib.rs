@@ -32,7 +32,7 @@ mod window;
 
 use state::GlobalShortcutState;
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_store::StoreExt;
 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
@@ -80,6 +80,20 @@ pub fn run() {
                                     eprintln!("[quick_action] Error: {}", e);
                                 }
                             });
+                        } else if shortcuts::is_history_shortcut(app, &shortcut) {
+                            let spotlight_visible = app
+                                .get_webview_window("main")
+                                .and_then(|window| window.is_visible().ok())
+                                .unwrap_or(false);
+
+                            if spotlight_visible {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.emit("spotlight-history-toggle", ());
+                                }
+                            } else {
+                                // Standalone clipboard history window
+                                window::show_clipboard_history_window(app);
+                            }
                         } else {
                             // Regular spotlight open
                             window::capture_and_show(app);
@@ -92,12 +106,17 @@ pub fn run() {
             commands::apply_replacement,
             commands::hide_window,
             commands::show_main_window,
+            commands::show_clipboard_window,
             commands::show_settings_window,
             commands::hide_settings_window,
             commands::minimize_settings_window,
+            commands::hide_clipboard_window,
             commands::paste_to_previous_app,
+            commands::paste_to_previous_app_keep_open,
             shortcuts::update_global_shortcut,
             shortcuts::get_global_shortcut,
+            shortcuts::update_history_shortcut,
+            shortcuts::get_history_shortcut,
             model::check_model_status,
             model::download_model,
             model::cancel_download,
@@ -120,6 +139,9 @@ pub fn run() {
             modes::toggle_pin_mode,
             modes::set_mode_model,
             clipboard::get_clipboard_history,
+            clipboard::query_clipboard_history,
+            clipboard::recopy_clipboard_history_entry,
+            clipboard::paste_clipboard_history_entry,
             clipboard::clear_clipboard_history,
             credentials::save_api_credential,
             credentials::get_api_credentials,
@@ -158,11 +180,18 @@ pub fn run() {
             app.manage(model::DownloadState::new());
 
             // Initialiser le state pour le clipboard et démarrer le monitoring
+            clipboard::init_clipboard_store(app.handle()).map_err(std::io::Error::other)?;
             app.manage(clipboard::ClipboardState::new());
             clipboard::start_clipboard_monitor(app.handle().clone());
 
             // Enregistrer le raccourci global
             app.global_shortcut().register(shortcut)?;
+
+            // Enregistrer le raccourci global de l'historique clipboard
+            let history_shortcut = shortcuts::load_history_shortcut_from_store(app.handle());
+            if history_shortcut != shortcut {
+                app.global_shortcut().register(history_shortcut)?;
+            }
 
             // Enregistrer les raccourcis des quick actions
             shortcuts::register_quick_action_shortcuts(app.handle());
@@ -183,6 +212,17 @@ pub fn run() {
                     Some(12.0),
                 )
                 .expect("Failed to apply vibrancy effect");
+                let _ = window.hide();
+            }
+            if let Some(window) = app.get_webview_window("clipboard") {
+                #[cfg(target_os = "macos")]
+                apply_vibrancy(
+                    &window,
+                    NSVisualEffectMaterial::WindowBackground,
+                    None,
+                    Some(12.0),
+                )
+                .expect("Failed to apply vibrancy effect to clipboard");
                 let _ = window.hide();
             }
             if let Some(window) = app.get_webview_window("settings") {

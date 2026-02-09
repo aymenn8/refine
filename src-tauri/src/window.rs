@@ -24,12 +24,25 @@ tauri_panel! {
             is_floating_panel: true
         }
     })
+
+    panel!(ClipboardPanel {
+        config: {
+            can_become_key_window: true,
+            can_become_main_window: false,
+            is_floating_panel: true
+        }
+    })
 }
 
 /// Payload envoyé au frontend lors de l'ouverture du spotlight
 #[derive(Clone, Serialize)]
 pub struct SpotlightPayload {
     pub text: String,
+    pub previous_app: String,
+}
+
+#[derive(Clone, Serialize)]
+pub struct ClipboardWindowPayload {
     pub previous_app: String,
 }
 
@@ -85,6 +98,24 @@ pub fn init_panels(app: &AppHandle) {
             panel.hide();
         }
     }
+
+    // Convert clipboard window to NSPanel
+    if let Some(window) = app.get_webview_window("clipboard") {
+        if let Ok(panel) = window.to_panel::<ClipboardPanel>() {
+            panel.set_level(PanelLevel::ScreenSaver.value());
+            panel.set_collection_behavior(
+                CollectionBehavior::new()
+                    .can_join_all_spaces()
+                    .full_screen_auxiliary()
+                    .into(),
+            );
+            panel.set_style_mask(StyleMask::empty().nonactivating_panel().into());
+            panel.set_hides_on_deactivate(false);
+            panel.set_floating_panel(true);
+            panel.set_accepts_mouse_moved_events(true);
+            panel.hide();
+        }
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -114,6 +145,68 @@ pub fn hide_toast_panel(app: &AppHandle) {
     });
 }
 
+/// Show standalone clipboard history window as panel.
+#[cfg(target_os = "macos")]
+pub fn show_clipboard_history_window(app: &AppHandle) {
+    run_on_main_thread(app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("clipboard") {
+            if panel.is_visible() {
+                panel.hide();
+                return;
+            }
+
+            // Hide spotlight panel if open
+            if let Ok(main_panel) = app_handle.get_webview_panel("main") {
+                if main_panel.is_visible() {
+                    main_panel.hide();
+                }
+            }
+
+            // Capture current front app for paste-back on Enter
+            let previous_app = crate::native_mac::get_and_store_frontmost_app();
+
+            if let Some(window) = app_handle.get_webview_window("clipboard") {
+                let _ = window.center();
+            }
+
+            panel.show_and_make_key();
+            crate::native_mac::activate_our_app();
+
+            let content_view = panel.content_view();
+            panel.make_first_responder(Some(&content_view));
+
+            if let Some(window) = app_handle.get_webview_window("clipboard") {
+                let payload = ClipboardWindowPayload { previous_app };
+                let _ = window.emit("clipboard-open", payload);
+            }
+        } else if let Some(window) = app_handle.get_webview_window("clipboard") {
+            if window.is_visible().unwrap_or(false) {
+                let _ = window.hide();
+                return;
+            }
+
+            let previous_app = crate::native_mac::get_and_store_frontmost_app();
+            let _ = window.show();
+            let _ = window.center();
+            let _ = window.set_focus();
+
+            let payload = ClipboardWindowPayload { previous_app };
+            let _ = window.emit("clipboard-open", payload);
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
+pub fn hide_clipboard_history_window(app: &AppHandle) {
+    run_on_main_thread(app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("clipboard") {
+            panel.hide();
+        } else if let Some(window) = app_handle.get_webview_window("clipboard") {
+            let _ = window.hide();
+        }
+    });
+}
+
 #[cfg(not(target_os = "macos"))]
 pub fn show_toast_panel(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("toast") {
@@ -128,6 +221,26 @@ pub fn hide_toast_panel(app: &AppHandle) {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
+pub fn show_clipboard_history_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("clipboard") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+            return;
+        }
+        let _ = window.show();
+        let _ = window.center();
+        let _ = window.set_focus();
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn hide_clipboard_history_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("clipboard") {
+        let _ = window.hide();
+    }
+}
+
 /// Affiche la fenêtre principale (spotlight) par-dessus les apps en plein écran.
 ///
 /// Utilise NSPanel via tauri-nspanel pour overlay sans quitter le Space plein écran.
@@ -135,6 +248,16 @@ pub fn capture_and_show(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     {
         run_on_main_thread(app, |app_handle| {
+            if let Ok(clipboard_panel) = app_handle.get_webview_panel("clipboard") {
+                if clipboard_panel.is_visible() {
+                    clipboard_panel.hide();
+                }
+            } else if let Some(window) = app_handle.get_webview_window("clipboard") {
+                if window.is_visible().unwrap_or(false) {
+                    let _ = window.hide();
+                }
+            }
+
             if let Ok(panel) = app_handle.get_webview_panel("main") {
                 if panel.is_visible() {
                     panel.hide();
@@ -195,6 +318,12 @@ pub fn capture_and_show(app: &AppHandle) {
 
     #[cfg(not(target_os = "macos"))]
     {
+        if let Some(window) = app.get_webview_window("clipboard") {
+            if window.is_visible().unwrap_or(false) {
+                let _ = window.hide();
+            }
+        }
+
         if let Some(window) = app.get_webview_window("main") {
             if window.is_visible().unwrap_or(false) {
                 let _ = window.hide();

@@ -53,6 +53,20 @@
         "skipTaskbar": true,
         "visible": false,
         "focus": false
+      },
+      {
+        "label": "clipboard",
+        "title": "Refine Clipboard",
+        "url": "/clipboard",
+        "width": 680,
+        "height": 420,
+        "resizable": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "center": true,
+        "visible": false
       }
     ],
     "security": {

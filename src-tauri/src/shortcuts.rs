@@ -3,6 +3,8 @@ use tauri::{AppHandle, State};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 use tauri_plugin_store::StoreExt;
 
+const HISTORY_SHORTCUT_KEY: &str = "historyShortcut";
+
 /// Parse un raccourci depuis une chaîne de caractères
 ///
 /// Convertit une représentation textuelle d'un raccourci clavier en objet Shortcut Tauri.
@@ -187,6 +189,11 @@ pub async fn get_global_shortcut(app: AppHandle) -> Result<String, String> {
     Ok("CommandOrControl+Shift+R".to_string())
 }
 
+#[tauri::command]
+pub async fn get_history_shortcut(app: AppHandle) -> Result<String, String> {
+    Ok(get_history_shortcut_from_store(&app))
+}
+
 /// Charge le raccourci depuis le store ou retourne le raccourci par défaut
 ///
 /// Cette fonction est utilisée au démarrage de l'application pour restaurer
@@ -218,6 +225,72 @@ pub fn load_shortcut_from_store(app: &AppHandle) -> Shortcut {
 
     parse_shortcut(&shortcut_str)
         .unwrap_or_else(|| Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyR))
+}
+
+fn get_history_shortcut_from_store(app: &AppHandle) -> String {
+    if let Ok(store) = app.store("settings.json") {
+        if let Some(saved_shortcut) = store.get(HISTORY_SHORTCUT_KEY) {
+            return saved_shortcut
+                .as_str()
+                .unwrap_or("CommandOrControl+Shift+V")
+                .to_string();
+        }
+    }
+
+    "CommandOrControl+Shift+V".to_string()
+}
+
+pub fn load_history_shortcut_from_store(app: &AppHandle) -> Shortcut {
+    let shortcut_str = get_history_shortcut_from_store(app);
+
+    parse_shortcut(&shortcut_str)
+        .unwrap_or_else(|| Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyV))
+}
+
+pub fn is_history_shortcut(app: &AppHandle, shortcut: &Shortcut) -> bool {
+    let parsed = load_history_shortcut_from_store(app);
+    parsed == *shortcut
+}
+
+#[tauri::command]
+pub async fn update_history_shortcut(app: AppHandle, shortcut_str: String) -> Result<(), String> {
+    let new_shortcut = parse_shortcut(&shortcut_str)
+        .ok_or_else(|| format!("Invalid shortcut format: {}", shortcut_str))?;
+
+    let main_shortcut = load_shortcut_from_store(&app);
+    if new_shortcut == main_shortcut {
+        return Err("Shortcut already used by Open Refine".to_string());
+    }
+
+    let actions = crate::quick_actions::get_quick_actions_sync(&app);
+    for action in &actions {
+        if action.shortcut.is_empty() {
+            continue;
+        }
+        if let Some(parsed) = parse_shortcut(&action.shortcut) {
+            if parsed == new_shortcut {
+                return Err(format!("Shortcut already used by Quick Action: {}", action.mode_name));
+            }
+        }
+    }
+
+    let old_shortcut_str = get_history_shortcut_from_store(&app);
+    let old_shortcut = parse_shortcut(&old_shortcut_str);
+
+    if old_shortcut != Some(new_shortcut) {
+        if let Some(old) = old_shortcut {
+            let _ = app.global_shortcut().unregister(old);
+        }
+        app.global_shortcut()
+            .register(new_shortcut)
+            .map_err(|e| e.to_string())?;
+    }
+
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set(HISTORY_SHORTCUT_KEY, shortcut_str);
+    store.save().map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 /// Register all quick action shortcuts
@@ -270,6 +343,12 @@ pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<(), String>
     let main_shortcut = load_shortcut_from_store(&app);
     let _ = app.global_shortcut().register(main_shortcut);
 
+    // 2b. Re-register clipboard history shortcut
+    let history_shortcut = load_history_shortcut_from_store(&app);
+    if history_shortcut != main_shortcut {
+        let _ = app.global_shortcut().register(history_shortcut);
+    }
+
     // 3. Re-register all quick action shortcuts
     let actions = crate::quick_actions::get_quick_actions_sync(&app);
     for action in &actions {
@@ -311,6 +390,16 @@ pub async fn check_shortcut_conflict(
         if let Some(global_parsed) = parse_shortcut(&global_str) {
             if global_parsed == new_shortcut {
                 return Ok(Some("Open Refine".to_string()));
+            }
+        }
+    }
+
+    // Check against clipboard history global shortcut
+    if exclude_id.as_deref() != Some("history") {
+        let history_str = get_history_shortcut_from_store(&app);
+        if let Some(history_parsed) = parse_shortcut(&history_str) {
+            if history_parsed == new_shortcut {
+                return Ok(Some("Clipboard History".to_string()));
             }
         }
     }

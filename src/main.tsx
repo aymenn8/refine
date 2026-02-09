@@ -6,6 +6,7 @@ import App from "./App";
 import Settings from "./Settings";
 import Toast from "./Toast";
 import Onboarding from "./Onboarding";
+import ClipboardWindow from "./ClipboardWindow";
 import "./App.css";
 
 applyAccentColor().finally(() => {
@@ -17,6 +18,7 @@ applyAccentColor().finally(() => {
           <Route path="/settings" element={<Settings />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/toast" element={<Toast />} />
+          <Route path="/clipboard" element={<ClipboardWindow />} />
         </Routes>
       </BrowserRouter>
     </React.StrictMode>,

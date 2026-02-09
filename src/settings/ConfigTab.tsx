@@ -28,6 +28,10 @@ function ConfigTab() {
   // Analytics
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showClearClipboardModal, setShowClearClipboardModal] = useState(false);
+  const [isClearingClipboard, setIsClearingClipboard] = useState(false);
+  const [clipboardClearMessage, setClipboardClearMessage] = useState<string | null>(null);
+  const [clipboardClearFailed, setClipboardClearFailed] = useState(false);
 
   // General
   const [autoUpdate, setAutoUpdate] = useState(true);
@@ -108,10 +112,10 @@ function ConfigTab() {
     try {
       const shortcut = await invoke<string>("get_global_shortcut");
       setGlobalShortcut(shortcut);
+      const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
+      setHistoryShortcut(currentHistoryShortcut);
 
       const store = await load("settings.json");
-      const savedHistoryShortcut = await store.get<string>("historyShortcut");
-      if (savedHistoryShortcut) setHistoryShortcut(savedHistoryShortcut);
       const saved = await store.get<string>("accentColor");
       if (saved) setAccentColor(saved);
       const savedCustom = await store.get<string | null>("customAccentColor");
@@ -244,9 +248,7 @@ function ConfigTab() {
         }
       } else if (targetId === "history") {
         try {
-          const store = await load("settings.json");
-          await store.set("historyShortcut", shortcut);
-          await store.save();
+          await invoke("update_history_shortcut", { shortcutStr: shortcut });
           setHistoryShortcut(shortcut);
         } catch (error) {
           console.error("Failed to update history shortcut:", error);
@@ -266,6 +268,31 @@ function ConfigTab() {
     setRecordedKeys(new Set());
     setShortcutError(null);
     setTimeout(() => buttonRef?.focus(), 10);
+  };
+
+  const clearClipboardHistory = async () => {
+    if (isClearingClipboard) return;
+
+    setIsClearingClipboard(true);
+    setClipboardClearMessage(null);
+    setClipboardClearFailed(false);
+    let success = false;
+
+    try {
+      await invoke("clear_clipboard_history");
+      success = true;
+      setClipboardClearMessage("Clipboard history cleared.");
+    } catch (error) {
+      console.error("Failed to clear clipboard history:", error);
+      setClipboardClearMessage("Failed to clear clipboard history.");
+      setClipboardClearFailed(true);
+    } finally {
+      setIsClearingClipboard(false);
+      setShowClearClipboardModal(false);
+      if (success) {
+        window.setTimeout(() => setClipboardClearMessage(null), 2200);
+      }
+    }
   };
 
   const PRESET_COLORS = ["#F0B67F", "#6BBFFF", "#A78BFA", "#F472B6", "#34D399"];
@@ -665,7 +692,102 @@ function ConfigTab() {
             </p>
           </div>
         </div>
+        <div className="mt-3 p-4 bg-gradient-to-br from-red-500/[0.09] via-red-500/[0.04] to-white/[0.02] border border-red-400/25 rounded-xl">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-red-500/15 border border-red-300/20 flex items-center justify-center shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-red-200/90">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M8 6v14h8V6" />
+                  <path d="M10 10v7M14 10v7" />
+                </svg>
+              </div>
+              <div>
+                <span className="text-[13px] text-white/80 font-medium">Clipboard History</span>
+                <p className="text-[11px] text-white/45 mt-0.5">
+                  Permanently delete all local clipboard entries.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setClipboardClearMessage(null);
+                setClipboardClearFailed(false);
+                setShowClearClipboardModal(true);
+              }}
+              disabled={isClearingClipboard}
+              className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed border border-red-300/30 rounded-lg text-[12px] text-red-100 font-medium cursor-pointer transition-colors"
+            >
+              {isClearingClipboard ? "Clearing..." : "Clear..."}
+            </button>
+          </div>
+          {clipboardClearMessage && (
+            <p
+              className={`mt-2 text-[11px] ${
+                clipboardClearFailed ? "text-red-200/85" : "text-emerald-200/90"
+              }`}
+            >
+              {clipboardClearMessage}
+            </p>
+          )}
+        </div>
       </section>
+
+      {/* Clipboard history clear confirmation modal */}
+      {showClearClipboardModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="relative bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-[380px] w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-red-200/90">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M8 6v14h8V6" />
+                  <path d="M10 10v7M14 10v7" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-[15px] font-semibold text-white">Clear Clipboard History?</h3>
+                <p className="text-[11px] text-white/40">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="bg-white/5 rounded-xl p-4 mb-4">
+              <p className="text-[12px] text-white/55 leading-relaxed">
+                This will remove all saved clipboard items from your local database on this Mac.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowClearClipboardModal(false)}
+              className="absolute top-4 right-4 w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white/90 cursor-pointer transition-colors flex items-center justify-center"
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowClearClipboardModal(false)}
+                disabled={isClearingClipboard}
+                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 rounded-xl text-[13px] text-white/60 font-medium cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={clearClipboardHistory}
+                disabled={isClearingClipboard}
+                className="flex-1 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed border border-red-400/30 rounded-xl text-[13px] text-red-100 font-medium cursor-pointer transition-colors"
+              >
+                {isClearingClipboard ? "Clearing..." : "Clear now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Analytics opt-out confirmation modal */}
       {showAnalyticsModal && (

@@ -6,7 +6,7 @@ interface FooterBarProps {
   hasText: boolean;
   copied: boolean;
   historyShortcut: string;
-  onCopy: () => void;
+  onPaste: () => void;
   onSend: () => void;
   onHistoryShortcutChange?: (shortcut: string) => void;
 }
@@ -41,7 +41,7 @@ export function FooterBar({
   hasText,
   copied,
   historyShortcut,
-  onCopy,
+  onPaste,
   onSend,
   onHistoryShortcutChange,
 }: FooterBarProps) {
@@ -98,7 +98,7 @@ export function FooterBar({
     <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white/5 rounded-[10px] border border-white/10">
       <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
         <Kbd>Enter</Kbd>
-        <span>{isProcessed ? "copy" : "send"}</span>
+        <span>{isProcessed ? "paste" : "send"}</span>
         <Dot />
         <Kbd>Tab</Kbd>
         <span>browse</span>
@@ -128,7 +128,7 @@ export function FooterBar({
 
       {isProcessed ? (
         <button
-          onClick={onCopy}
+          onClick={onPaste}
           disabled={!hasText}
           className={`flex items-center gap-2 px-[18px] py-[9px] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${
             copied
@@ -141,15 +141,14 @@ export function FooterBar({
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6L9 17l-5-5" />
               </svg>
-              <span>Copied!</span>
+              <span>Pasted!</span>
             </>
           ) : (
             <>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
-              <span>Copy</span>
+              <span>Paste</span>
             </>
           )}
         </button>

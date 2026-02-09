@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { playNotificationSound } from "./utils/sound";
 import { applyAccentColor } from "./utils/accent";
 import { SelectorBar } from "./spotlight/SelectorBar";
@@ -30,24 +29,16 @@ function App() {
   const [isProcessed, setIsProcessed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [originalText, setOriginalText] = useState("");
-  const [clipboardHistory, setClipboardHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flowStepProgress, setFlowStepProgress] = useState<FlowStepProgress | null>(null);
   const [historyShortcut, setHistoryShortcut] = useState("CommandOrControl+Shift+V");
+  const [spotlightTheme, setSpotlightTheme] = useState<"dark" | "light">("dark");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const ignoreBlurUntilRef = useRef(0);
 
   // --- Data loading ---
-
-  const loadClipboardHistory = useCallback(async () => {
-    try {
-      const history = await invoke<string[]>("get_clipboard_history");
-      setClipboardHistory(history);
-    } catch (err) {
-      console.error("Failed to load clipboard history:", err);
-    }
-  }, []);
 
   const loadModes = useCallback(async () => {
     try {
@@ -57,6 +48,28 @@ function App() {
     } catch (err) {
       console.error("Failed to load modes:", err);
       return [];
+    }
+  }, []);
+
+  const resolveSpotlightTheme = useCallback(async () => {
+    try {
+      const store = await load("settings.json");
+      const raw =
+        (await store.get<string>("themeMode")) ||
+        (await store.get<string>("appearance")) ||
+        (await store.get<string>("theme")) ||
+        "dark";
+      const mode = raw.toLowerCase();
+
+      if (mode === "light") {
+        setSpotlightTheme("light");
+      } else if (mode === "system") {
+        setSpotlightTheme(window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      } else {
+        setSpotlightTheme("dark");
+      }
+    } catch {
+      setSpotlightTheme(window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     }
   }, []);
 
@@ -161,14 +174,16 @@ function App() {
     }
   }, [text, isLoading, selectedType, mode]);
 
-  const handleCopy = useCallback(async () => {
+  const handlePasteProcessed = useCallback(async () => {
     if (!text.trim()) return;
     try {
-      await writeText(text);
+      ignoreBlurUntilRef.current = Date.now() + 1500;
+      await invoke("paste_to_previous_app_keep_open", { text });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error("Failed to copy:", err);
+      console.error("Failed to paste processed text:", err);
+      ignoreBlurUntilRef.current = 0;
     }
   }, [text]);
 
@@ -181,12 +196,6 @@ function App() {
     } catch (err) {
       console.error("Failed to hide window:", err);
     }
-  }, []);
-
-  const selectHistoryItem = useCallback((item: string) => {
-    setText(item);
-    setShowHistory(false);
-    textareaRef.current?.focus();
   }, []);
 
   const closeHistory = useCallback(() => {
@@ -206,8 +215,9 @@ function App() {
       } else if (loadedModes.length > 0) {
         setMode(loadedModes[0].id);
       }
-      const savedHistoryShortcut = await store.get<string>("historyShortcut");
-      if (savedHistoryShortcut) setHistoryShortcut(savedHistoryShortcut);
+      const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
+      setHistoryShortcut(currentHistoryShortcut);
+      await resolveSpotlightTheme();
     };
     loadData();
 
@@ -223,9 +233,9 @@ function App() {
       await applyAccentColor();
       await loadModes();
       await loadFlows();
-      const store = await load("settings.json");
-      const savedHistoryShortcut = await store.get<string>("historyShortcut");
-      if (savedHistoryShortcut) setHistoryShortcut(savedHistoryShortcut);
+      const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
+      setHistoryShortcut(currentHistoryShortcut);
+      await resolveSpotlightTheme();
 
       setTimeout(() => {
         textareaRef.current?.focus();
@@ -233,10 +243,16 @@ function App() {
       }, 50);
     });
 
+    const unlistenHistoryToggle = listen("spotlight-history-toggle", () => {
+      setShowPalette(false);
+      setShowHistory((prev) => !prev);
+    });
+
     return () => {
       unlisten.then((fn) => fn());
+      unlistenHistoryToggle.then((fn) => fn());
     };
-  }, [loadModes, loadFlows]);
+  }, [loadModes, loadFlows, resolveSpotlightTheme]);
 
   useEffect(() => {
     const unlisten = listen<FlowStepProgress>("flow-step-progress", (event) => {
@@ -250,7 +266,16 @@ function App() {
   useEffect(() => {
     const appWindow = getCurrentWindow();
     const unlisten = appWindow.onFocusChanged(({ payload: focused }) => {
-      if (!focused) handleClose();
+      if (focused) {
+        ignoreBlurUntilRef.current = 0;
+        return;
+      }
+
+      if (Date.now() < ignoreBlurUntilRef.current) {
+        return;
+      }
+
+      handleClose();
     });
     return () => {
       unlisten.then((fn) => fn());
@@ -276,7 +301,6 @@ function App() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (matchesShortcut(e, historyShortcut)) {
       e.preventDefault();
-      if (!showHistory) loadClipboardHistory();
       setShowHistory((prev) => !prev);
       return;
     }
@@ -291,7 +315,7 @@ function App() {
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      isProcessed ? handleCopy() : handleSendToAI();
+      isProcessed ? handlePasteProcessed() : handleSendToAI();
     } else if (e.key === "Escape") {
       e.preventDefault();
       isProcessed ? handleBack() : handleClose();
@@ -402,8 +426,7 @@ function App() {
             <div className="relative flex-1 min-h-0">
               {showHistory && (
                 <ClipboardHistory
-                  items={clipboardHistory}
-                  onSelect={selectHistoryItem}
+                  theme={spotlightTheme}
                   onClose={closeHistory}
                 />
               )}
@@ -430,13 +453,11 @@ function App() {
             hasText={!!text.trim()}
             copied={copied}
             historyShortcut={historyShortcut}
-            onCopy={handleCopy}
+            onPaste={handlePasteProcessed}
             onSend={handleSendToAI}
             onHistoryShortcutChange={async (shortcut) => {
               try {
-                const store = await import("@tauri-apps/plugin-store").then(m => m.load("settings.json"));
-                await store.set("historyShortcut", shortcut);
-                await store.save();
+                await invoke("update_history_shortcut", { shortcutStr: shortcut });
                 setHistoryShortcut(shortcut);
               } catch (error) {
                 console.error("Failed to update history shortcut:", error);
