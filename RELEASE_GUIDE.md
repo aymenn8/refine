@@ -1,57 +1,129 @@
-# Refine — Release Guide
+# Refine - Release macOS (2 commandes)
 
-## Comment release
+Ce guide utilise seulement:
+- `./scripts/release-before-notarization.sh`
+- `./scripts/release-after-notarization.sh`
 
-1. Écris tes patch notes dans `RELEASE_NOTES.md`
-2. Commit tout ton code sur `main`
-3. Lance le script :
+Script de support (debug):
+- `./scripts/notary-status.sh`
+
+## Pré-requis
+
+1. Mets tes secrets dans `scripts/.env.local`:
+- `APPLE_SIGNING_IDENTITY`
+- `APPLE_ID`
+- `APPLE_PASSWORD`
+- `APPLE_TEAM_ID`
+- `TAURI_SIGNING_PRIVATE_KEY`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+
+2. Vérifie que `RELEASE_NOTES.md` contient bien tes notes de version.
+
+3. Mets ton code + version finale sur `main`.
+
+## Commande 1: avant notarization
 
 ```bash
-./scripts/release.sh        # auto-incrémente le patch (0.1.1 → 0.1.2)
-./scripts/release.sh 0.2.0  # version custom
+./scripts/release-before-notarization.sh [options]
 ```
 
-Le script fait tout : bump la version dans les 3 fichiers, commit, tag, push.
-GitHub Actions build, signe, notarise, et publie sur `refine-releases`.
+### Options
 
-4. Va sur https://github.com/aymenn8/refine-releases/releases
-5. La release est en **draft** → review et clique **Publish**
+- `--targets both|arm64|intel`
+  - `both` (défaut): build Apple Silicon + Intel
+  - `arm64`: build Apple Silicon seulement
+  - `intel`: build Intel seulement
+- `--release-repo owner/repo`
+  - défaut: `aymenn8/refine-releases`
+  - utilisé pour générer les URLs dans `latest.json`
 
----
+### Ce que la commande fait
 
-## GitHub Secrets
+1. Charge `scripts/.env.local`
+2. Build les artefacts pour chaque target demandé:
+- `dmg`
+- `Refine.app.tar.gz`
+- `Refine.app.tar.gz.sig`
+3. Soumet chaque `dmg` à Apple Notary (asynchrone, sans attendre)
+4. Sauve un manifest ici:
+- `.context/release-state/<tag>/manifest.env`
 
-Sur `refine-app` → Settings → Secrets → Actions :
+Le manifest contient les chemins de fichiers + IDs de soumission Apple.
 
-### Tauri (signature des updates)
+## Commande 2: après notarization
 
-| Secret | Valeur |
-|---|---|
-| `TAURI_SIGNING_PRIVATE_KEY` | `cat ~/.tauri/refine.key \| pbcopy` |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Le mot de passe de la clé |
+```bash
+./scripts/release-after-notarization.sh [options]
+```
 
-### Apple (code signing + notarisation)
+### Options
 
-| Secret | Valeur |
-|---|---|
-| `APPLE_CERTIFICATE` | Le .p12 en base64 (`base64 -i cert.p12 \| pbcopy`) |
-| `APPLE_CERTIFICATE_PASSWORD` | Mot de passe du .p12 |
-| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Aymen Kadri (52WH9VZ63T)` |
-| `APPLE_ID` | Ton email Apple |
-| `APPLE_PASSWORD` | App-Specific Password (appleid.apple.com → Sign-In → App-Specific Passwords) |
-| `APPLE_TEAM_ID` | `52WH9VZ63T` |
+- `--manifest <path>`
+  - manifeste explicite
+  - si absent, le script prend le dernier manifest automatiquement
+- `--wait-minutes <N>`
+  - timeout global d’attente notarization
+  - défaut: `240`
 
-### GitHub (publish sur le repo public)
+### Ce que la commande fait
 
-| Secret | Valeur |
-|---|---|
-| `RELEASE_TOKEN` | PAT fine-grained avec Contents Read/Write sur `refine-releases` |
+1. Charge `scripts/.env.local`
+2. Lit le manifest
+3. Attend que chaque soumission DMG soit `Accepted`
+4. Pour chaque DMG:
+- `stapler staple`
+- `stapler validate`
+- `spctl -t install` (validation Gatekeeper)
+5. Génère un dossier prêt à uploader:
+- `release-assets/<tag>/`
+6. Dans ce dossier:
+- DMG(s)
+- `Refine_<version>_<arch>.app.tar.gz`
+- `Refine_<version>_<arch>.app.tar.gz.sig`
+- `latest.json`
+- `UPLOAD_ORDER.txt`
 
----
+## Script de support: notary status
 
-## Architecture
+```bash
+./scripts/notary-status.sh
+./scripts/notary-status.sh <submission-id>
+```
 
-- Code privé : `aymenn8/refine-app`
-- Releases publiques : `aymenn8/refine-releases`
-- L'updater de l'app lit : `https://github.com/aymenn8/refine-releases/releases/latest/download/latest.json`
-- Ne jamais régénérer `~/.tauri/refine.key` après une release publiée (casserait les updates)
+- sans argument: affiche les submissions locales récentes puis l’historique Apple
+- avec `submission-id`: affiche le statut précis de cette soumission
+
+## Run complet recommandé (micro étapes)
+
+1. Lancer la phase build + soumission:
+```bash
+./scripts/release-before-notarization.sh --targets both
+```
+
+2. Vérifier l’état (optionnel pendant l’attente):
+```bash
+./scripts/notary-status.sh
+```
+
+3. Lancer la phase finalisation + packaging:
+```bash
+./scripts/release-after-notarization.sh
+```
+
+4. Uploader les fichiers du dossier:
+```bash
+release-assets/<tag>/
+```
+sur la release GitHub publique (`aymenn8/refine-releases`).
+
+5. Vérifier l’endpoint updater:
+```bash
+curl -L https://github.com/aymenn8/refine-releases/releases/latest/download/latest.json
+```
+
+## Notes importantes
+
+- Apple notarization est asynchrone: ça peut prendre du temps.
+- `stapler` colle le ticket Apple dans le DMG (important pour distribution).
+- `latest.json` est requis pour l’auto-update in-app.
+- Si tu rebuild, ce sont de nouveaux artefacts -> nouvelle notarization.
