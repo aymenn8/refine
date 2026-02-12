@@ -117,17 +117,28 @@ key_from_target() {
   echo "TAG=${TAG}"
   echo "RELEASE_REPO=${RELEASE_REPO}"
   echo "CREATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo -n "TARGETS="
-  printf "%s " "${target_triples[@]}"
-  echo
+  echo "TARGETS=\"${target_triples[*]}\""
 } > "$MANIFEST_PATH"
 
 for triple in "${target_triples[@]}"; do
   ensure_target_installed "$triple"
+
+  # The project lives on an iCloud-synced (FileProvider) volume.
+  # FileProvider automatically adds extended attributes (resource forks,
+  # com.apple.fileprovider.*) to newly created files, which causes
+  # codesign to fail with "detritus not allowed".
+  #
+  # Fix: redirect Cargo's target directory to a local (non-synced) path
+  # so the .app bundle is built outside FileProvider's reach.
+  export CARGO_TARGET_DIR="${HOME}/.cache/refine-build/target"
+  mkdir -p "$CARGO_TARGET_DIR"
+
+  xattr -cr src-tauri/icons src-tauri/entitlements.plist
+
   echo ">>> Building target: $triple"
   pnpm tauri build --target "$triple" --bundles app,dmg --verbose --ci --skip-stapling
 
-  bundle_base="src-tauri/target/${triple}/release/bundle"
+  bundle_base="${CARGO_TARGET_DIR}/${triple}/release/bundle"
   dmg_path="$(find "${bundle_base}/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
   tar_path="${bundle_base}/macos/Refine.app.tar.gz"
   sig_path="${bundle_base}/macos/Refine.app.tar.gz.sig"
