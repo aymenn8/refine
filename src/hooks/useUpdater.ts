@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { load } from "@tauri-apps/plugin-store";
@@ -12,12 +12,14 @@ interface UpdateState {
   progress: number;
   ready: boolean;
   dismissed: boolean;
+  noUpdateNotice: boolean;
   error: string | null;
 }
 
 let cachedUpdate: Update | null = null;
 
 export function useUpdater() {
+  const noUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, setState] = useState<UpdateState>({
     checking: false,
     available: false,
@@ -27,10 +29,24 @@ export function useUpdater() {
     progress: 0,
     ready: false,
     dismissed: false,
+    noUpdateNotice: false,
     error: null,
   });
 
-  const checkForUpdate = useCallback(async () => {
+  const clearNoUpdateTimer = useCallback(() => {
+    if (noUpdateTimerRef.current) {
+      clearTimeout(noUpdateTimerRef.current);
+      noUpdateTimerRef.current = null;
+    }
+  }, []);
+
+  const dismissNoUpdateNotice = useCallback(() => {
+    clearNoUpdateTimer();
+    setState((s) => ({ ...s, noUpdateNotice: false }));
+  }, [clearNoUpdateTimer]);
+
+  const checkForUpdate = useCallback(async (manual = false) => {
+    clearNoUpdateTimer();
     setState((s) => ({ ...s, checking: true, error: null }));
     try {
       const update = await check();
@@ -43,15 +59,29 @@ export function useUpdater() {
           version: update.version,
           body: update.body ?? null,
           dismissed: false,
+          noUpdateNotice: false,
         }));
       } else {
-        setState((s) => ({ ...s, checking: false }));
+        setState((s) => ({
+          ...s,
+          checking: false,
+          available: false,
+          version: null,
+          body: null,
+          noUpdateNotice: manual,
+        }));
+        if (manual) {
+          noUpdateTimerRef.current = setTimeout(() => {
+            setState((s) => ({ ...s, noUpdateNotice: false }));
+            noUpdateTimerRef.current = null;
+          }, 3500);
+        }
       }
     } catch (error) {
       console.error("Update check failed:", error);
       setState((s) => ({ ...s, checking: false, error: String(error) }));
     }
-  }, []);
+  }, [clearNoUpdateTimer]);
 
   useEffect(() => {
     (async () => {
@@ -60,9 +90,15 @@ export function useUpdater() {
         const autoUpdate = await store.get<boolean>("autoUpdateEnabled");
         if (autoUpdate === false) return;
       } catch { /* default to checking */ }
-      checkForUpdate();
+      checkForUpdate(false);
     })();
   }, [checkForUpdate]);
+
+  useEffect(() => {
+    return () => {
+      clearNoUpdateTimer();
+    };
+  }, [clearNoUpdateTimer]);
 
   async function downloadAndInstall() {
     const update = cachedUpdate ?? (await check());
@@ -114,5 +150,6 @@ export function useUpdater() {
     downloadAndInstall,
     installAndRelaunch,
     dismiss,
+    dismissNoUpdateNotice,
   };
 }

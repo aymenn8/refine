@@ -182,7 +182,7 @@ function Settings() {
     });
     const unlisten2 = listen("check-update", () => {
       setActiveTab("about");
-      updater.checkForUpdate();
+      updater.checkForUpdate(true);
     });
     return () => {
       unlisten1.then((f) => f());
@@ -355,6 +355,34 @@ function Settings() {
           {renderContent()}
         </main>
       </div>
+
+      {updater.noUpdateNotice && (
+        <div className="fixed top-4 right-4 z-[70]">
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-emerald-300"
+            >
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+            <span className="text-[12px] text-white/75">Refine is already up to date.</span>
+            <button
+              onClick={() => updater.dismissNoUpdateNotice()}
+              className="ml-1 text-white/30 hover:text-white/60 border-none bg-transparent cursor-pointer p-0 text-[13px] leading-none"
+              aria-label="Close up-to-date notification"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Update modal — shows aggressively when update is available and not dismissed */}
       {updater.available && !updater.dismissed && !updater.ready && (

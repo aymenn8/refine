@@ -7,6 +7,7 @@
 
 ### Bug Fixes
 
+- Updates: manual "Check for updates" now shows a confirmation notification when no update is available.
 - Onboarding: on the “You’re all set” step, pressing the Spotlight shortcut now closes onboarding.
 - Spotlight now opens with an empty input (removed automatic copy/paste behavior).
 - Modes menu trigger (search/cross) behavior is now stable when opening/closing the menu.

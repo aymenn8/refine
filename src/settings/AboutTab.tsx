@@ -16,7 +16,7 @@ interface AboutTabProps {
     checking: boolean;
     available: boolean;
     version: string | null;
-    checkForUpdate: () => Promise<void>;
+    checkForUpdate: (manual?: boolean) => Promise<void>;
     downloadAndInstall: () => Promise<void>;
     downloading: boolean;
     progress: number;
@@ -200,7 +200,7 @@ function AboutTab({ updater, license }: AboutTabProps) {
 
           {/* Update */}
           <button
-            onClick={() => updater.checkForUpdate()}
+            onClick={() => updater.checkForUpdate(true)}
             disabled={updater.checking}
             className={`w-full flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all disabled:cursor-wait ${
               updater.available
