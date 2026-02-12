@@ -96,6 +96,9 @@ pub fn run() {
                             }
                         } else {
                             // Regular spotlight open
+                            if let Some(settings_window) = app.get_webview_window("settings") {
+                                let _ = settings_window.emit("spotlight-shortcut-pressed", ());
+                            }
                             window::capture_and_show(app);
                         }
                     }

@@ -131,6 +131,9 @@ function App() {
       setMode(modes[0].id);
       setSelectedType("mode");
     }
+    setShowPalette(false);
+    setShowHistory(false);
+    textareaRef.current?.focus();
   }, [pinnedModes, modes]);
 
   // --- Actions ---
@@ -305,6 +308,19 @@ function App() {
       return;
     }
 
+    if ((e.metaKey || e.ctrlKey) && e.key >= "1" && e.key <= "9") {
+      const modeIndex = Number(e.key) - 1;
+      const targetMode = pinnedModes[modeIndex];
+      if (targetMode) {
+        e.preventDefault();
+        setMode(targetMode.id);
+        setSelectedType("mode");
+        if (showPalette) setShowPalette(false);
+        if (showHistory) setShowHistory(false);
+      }
+      return;
+    }
+
     if (showHistory) return;
 
     if (e.key === "Tab" && !isLoading && !isProcessed && !showPalette) {
@@ -363,7 +379,6 @@ function App() {
                 setSelectedType("mode");
               }}
               onOpenPalette={openPalette}
-              onClosePalette={closePalette}
               onResetToDefault={resetToDefault}
             />
           )}

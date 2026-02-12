@@ -31,7 +31,9 @@ export function CommandPalette({
   // Filtered items
   const paletteItems = useMemo(() => {
     const q = search.toLowerCase();
-    const filteredModes = modes.filter((m) => m.name.toLowerCase().includes(q));
+    const filteredModes = modes.filter(
+      (m) => !m.is_pinned && m.name.toLowerCase().includes(q)
+    );
     const filteredFlows = flows.filter((f) => f.name.toLowerCase().includes(q));
     const items: {
       type: "mode" | "flow";

@@ -486,7 +486,7 @@ function ModesTab() {
             </div>
 
             <p className="text-[14px] text-white/70 mb-6">
-              All custom modes will be <strong className="text-white">permanently deleted</strong>. Only the 3 built-in modes will remain.
+              All custom modes will be <strong className="text-white">permanently deleted</strong>. Only built-in modes will remain.
             </p>
 
             <div className="flex gap-3 justify-end">

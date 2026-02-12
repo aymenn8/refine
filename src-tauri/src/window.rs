@@ -1,6 +1,5 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_clipboard_manager::ClipboardExt;
 
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{
@@ -267,9 +266,6 @@ pub fn capture_and_show(app: &AppHandle) {
                 // Détecter et stocker l'application active AVANT d'afficher Refine
                 let previous_app = crate::native_mac::get_and_store_frontmost_app();
 
-                // Lire le clipboard actuel
-                let clipboard_text = app_handle.clipboard().read_text().unwrap_or_default();
-
                 // Center the underlying webview window (do not convert the panel back to a window)
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.center();
@@ -288,7 +284,7 @@ pub fn capture_and_show(app: &AppHandle) {
                 // Emit event to the frontend
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let payload = SpotlightPayload {
-                        text: clipboard_text,
+                        text: String::new(),
                         previous_app,
                     };
                     let _ = window.emit("spotlight-open", payload);
@@ -300,14 +296,13 @@ pub fn capture_and_show(app: &AppHandle) {
                 }
 
                 let previous_app = crate::native_mac::get_and_store_frontmost_app();
-                let clipboard_text = app_handle.clipboard().read_text().unwrap_or_default();
 
                 let _ = window.show();
                 let _ = window.center();
                 let _ = window.set_focus();
 
                 let payload = SpotlightPayload {
-                    text: clipboard_text,
+                    text: String::new(),
                     previous_app,
                 };
                 let _ = window.emit("spotlight-open", payload);
@@ -335,7 +330,6 @@ pub fn capture_and_show(app: &AppHandle) {
     #[cfg(not(target_os = "macos"))]
     {
         let previous_app = crate::native_mac::get_and_store_frontmost_app();
-        let clipboard_text = app.clipboard().read_text().unwrap_or_default();
 
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.show();
@@ -343,7 +337,7 @@ pub fn capture_and_show(app: &AppHandle) {
             let _ = window.set_focus();
 
             let payload = SpotlightPayload {
-                text: clipboard_text,
+                text: String::new(),
                 previous_app,
             };
             let _ = window.emit("spotlight-open", payload);

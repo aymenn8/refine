@@ -103,6 +103,18 @@ function Onboarding() {
     window.location.href = "/settings";
   };
 
+  useEffect(() => {
+    const unlisten = listen("spotlight-shortcut-pressed", async () => {
+      if (step !== 3) return;
+      await invoke("complete_onboarding");
+      await invoke("hide_settings_window");
+    });
+
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [step]);
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
     const gb = bytes / (1024 * 1024 * 1024);
@@ -237,7 +249,7 @@ function StepFeatures() {
         </svg>
       ),
       title: "Modes",
-      desc: "CORRECT, TRANSLATE, ASK — or create your own custom modes.",
+      desc: "PROMPT IT, CORRECT, ASK, TO ENGLISH — or create your own custom modes.",
     },
     {
       icon: (

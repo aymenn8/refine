@@ -10,7 +10,6 @@ interface SelectorBarProps {
   currentSelectionName?: string;
   onSelectMode: (id: string) => void;
   onOpenPalette: () => void;
-  onClosePalette: () => void;
   onResetToDefault: () => void;
 }
 
@@ -24,16 +23,15 @@ export function SelectorBar({
   currentSelectionName,
   onSelectMode,
   onOpenPalette,
-  onClosePalette,
   onResetToDefault,
 }: SelectorBarProps) {
-  const showsName = !isCurrentPinnedMode && !!currentSelectionName;
+  const showsName = !showPalette && !isCurrentPinnedMode && !!currentSelectionName;
 
   const handleTriggerClick = () => {
-    if (showsName) {
+    if (showPalette) {
       onResetToDefault();
-    } else if (showPalette) {
-      onClosePalette();
+    } else if (showsName) {
+      onResetToDefault();
     } else {
       onOpenPalette();
     }
@@ -64,6 +62,7 @@ export function SelectorBar({
             ? "bg-white/10 text-white/80"
             : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
         }`}
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={handleTriggerClick}
         disabled={isLoading}
       >
@@ -90,6 +89,19 @@ export function SelectorBar({
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </>
+        ) : showPalette ? (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
         ) : (
           <svg
             width="16"

@@ -46,6 +46,17 @@ impl ProcessingMode {
 fn get_default_modes() -> Vec<ProcessingMode> {
     vec![
         ProcessingMode {
+            id: "prompt-it".to_string(),
+            name: "PROMPT IT".to_string(),
+            description: "Turn rough ideas into a short, high-quality LLM prompt".to_string(),
+
+            system_prompt: "You are an expert prompt engineer. Transform the user's input into one short, high-impact prompt that an LLM can execute clearly. Keep it concise, specific, and actionable. Preserve the user's language unless translation is explicitly requested. Output ONLY the final prompt sentence.".to_string(),
+            user_prompt_template: "Create a concise, high-quality prompt from this idea: {text}".to_string(),
+            is_default: true,
+            is_pinned: true,
+            model_override: None,
+        },
+        ProcessingMode {
             id: "translate-to-english".to_string(),
             name: "TO ENGLISH".to_string(),
             description: "Translate any text to English".to_string(),
@@ -53,7 +64,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             system_prompt: "You are a professional translator. Translate the user's text to English. Output ONLY the translation, nothing else. Be concise.".to_string(),
             user_prompt_template: "Translate to English: {text}".to_string(),
             is_default: true,
-            is_pinned: true,
+            is_pinned: false,
             model_override: None,
         },
         ProcessingMode {
@@ -83,6 +94,62 @@ fn get_default_modes() -> Vec<ProcessingMode> {
 
 const MODES_KEY: &str = "processingModes";
 
+fn append_missing_default_modes(modes: &mut Vec<ProcessingMode>) -> bool {
+    let mut changed = false;
+    for default_mode in get_default_modes() {
+        if !modes.iter().any(|m| m.id == default_mode.id) {
+            modes.push(default_mode);
+            changed = true;
+        }
+    }
+
+    // Migration: replace old pinned default setup
+    // Old setup had TO ENGLISH + CORRECT + ASK pinned (and PROMPT IT unpinned).
+    let prompt_pinned = modes
+        .iter()
+        .find(|m| m.id == "prompt-it")
+        .map(|m| m.is_pinned)
+        .unwrap_or(false);
+    let translate_pinned = modes
+        .iter()
+        .find(|m| m.id == "translate-to-english")
+        .map(|m| m.is_pinned)
+        .unwrap_or(false);
+    let correct_pinned = modes
+        .iter()
+        .find(|m| m.id == "correct")
+        .map(|m| m.is_pinned)
+        .unwrap_or(false);
+    let ask_pinned = modes
+        .iter()
+        .find(|m| m.id == "ask")
+        .map(|m| m.is_pinned)
+        .unwrap_or(false);
+    let pinned_count = modes.iter().filter(|m| m.is_pinned).count();
+
+    if !prompt_pinned && translate_pinned && correct_pinned && ask_pinned && pinned_count == 3 {
+        if let Some(mode) = modes.iter_mut().find(|m| m.id == "prompt-it") {
+            mode.is_pinned = true;
+            changed = true;
+        }
+        if let Some(mode) = modes.iter_mut().find(|m| m.id == "translate-to-english") {
+            mode.is_pinned = false;
+            changed = true;
+        }
+    }
+
+    // Ensure PROMPT IT is first so it becomes the default selected mode when no explicit default exists.
+    if let Some(prompt_idx) = modes.iter().position(|m| m.id == "prompt-it") {
+        if prompt_idx != 0 {
+            let prompt_mode = modes.remove(prompt_idx);
+            modes.insert(0, prompt_mode);
+            changed = true;
+        }
+    }
+
+    changed
+}
+
 /// Get all processing modes from storage
 #[tauri::command]
 pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
@@ -93,9 +160,21 @@ pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
     let from_store = store.get(MODES_KEY);
     println!("[get_modes] From store: {:?}", from_store.is_some());
 
-    let modes: Vec<ProcessingMode> = from_store
+    let mut modes: Vec<ProcessingMode> = from_store
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
+
+    let defaults_added = append_missing_default_modes(&mut modes);
+    if defaults_added {
+        store.set(
+            MODES_KEY,
+            serde_json::to_value(&modes)
+                .map_err(|e| format!("Failed to serialize modes: {}", e))?,
+        );
+        store
+            .save()
+            .map_err(|e| format!("Failed to save store: {}", e))?;
+    }
 
     println!("[get_modes] Returning {} modes", modes.len());
     println!("[get_modes] Mode IDs: {:?}", modes.iter().map(|m| &m.id).collect::<Vec<_>>());
@@ -113,10 +192,11 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
         let store_check = app
             .store("settings.json")
             .map_err(|e| format!("Failed to load store: {}", e))?;
-        let existing_modes: Vec<ProcessingMode> = store_check
+        let mut existing_modes: Vec<ProcessingMode> = store_check
             .get(MODES_KEY)
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_else(get_default_modes);
+        append_missing_default_modes(&mut existing_modes);
         let is_new = !existing_modes.iter().any(|m| m.id == mode.id);
         if is_new {
             crate::license::require_feature(&app, crate::license::Feature::CustomModes)?;
@@ -131,6 +211,7 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
         .get(MODES_KEY)
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
+    append_missing_default_modes(&mut modes);
 
     println!("[save_mode] Current modes count: {}", modes.len());
 
@@ -177,6 +258,7 @@ pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> 
         .get(MODES_KEY)
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
+    append_missing_default_modes(&mut modes);
 
     println!("[delete_mode] Current modes count: {}", modes.len());
     println!("[delete_mode] Mode IDs: {:?}", modes.iter().map(|m| &m.id).collect::<Vec<_>>());
@@ -242,6 +324,7 @@ pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), Stri
         .get(MODES_KEY)
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
+    append_missing_default_modes(&mut modes);
 
     // Find the mode and check current pin status
     let mode = modes.iter().find(|m| m.id == mode_id)
@@ -295,6 +378,7 @@ pub async fn set_mode_model(
         .get(MODES_KEY)
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
+    append_missing_default_modes(&mut modes);
 
     // Find and update the mode
     let mode = modes.iter_mut().find(|m| m.id == mode_id)
@@ -322,10 +406,11 @@ pub fn get_mode_by_id(app: &AppHandle, mode_id: &str) -> Result<ProcessingMode, 
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let modes: Vec<ProcessingMode> = store
+    let mut modes: Vec<ProcessingMode> = store
         .get(MODES_KEY)
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_else(get_default_modes);
+    append_missing_default_modes(&mut modes);
 
     modes
         .into_iter()
