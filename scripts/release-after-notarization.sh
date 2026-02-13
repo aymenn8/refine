@@ -239,7 +239,22 @@ echo
 echo "Release folder ready: ${RELEASE_DIR}"
 ls -1 "${RELEASE_DIR}"
 echo
-echo "Next:"
-echo "1) Upload files in ${RELEASE_DIR} to ${RELEASE_REPO} release ${TAG}"
-echo "2) Verify latest.json URL works"
-echo "3) Publish release in GitHub"
+
+NOTES_FILE="RELEASE_NOTES.md"
+GH_NOTES_FLAG=()
+if [ -f "$NOTES_FILE" ] && [ -s "$NOTES_FILE" ]; then
+  GH_NOTES_FLAG=(--notes-file "$NOTES_FILE")
+else
+  GH_NOTES_FLAG=(--notes "Release ${TAG}")
+fi
+
+echo "Creating GitHub release ${TAG} on ${RELEASE_REPO}..."
+gh release create "${TAG}" \
+  --repo "${RELEASE_REPO}" \
+  --title "${TAG}" \
+  "${GH_NOTES_FLAG[@]}" \
+  "${RELEASE_DIR}"/*
+
+echo
+echo "Release ${TAG} published on ${RELEASE_REPO}"
+echo "Verify: https://github.com/${RELEASE_REPO}/releases/tag/${TAG}"
