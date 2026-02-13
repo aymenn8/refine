@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, LogicalPosition, Manager};
+use tauri::{AppHandle, Emitter, LogicalPosition, Manager};
 use tauri_plugin_store::StoreExt;
 
 const QUICK_ACTIONS_KEY: &str = "quickActions";
@@ -141,8 +141,12 @@ fn show_toast(app: &AppHandle) {
             let _ = window.set_position(LogicalPosition::new(x, 12.0));
         }
 
-        // Set state to loading via JS
-        let _ = window.eval("window.__setToastState && window.__setToastState('loading')");
+        let _ = window.emit(
+            "toast-state",
+            serde_json::json!({
+                "state": "loading"
+            }),
+        );
     }
 
     // Show via panel API (works over fullscreen apps)
@@ -152,7 +156,12 @@ fn show_toast(app: &AppHandle) {
 /// Show done state and hide toast after delay
 fn show_done_and_hide(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("toast") {
-        let _ = window.eval("window.__setToastState && window.__setToastState('done')");
+        let _ = window.emit(
+            "toast-state",
+            serde_json::json!({
+                "state": "done"
+            }),
+        );
     }
     thread::sleep(Duration::from_millis(800));
     crate::window::hide_toast_panel(app);
@@ -161,11 +170,13 @@ fn show_done_and_hide(app: &AppHandle) {
 /// Show error state and hide toast after delay
 fn show_error_and_hide(app: &AppHandle, message: &str) {
     if let Some(window) = app.get_webview_window("toast") {
-        let escaped_msg = message.replace('\\', "\\\\").replace('\'', "\\'");
-        let _ = window.eval(&format!(
-            "window.__setToastState && window.__setToastState('error', '{}')",
-            escaped_msg
-        ));
+        let _ = window.emit(
+            "toast-state",
+            serde_json::json!({
+                "state": "error",
+                "message": message
+            }),
+        );
     }
     thread::sleep(Duration::from_millis(1500));
     crate::window::hide_toast_panel(app);

@@ -1,32 +1,56 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { playNotificationSound } from "./utils/sound";
 
 type ToastState = "loading" | "done" | "error";
 
-// Extend window type
-declare global {
-  interface Window {
-    __setToastState?: (state: ToastState, errorMsg?: string) => void;
-  }
+interface ToastStateEventPayload {
+  state: ToastState;
+  message?: string;
 }
 
 function Toast() {
   const [state, setState] = useState<ToastState>("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Expose function to window for Rust to call
-  const setToastState = useCallback((newState: ToastState, msg?: string) => {
-    setState(newState);
-    if (msg) setErrorMsg(msg);
-    if (newState === "done") playNotificationSound();
-  }, []);
-
   useEffect(() => {
-    window.__setToastState = setToastState;
+    let isMounted = true;
+    let unlisten: (() => void) | null = null;
+
+    listen<ToastStateEventPayload>("toast-state", (event) => {
+      const payload = event.payload;
+      const nextState = payload?.state;
+
+      if (nextState !== "loading" && nextState !== "done" && nextState !== "error") {
+        return;
+      }
+
+      setState(nextState);
+
+      if (nextState === "error") {
+        setErrorMsg(payload?.message || "Error");
+      } else {
+        setErrorMsg("");
+      }
+
+      if (nextState === "done") {
+        playNotificationSound();
+      }
+    }).then((cleanup) => {
+      if (isMounted) {
+        unlisten = cleanup;
+      } else {
+        cleanup();
+      }
+    });
+
     return () => {
-      delete window.__setToastState;
+      isMounted = false;
+      if (unlisten) {
+        unlisten();
+      }
     };
-  }, [setToastState]);
+  }, []);
 
   return (
     <div className="w-screen h-screen flex items-center justify-center">

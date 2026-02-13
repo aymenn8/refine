@@ -1,13 +1,14 @@
-# Refine - Release macOS (2 commandes)
+# Refine - Release macOS (script unifie)
 
-Ce guide utilise seulement:
-- `./scripts/release-before-notarization.sh`
-- `./scripts/release-after-notarization.sh`
+Script principal:
+- `./scripts/release.sh`
 
-Script de support (debug):
-- `./scripts/notary-status.sh`
+Wrappers (compatibilite):
+- `./scripts/release-before-notarization.sh` -> `release.sh prepare`
+- `./scripts/notary-status.sh` -> `release.sh status`
+- `./scripts/release-after-notarization.sh` -> `release.sh publish`
 
-## Pré-requis
+## Pre-requis
 
 1. Mets tes secrets dans `scripts/.env.local`:
 - `APPLE_SIGNING_IDENTITY`
@@ -17,113 +18,81 @@ Script de support (debug):
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
-2. Vérifie que `RELEASE_NOTES.md` contient bien tes notes de version.
+2. Verifie que `RELEASE_NOTES.md` contient tes notes de version.
 
-3. Mets ton code + version finale sur `main`.
+3. Le parametre `--version <x.y.z>` est obligatoire.
+Ce parametre est applique automatiquement dans:
+- `package.json`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock` (package `refine`)
 
-## Commande 1: avant notarization
+## Commandes
 
-```bash
-./scripts/release-before-notarization.sh [options]
-```
-
-### Options
-
-- `--targets both|arm64|intel`
-  - `both` (défaut): build Apple Silicon + Intel
-  - `arm64`: build Apple Silicon seulement
-  - `intel`: build Intel seulement
-- `--release-repo owner/repo`
-  - défaut: `aymenn8/refine-releases`
-  - utilisé pour générer les URLs dans `latest.json`
-
-### Ce que la commande fait
-
-1. Charge `scripts/.env.local`
-2. Build les artefacts pour chaque target demandé:
-- `dmg`
-- `Refine.app.tar.gz`
-- `Refine.app.tar.gz.sig`
-3. Soumet chaque `dmg` à Apple Notary (asynchrone, sans attendre)
-4. Sauve un manifest ici:
-- `.context/release-state/<tag>/manifest.env`
-
-Le manifest contient les chemins de fichiers + IDs de soumission Apple.
-
-## Commande 2: après notarization
+### 1) All (prepare + publish en une commande)
 
 ```bash
-./scripts/release-after-notarization.sh [options]
+./scripts/release.sh all --version 0.1.1 --targets both
 ```
 
-### Options
+Options:
+- `--version <x.y.z>` obligatoire
+- `--targets both|arm64|intel` (defaut: `both`)
+- `--wait-minutes <N>` optionnel (defaut: `240`)
+- `--release-repo owner/repo` optionnel
 
-- `--manifest <path>`
-  - manifeste explicite
-  - si absent, le script prend le dernier manifest automatiquement
-- `--wait-minutes <N>`
-  - timeout global d’attente notarization
-  - défaut: `240`
-
-### Ce que la commande fait
-
-1. Charge `scripts/.env.local`
-2. Lit le manifest
-3. Attend que chaque soumission DMG soit `Accepted`
-4. Pour chaque DMG:
-- `stapler staple`
-- `stapler validate`
-- `spctl -t install` (validation Gatekeeper)
-5. Génère un dossier prêt à uploader:
-- `release-assets/<tag>/`
-6. Dans ce dossier:
-- DMG(s)
-- `Refine_<version>_<arch>.app.tar.gz`
-- `Refine_<version>_<arch>.app.tar.gz.sig`
-- `latest.json`
-- `UPLOAD_ORDER.txt`
-
-## Script de support: notary status
+### 2) Prepare (build + soumission notarization)
 
 ```bash
-./scripts/notary-status.sh
-./scripts/notary-status.sh <submission-id>
+./scripts/release.sh prepare --version 0.1.1 --targets both
 ```
 
-- sans argument: affiche les submissions locales récentes puis l’historique Apple
-- avec `submission-id`: affiche le statut précis de cette soumission
+Options:
+- `--version <x.y.z>` obligatoire
+- `--targets both|arm64|intel` (defaut: `both`)
+- `--release-repo owner/repo` (defaut: `aymenn8/refine-releases`)
 
-## Run complet recommandé (micro étapes)
+Sortie:
+- Manifest: `.context/release-state/v<version>/manifest.env`
 
-1. Lancer la phase build + soumission:
+### 3) Status (suivi notarization)
+
 ```bash
-./scripts/release-before-notarization.sh --targets both
+./scripts/release.sh status --version 0.1.1
+./scripts/release.sh status --version 0.1.1 --submission-id <id>
 ```
 
-2. Vérifier l’état (optionnel pendant l’attente):
+Options:
+- `--version <x.y.z>` obligatoire
+- `--submission-id <id>` optionnel
+- `--manifest <path>` optionnel
+
+### 4) Publish (attente Accepted + staple + release GitHub)
+
 ```bash
-./scripts/notary-status.sh
+./scripts/release.sh publish --version 0.1.1
 ```
 
-3. Lancer la phase finalisation + packaging:
-```bash
-./scripts/release-after-notarization.sh
-```
+Options:
+- `--version <x.y.z>` obligatoire
+- `--manifest <path>` optionnel (defaut: manifest de la version)
+- `--wait-minutes <N>` optionnel (defaut: `240`)
+- `--release-repo owner/repo` optionnel
 
-4. Uploader les fichiers du dossier:
-```bash
-release-assets/<tag>/
-```
-sur la release GitHub publique (`aymenn8/refine-releases`).
+Sortie:
+- Dossier: `release-assets/v<version>/`
+- Fichiers: DMG, `.app.tar.gz`, `.sig`, `latest.json`, `UPLOAD_ORDER.txt`
 
-5. Vérifier l’endpoint updater:
+## Run recommande
+
+1. Rapide (recommande): `./scripts/release.sh all --version 0.1.1 --targets both`
+2. Ou en 2 temps:
+3. `./scripts/release.sh prepare --version 0.1.1 --targets both`
+4. `./scripts/release.sh status --version 0.1.1` (optionnel)
+5. `./scripts/release.sh publish --version 0.1.1`
+
+## Verification updater
+
 ```bash
 curl -L https://github.com/aymenn8/refine-releases/releases/latest/download/latest.json
 ```
-
-## Notes importantes
-
-- Apple notarization est asynchrone: ça peut prendre du temps.
-- `stapler` colle le ticket Apple dans le DMG (important pour distribution).
-- `latest.json` est requis pour l’auto-update in-app.
-- Si tu rebuild, ce sont de nouveaux artefacts -> nouvelle notarization.

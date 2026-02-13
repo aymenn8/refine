@@ -32,10 +32,20 @@ mod window;
 
 use state::GlobalShortcutState;
 use std::sync::Mutex;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, RunEvent};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_store::StoreExt;
 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+
+#[cfg(target_os = "macos")]
+fn open_settings_from_dock(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        crate::native_mac::activate_our_app();
+    }
+}
 
 /// Point d'entrée principal de l'application Tauri
 ///
@@ -48,6 +58,8 @@ use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .menu(|app| tray::build_app_menu(app))
+        .on_menu_event(|app, event| tray::handle_menu_action(app, event.id().as_ref()))
         .plugin(tauri_plugin_aptabase::Builder::new("A-EU-6987116306").build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -268,6 +280,12 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let RunEvent::Reopen { .. } = event {
+                open_settings_from_dock(app);
+            }
+        });
 }

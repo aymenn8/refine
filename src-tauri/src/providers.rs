@@ -2,6 +2,48 @@ use serde::{Deserialize, Serialize};
 
 use crate::credentials::Provider;
 
+fn normalize_ollama_base_url(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    let candidate = if trimmed.is_empty() {
+        "http://localhost:11434".to_string()
+    } else {
+        trimmed.to_string()
+    };
+
+    let with_scheme = if candidate.contains("://") {
+        candidate
+    } else {
+        format!("http://{}", candidate)
+    };
+
+    let parsed = reqwest::Url::parse(&with_scheme)
+        .map_err(|e| format!("Invalid Ollama URL: {}", e))?;
+
+    let scheme = parsed.scheme();
+    if scheme != "http" && scheme != "https" {
+        return Err("Ollama URL must use http or https".to_string());
+    }
+
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("Ollama URL must not contain credentials".to_string());
+    }
+
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "Ollama URL must include a host".to_string())?;
+
+    let is_loopback_host = host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1";
+    if scheme == "http" && !is_loopback_host {
+        return Err("Remote Ollama endpoints must use https".to_string());
+    }
+
+    let mut normalized = parsed.to_string();
+    while normalized.ends_with('/') {
+        normalized.pop();
+    }
+    Ok(normalized)
+}
+
 /// Run inference using a cloud provider API
 pub async fn run_cloud_inference(
     provider: Provider,
@@ -15,11 +57,7 @@ pub async fn run_cloud_inference(
         Provider::Anthropic => call_anthropic_api(model_id, api_key, system_prompt, user_prompt).await,
         Provider::Ollama => {
             // For Ollama, api_key holds the base URL
-            let base_url = if api_key.is_empty() {
-                "http://localhost:11434".to_string()
-            } else {
-                api_key.trim_end_matches('/').to_string()
-            };
+            let base_url = normalize_ollama_base_url(api_key)?;
             call_ollama_api(model_id, &base_url, system_prompt, user_prompt).await
         }
     }
