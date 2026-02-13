@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { check, Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { invoke } from "@tauri-apps/api/core";
 import { load } from "@tauri-apps/plugin-store";
 
 interface UpdateState {
@@ -137,7 +137,7 @@ export function useUpdater() {
   }
 
   async function installAndRelaunch() {
-    await relaunch();
+    await invoke("restart_app");
   }
 
   function dismiss() {

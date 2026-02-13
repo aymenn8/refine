@@ -168,7 +168,8 @@ pub fn run() {
             license::revalidate_license,
             license::check_feature_access,
             commands::check_onboarding_completed,
-            commands::complete_onboarding
+            commands::complete_onboarding,
+            commands::restart_app
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store
