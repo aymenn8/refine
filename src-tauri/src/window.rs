@@ -1,5 +1,9 @@
 use serde::Serialize;
+use std::process::Command;
+use std::thread;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{
@@ -240,73 +244,111 @@ pub fn hide_clipboard_history_window(app: &AppHandle) {
     }
 }
 
+/// Capture selected text from the frontmost app by simulating Cmd+C.
+/// Returns the selected text, or empty string if nothing was selected.
+/// Saves and restores the original clipboard content.
+#[cfg(target_os = "macos")]
+fn capture_selected_text(app: &AppHandle) -> String {
+    let original_change_count = crate::native_mac::clipboard_change_count();
+    let original_clipboard = app.clipboard().read_text().unwrap_or_default();
+
+    // Simulate Cmd+C in the frontmost app
+    let result = Command::new("osascript")
+        .arg("-e")
+        .arg("tell application \"System Events\" to keystroke \"c\" using command down")
+        .output();
+
+    if result.is_err() {
+        return String::new();
+    }
+
+    // Wait for the clipboard to update
+    thread::sleep(Duration::from_millis(50));
+
+    let new_change_count = crate::native_mac::clipboard_change_count();
+    if new_change_count == original_change_count {
+        // Clipboard didn't change — nothing was selected
+        return String::new();
+    }
+
+    // Read the newly copied text
+    let selected_text = app.clipboard().read_text().unwrap_or_default();
+
+    // Restore original clipboard content
+    let _ = app.clipboard().write_text(&original_clipboard);
+
+    selected_text
+}
+
 /// Affiche la fenêtre principale (spotlight) par-dessus les apps en plein écran.
 ///
 /// Utilise NSPanel via tauri-nspanel pour overlay sans quitter le Space plein écran.
 pub fn capture_and_show(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     {
-        run_on_main_thread(app, |app_handle| {
-            if let Ok(clipboard_panel) = app_handle.get_webview_panel("clipboard") {
-                if clipboard_panel.is_visible() {
-                    clipboard_panel.hide();
-                }
-            } else if let Some(window) = app_handle.get_webview_window("clipboard") {
-                if window.is_visible().unwrap_or(false) {
-                    let _ = window.hide();
-                }
-            }
+        let app_clone = app.clone();
+        std::thread::spawn(move || {
+            // Capture previous app and selected text while previous app is still frontmost
+            let previous_app = crate::native_mac::get_and_store_frontmost_app();
+            let selected_text = capture_selected_text(&app_clone);
 
-            if let Ok(panel) = app_handle.get_webview_panel("main") {
-                if panel.is_visible() {
-                    panel.hide();
-                    return;
+            run_on_main_thread(&app_clone, move |app_handle| {
+                if let Ok(clipboard_panel) = app_handle.get_webview_panel("clipboard") {
+                    if clipboard_panel.is_visible() {
+                        clipboard_panel.hide();
+                    }
+                } else if let Some(window) = app_handle.get_webview_window("clipboard") {
+                    if window.is_visible().unwrap_or(false) {
+                        let _ = window.hide();
+                    }
                 }
 
-                // Détecter et stocker l'application active AVANT d'afficher Refine
-                let previous_app = crate::native_mac::get_and_store_frontmost_app();
+                if let Ok(panel) = app_handle.get_webview_panel("main") {
+                    if panel.is_visible() {
+                        panel.hide();
+                        return;
+                    }
 
-                // Center the underlying webview window (do not convert the panel back to a window)
-                if let Some(window) = app_handle.get_webview_window("main") {
+                    // Center the underlying webview window
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.center();
+                    }
+
+                    // Phase 1: Show the panel without activating the app (no Space switch)
+                    panel.show_and_make_key();
+
+                    // Phase 2: Activate app to receive keyboard events.
+                    crate::native_mac::activate_our_app();
+
+                    // Make the webview content view the first responder for keyboard input
+                    let content_view = panel.content_view();
+                    panel.make_first_responder(Some(&content_view));
+
+                    // Emit event to the frontend with captured text
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let payload = SpotlightPayload {
+                            text: selected_text,
+                            previous_app,
+                        };
+                        let _ = window.emit("spotlight-open", payload);
+                    }
+                } else if let Some(window) = app_handle.get_webview_window("main") {
+                    if window.is_visible().unwrap_or(false) {
+                        let _ = window.hide();
+                        return;
+                    }
+
+                    let _ = window.show();
                     let _ = window.center();
-                }
+                    let _ = window.set_focus();
 
-                // Phase 1: Show the panel without activating the app (no Space switch)
-                panel.show_and_make_key();
-
-                // Phase 2: Activate app to receive keyboard events.
-                crate::native_mac::activate_our_app();
-
-                // Make the webview content view the first responder for keyboard input
-                let content_view = panel.content_view();
-                panel.make_first_responder(Some(&content_view));
-
-                // Emit event to the frontend
-                if let Some(window) = app_handle.get_webview_window("main") {
                     let payload = SpotlightPayload {
-                        text: String::new(),
+                        text: selected_text,
                         previous_app,
                     };
                     let _ = window.emit("spotlight-open", payload);
                 }
-            } else if let Some(window) = app_handle.get_webview_window("main") {
-                if window.is_visible().unwrap_or(false) {
-                    let _ = window.hide();
-                    return;
-                }
-
-                let previous_app = crate::native_mac::get_and_store_frontmost_app();
-
-                let _ = window.show();
-                let _ = window.center();
-                let _ = window.set_focus();
-
-                let payload = SpotlightPayload {
-                    text: String::new(),
-                    previous_app,
-                };
-                let _ = window.emit("spotlight-open", payload);
-            }
+            });
         });
         return;
     }

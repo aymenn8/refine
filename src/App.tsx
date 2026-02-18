@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 import { playNotificationSound } from "./utils/sound";
 import { applyAccentColor } from "./utils/accent";
 import { SelectorBar } from "./spotlight/SelectorBar";
@@ -306,6 +307,57 @@ function App() {
       e.preventDefault();
       setShowHistory((prev) => !prev);
       return;
+    }
+
+    // Handle clipboard shortcuts manually (NSPanel doesn't route edit menu shortcuts)
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+      const ta = textareaRef.current;
+      if (ta) {
+        switch (e.key.toLowerCase()) {
+          case "a":
+            e.preventDefault();
+            ta.select();
+            return;
+          case "c": {
+            const selected = ta.value.substring(ta.selectionStart, ta.selectionEnd);
+            if (selected) {
+              e.preventDefault();
+              writeText(selected).catch(console.error);
+            }
+            return;
+          }
+          case "x": {
+            const selected = ta.value.substring(ta.selectionStart, ta.selectionEnd);
+            if (selected) {
+              e.preventDefault();
+              const start = ta.selectionStart;
+              writeText(selected).catch(console.error);
+              const newText = ta.value.substring(0, start) + ta.value.substring(ta.selectionEnd);
+              setText(newText);
+              requestAnimationFrame(() => {
+                ta.selectionStart = ta.selectionEnd = start;
+              });
+            }
+            return;
+          }
+          case "v": {
+            e.preventDefault();
+            readText().then((clipText) => {
+              if (clipText) {
+                const start = ta.selectionStart;
+                const end = ta.selectionEnd;
+                const newText = ta.value.substring(0, start) + clipText + ta.value.substring(end);
+                setText(newText);
+                const newPos = start + clipText.length;
+                requestAnimationFrame(() => {
+                  ta.selectionStart = ta.selectionEnd = newPos;
+                });
+              }
+            }).catch(console.error);
+            return;
+          }
+        }
+      }
     }
 
     if ((e.metaKey || e.ctrlKey) && e.key >= "1" && e.key <= "9") {
