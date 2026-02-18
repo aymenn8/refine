@@ -293,7 +293,7 @@ pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), S
 /// doesn't properly launch a macOS application. Using `open -n -a` ensures the .app
 /// bundle is launched correctly through LaunchServices.
 #[tauri::command]
-pub async fn restart_app(app: AppHandle) -> Result<(), String> {
+pub async fn restart_app(_app: AppHandle) -> Result<(), String> {
     let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
     // Navigate from Contents/MacOS/Refine up to the .app bundle
     let app_bundle = current_exe
@@ -310,7 +310,10 @@ pub async fn restart_app(app: AppHandle) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Failed to relaunch app: {}", e))?;
 
-    app.cleanup_before_exit();
+    // Skip cleanup_before_exit() — it tries to remove the tray icon via
+    // NSStatusBar on the main thread, but this async command runs on a tokio
+    // worker thread, causing a macOS assertion crash (EXC_BREAKPOINT).
+    // process::exit() will terminate the process and the OS reclaims resources.
     std::process::exit(0);
 }
 
