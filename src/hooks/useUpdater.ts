@@ -62,6 +62,7 @@ export function useUpdater() {
           noUpdateNotice: false,
         }));
       } else {
+        cachedUpdate = null;
         setState((s) => ({
           ...s,
           checking: false,
@@ -79,6 +80,7 @@ export function useUpdater() {
       }
     } catch (error) {
       console.error("Update check failed:", error);
+      cachedUpdate = null;
       setState((s) => ({ ...s, checking: false, error: String(error) }));
     }
   }, [clearNoUpdateTimer]);
@@ -105,7 +107,13 @@ export function useUpdater() {
     if (!update) return;
     cachedUpdate = update;
 
-    setState((s) => ({ ...s, downloading: true, progress: 0, error: null }));
+    setState((s) => ({
+      ...s,
+      downloading: true,
+      progress: 0,
+      ready: false,
+      error: null,
+    }));
 
     try {
       let totalBytes = 0;
@@ -126,13 +134,26 @@ export function useUpdater() {
             }
             break;
           case "Finished":
-            setState((s) => ({ ...s, downloading: false, ready: true }));
+            setState((s) => ({ ...s, progress: 100 }));
             break;
         }
       });
+      cachedUpdate = null;
+      setState((s) => ({
+        ...s,
+        downloading: false,
+        ready: true,
+        progress: 100,
+        error: null,
+      }));
     } catch (error) {
       console.error("Update failed:", error);
-      setState((s) => ({ ...s, downloading: false, error: String(error) }));
+      setState((s) => ({
+        ...s,
+        downloading: false,
+        ready: false,
+        error: String(error),
+      }));
     }
   }
 

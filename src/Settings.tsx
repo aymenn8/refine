@@ -454,6 +454,12 @@ function Settings() {
               )}
             </div>
 
+            {updater.error && (
+              <p className="text-[11px] text-red-300 mt-3 whitespace-pre-wrap break-words">
+                Update failed: {updater.error}
+              </p>
+            )}
+
             <p className="text-[10px] text-white/25 text-center mt-3">
               We strongly recommend updating for the latest fixes and features.
             </p>

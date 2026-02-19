@@ -286,12 +286,12 @@ pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), S
     Ok(())
 }
 
-/// Restart the app properly on macOS by relaunching the .app bundle via `open`.
+/// Restart the app properly on macOS by relaunching the exact .app bundle path.
 ///
 /// The default `relaunch()` from tauri-plugin-process uses `std::env::current_exe()`
 /// which points to the binary inside the .app bundle. Spawning that binary directly
-/// doesn't properly launch a macOS application. Using `open -n -a` ensures the .app
-/// bundle is launched correctly through LaunchServices.
+/// doesn't properly launch a macOS application. Using `open -n <path-to-app>` ensures
+/// LaunchServices opens this exact bundle path (and not another installed copy).
 #[tauri::command]
 pub async fn restart_app(_app: AppHandle) -> Result<(), String> {
     let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
@@ -305,7 +305,6 @@ pub async fn restart_app(_app: AppHandle) -> Result<(), String> {
 
     Command::new("open")
         .arg("-n")
-        .arg("-a")
         .arg(&app_bundle)
         .spawn()
         .map_err(|e| format!("Failed to relaunch app: {}", e))?;
