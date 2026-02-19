@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import base64
 import json
 import os
 import re
 import struct
+import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -21,11 +25,13 @@ def key_id_from_blob(blob: bytes, label: str) -> int:
     return struct.unpack("<Q", blob[2:10])[0]
 
 
-def normalize_multiline_secret(value: str) -> str:
-    normalized = value.strip()
-    if "\\n" in normalized and "\n" not in normalized:
-        normalized = normalized.replace("\\n", "\n")
-    return normalized
+def read_key_id_from_signature(signature_encoded: str, label: str) -> int:
+    signature_text = base64.b64decode(signature_encoded).decode("utf-8")
+    lines = [line.strip() for line in signature_text.splitlines() if line.strip()]
+    if len(lines) < 2:
+        raise ValueError(f"invalid {label} format")
+    signature_payload = base64.b64decode(lines[1])
+    return key_id_from_blob(signature_payload, label)
 
 
 def read_pubkey_id_from_config(config_path: str) -> tuple[int, str | None]:
@@ -60,16 +66,51 @@ def read_pubkey_id_from_config(config_path: str) -> tuple[int, str | None]:
 
 def read_private_key_id_from_env() -> int | None:
     private_key = os.environ.get("TAURI_SIGNING_PRIVATE_KEY", "").strip()
-    if not private_key:
+    private_key_path = os.environ.get("TAURI_SIGNING_PRIVATE_KEY_PATH", "").strip()
+    if not private_key and not private_key_path:
         return None
 
-    private_key_text = normalize_multiline_secret(private_key)
-    lines = [line.strip() for line in private_key_text.splitlines() if line.strip()]
-    if len(lines) < 2:
-        raise ValueError("invalid TAURI_SIGNING_PRIVATE_KEY format")
+    run_env = os.environ.copy()
+    if private_key:
+        run_env["TAURI_SIGNING_PRIVATE_KEY"] = private_key
+    else:
+        run_env.pop("TAURI_SIGNING_PRIVATE_KEY", None)
+    if private_key_path:
+        expanded_path = os.path.expanduser(os.path.expandvars(private_key_path.strip("'\"")))
+        run_env["TAURI_SIGNING_PRIVATE_KEY_PATH"] = expanded_path
+    else:
+        run_env.pop("TAURI_SIGNING_PRIVATE_KEY_PATH", None)
 
-    payload = base64.b64decode(lines[1])
-    return key_id_from_blob(payload, "private key")
+    run_env["CI"] = "true"
+    try:
+        with tempfile.TemporaryDirectory(prefix="tauri-key-id-check-") as temp_dir:
+            probe_path = os.path.join(temp_dir, "probe.txt")
+            with open(probe_path, "w", encoding="utf-8") as handle:
+                handle.write("probe\n")
+
+            sign = subprocess.run(
+                ["cargo", "tauri", "signer", "sign", probe_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=run_env,
+                check=False,
+            )
+            if sign.returncode != 0:
+                stderr = (sign.stderr or "").strip()
+                stdout = (sign.stdout or "").strip()
+                details = stderr or stdout or "unknown error"
+                raise ValueError(f"failed to sign probe file: {details}")
+
+            signature_path = f"{probe_path}.sig"
+            if not os.path.isfile(signature_path):
+                raise ValueError("failed to locate generated probe signature")
+            with open(signature_path, "r", encoding="utf-8") as handle:
+                signature_encoded = handle.read().strip()
+    except FileNotFoundError as exc:
+        raise ValueError(f"required command not found: {exc}") from exc
+
+    return read_key_id_from_signature(signature_encoded, "private key signature")
 
 
 def read_remote_signature_key_ids(latest_json_url: str) -> set[int]:
@@ -85,14 +126,11 @@ def read_remote_signature_key_ids(latest_json_url: str) -> set[int]:
         signature_encoded = platform_data.get("signature")
         if not signature_encoded:
             raise ValueError(f"platform '{platform_name}' has no signature")
-
-        signature_text = base64.b64decode(signature_encoded).decode("utf-8")
-        lines = [line.strip() for line in signature_text.splitlines() if line.strip()]
-        if len(lines) < 2:
-            raise ValueError(f"invalid signature format for '{platform_name}'")
-
-        signature_payload = base64.b64decode(lines[1])
-        key_ids.add(key_id_from_blob(signature_payload, f"signature '{platform_name}'"))
+        key_ids.add(
+            read_key_id_from_signature(
+                signature_encoded, f"signature '{platform_name}'"
+            )
+        )
 
     return key_ids
 
