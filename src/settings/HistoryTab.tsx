@@ -360,17 +360,18 @@ function HistoryTab() {
 
       {/* Clear Confirmation Modal */}
       {showClearModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 w-[320px] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+          <div className="w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
                   width="20"
                   height="20"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#ef4444"
+                  stroke="currentColor"
                   strokeWidth="2"
+                  className="text-(--accent)"
                 >
                   <polyline points="3 6 5 6 21 6" />
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -380,24 +381,26 @@ function HistoryTab() {
                 <h3 className="text-[16px] font-semibold text-white">
                   Clear history?
                 </h3>
-                <p className="text-xs text-white/50">This cannot be undone</p>
+                <p className="text-xs text-white/45">This cannot be undone</p>
               </div>
             </div>
 
-            <p className="text-sm text-white/60 mb-6">
-              All your processing history will be permanently deleted.
-            </p>
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+              <p className="text-[13px] text-white/65 leading-relaxed">
+                All your processing history will be permanently deleted.
+              </p>
+            </div>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setShowClearModal(false)}
-                className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/15 border-none rounded-lg text-white text-sm font-medium cursor-pointer transition-colors"
+                className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 text-[13px] font-medium cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleClearHistory}
-                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 border-none rounded-lg text-white text-sm font-medium cursor-pointer transition-colors"
+                className="flex-1 px-4 py-2.5 bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/45 rounded-xl text-(--accent) text-[13px] font-medium cursor-pointer transition-colors"
               >
                 Clear
               </button>

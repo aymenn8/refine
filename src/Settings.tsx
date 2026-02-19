@@ -386,11 +386,11 @@ function Settings() {
 
       {/* Update modal — shows aggressively when update is available and not dismissed */}
       {updater.available && !updater.dismissed && !updater.ready && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-[420px] w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+          <div className="w-full max-w-[420px] mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             {/* Header */}
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-(--accent)/15 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="7 10 12 15 17 10" />
@@ -409,7 +409,7 @@ function Settings() {
 
             {/* Patch notes */}
             {updater.body && (
-              <div className="bg-white/5 rounded-xl p-4 mb-4 max-h-[200px] overflow-y-auto">
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-4 max-h-[200px] overflow-y-auto">
                 <h4 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-2">
                   What's new
                 </h4>
@@ -426,7 +426,7 @@ function Settings() {
                   <span className="text-[11px] text-white/40">Downloading update...</span>
                   <span className="text-[11px] text-(--accent) font-medium">{updater.progress}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-(--accent) rounded-full transition-all duration-300"
                     style={{ width: `${updater.progress}%` }}
@@ -440,21 +440,21 @@ function Settings() {
               <button
                 onClick={() => updater.downloadAndInstall()}
                 disabled={updater.downloading}
-                className="flex-1 py-2.5 rounded-xl text-[13px] font-medium border-none cursor-pointer transition-all bg-(--accent) hover:bg-(--accent-hover) text-white disabled:opacity-60 disabled:cursor-wait"
+                className="flex-1 py-2.5 rounded-xl text-[13px] font-medium border border-(--accent)/45 bg-(--accent)/15 hover:bg-(--accent)/25 text-(--accent) cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
                 {updater.downloading ? "Downloading..." : "Update now"}
               </button>
               {!updater.downloading && (
                 <button
                   onClick={() => updater.dismiss()}
-                  className="px-4 py-2.5 rounded-xl text-[12px] text-white/30 bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 hover:text-white/50 transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-[12px] text-white/45 bg-white/[0.03] border border-white/[0.08] cursor-pointer hover:bg-white/[0.07] hover:text-white/65 transition-colors"
                 >
                   Later
                 </button>
               )}
             </div>
 
-            <p className="text-[10px] text-white/20 text-center mt-3">
+            <p className="text-[10px] text-white/25 text-center mt-3">
               We strongly recommend updating for the latest fixes and features.
             </p>
           </div>
@@ -463,10 +463,10 @@ function Settings() {
 
       {/* Restart modal — after download is complete */}
       {updater.ready && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-(--accent)/30 rounded-2xl p-6 max-w-[380px] w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+          <div className="w-full max-w-[380px] mx-4 rounded-2xl border border-(--accent)/35 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-(--accent)/15 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
@@ -477,7 +477,7 @@ function Settings() {
               </p>
               <button
                 onClick={() => updater.installAndRelaunch()}
-                className="w-full mt-2 py-2.5 rounded-xl text-[13px] font-medium border-none cursor-pointer transition-all bg-(--accent) hover:bg-(--accent-hover) text-white"
+                className="w-full mt-2 py-2.5 rounded-xl text-[13px] font-medium border border-(--accent)/45 bg-(--accent)/15 hover:bg-(--accent)/25 text-(--accent) cursor-pointer transition-colors"
               >
                 Restart now
               </button>

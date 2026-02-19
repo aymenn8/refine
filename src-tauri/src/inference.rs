@@ -63,13 +63,20 @@ fn increment_words_refined(app: &AppHandle, word_count: u64) {
     }
 }
 
+/// Language-matching instruction appended to every mode's system prompt at inference time.
+const LANGUAGE_INSTRUCTION: &str =
+    "CRITICAL RULE: You MUST always respond in the SAME language as the user's input. If the user writes in French, respond in French. If in English, respond in English. Match the user's language exactly.";
+
 /// Core text processing logic (no history/stats) — used by both process_text and process_flow
 pub async fn process_text_internal(
     app: &AppHandle,
     text: &str,
     mode_id: &str,
 ) -> Result<String, String> {
-    let process_mode = get_mode_by_id(app, mode_id)?;
+    let mut process_mode = get_mode_by_id(app, mode_id)?;
+
+    // Append language-matching instruction to the system prompt
+    process_mode.system_prompt = format!("{}\n{}", process_mode.system_prompt, LANGUAGE_INSTRUCTION);
 
     let model_config = match &process_mode.model_override {
         Some(override_config) => override_config.clone(),

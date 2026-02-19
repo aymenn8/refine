@@ -38,14 +38,14 @@ export function SelectorBar({
   };
 
   return (
-    <div className="shrink-0 flex gap-1.5 p-1 bg-white/5 rounded-[10px] border border-white/10">
+    <div className="shrink-0 flex gap-1.5 px-1 py-1.5 mb-1">
       {pinnedModes.map((m) => (
         <button
           key={m.id}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-[13px] font-medium cursor-pointer transition-all duration-150 border-0 border-b-2 border-solid ${
             mode === m.id && selectedType === "mode"
-              ? "bg-(--accent) text-white"
-              : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
+              ? "text-(--accent) border-b-(--accent)"
+              : "text-white/40 hover:text-white/60 border-b-transparent"
           }`}
           onClick={() => onSelectMode(m.id)}
           disabled={isLoading}
@@ -55,12 +55,12 @@ export function SelectorBar({
       ))}
 
       <button
-        className={`flex items-center justify-center gap-1.5 px-3 py-3 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none ${
+        className={`flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] font-medium cursor-pointer transition-all duration-150 border-0 border-b-2 border-solid ${
           showsName
-            ? "bg-(--accent) text-white"
+            ? "text-(--accent) border-b-(--accent)"
             : showPalette
-            ? "bg-white/10 text-white/80"
-            : "bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
+            ? "text-white/60 border-b-transparent"
+            : "text-white/40 hover:text-white/60 border-b-transparent"
         }`}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={handleTriggerClick}

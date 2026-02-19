@@ -129,7 +129,7 @@ export function CommandPalette({
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 z-10 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+      className="absolute inset-0 z-10 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/[0.06] rounded-xl shadow-2xl flex flex-col overflow-hidden"
     >
       {/* Search input */}
       <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-white/10">

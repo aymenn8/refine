@@ -46,7 +46,6 @@ function ModesTab() {
   const { hasLicense } = useLicense();
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [editingMode, setEditingMode] = useState<ProcessingMode | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; mode: ProcessingMode | null }>({
@@ -235,167 +234,137 @@ function ModesTab() {
   return (
     <>
       <div className="p-6 md:px-8 h-full flex flex-col">
-        <div className="mb-4">
-          <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em] mb-1">
-            Modes
-          </h1>
-          <p className="text-[13px] text-white/40 m-0">
-            Define how your text is processed. Each mode has its own system prompt and instructions that guide the AI.
-          </p>
-        </div>
-        <div className="mb-4 flex items-center justify-end gap-2">
-          <button
-            onClick={() => setShowResetModal(true)}
-            className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
-          >
-            Reset to Defaults
-          </button>
-          <button
-            onClick={handleCreateNew}
-            className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            + New Mode
-            {!hasLicense && (
-              <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-white/20 text-white/90">PRO</span>
-            )}
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="mb-4 relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search modes..."
-            className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-[13px] outline-none focus:border-white/20 placeholder:text-white/30"
-          />
+        {/* Header: title + actions on same line */}
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h1 className="text-[22px] font-semibold m-0 text-white tracking-[-0.02em]">
+              Modes
+            </h1>
+            <p className="text-[12px] text-white/35 m-0 mt-0.5">
+              Define how your text is processed
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowResetModal(true)}
+              className="px-2.5 py-1.5 text-[11px] bg-transparent hover:bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white/60 transition-colors cursor-pointer"
+            >
+              Reset
+            </button>
+            <button
+              onClick={handleCreateNew}
+              className="px-3 py-1.5 text-[11px] bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              + New
+              {!hasLicense && (
+                <span className="text-[8px] font-bold tracking-wider px-1 py-0.5 rounded bg-white/20 text-white/90">PRO</span>
+              )}
+            </button>
+          </div>
         </div>
 
+        {/* Modes list — compact rows */}
         <div className="flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-3">
-            {modes
-              .filter((m) => {
-                if (!searchQuery) return true;
-                const q = searchQuery.toLowerCase();
-                return m.name.toLowerCase().includes(q) || m.description.toLowerCase().includes(q);
-              })
-              .map((mode) => (
+          <div className="flex flex-col">
+            {modes.map((mode) => (
               <div
                 key={mode.id}
-                className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/8 transition-colors"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors group"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-[15px] font-semibold text-white m-0">
-                        {mode.name}
-                      </h3>
-                      {mode.is_default && (
-                        <span className="text-[10px] text-white/40 bg-white/10 px-1.5 py-0.5 rounded">
-                          built-in
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[13px] text-white/50 m-0 mb-2">
-                      {mode.description}
-                    </p>
-                    {/* Model selector */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-white/40">Model:</span>
-                      {mode.is_default ? (
-                        <span className="text-[11px] text-white/50">
-                          Default ({defaultModelName || "Not set"})
-                        </span>
-                      ) : (
-                        <select
-                          value={getModeModelOptionId(mode)}
-                          onChange={(e) => handleSetModeModel(mode.id, e.target.value)}
-                          className="px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-[11px] outline-none focus:border-(--accent) transition-colors cursor-pointer appearance-none"
-                          style={{
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 6px center',
-                            paddingRight: '20px'
-                          }}
-                        >
-                          {!mode.model_override && (
-                            <option value="default">Default ({defaultModelName || "Not set"})</option>
-                          )}
-                          {modelOptions.map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
+                {/* Pin button */}
+                <button
+                  onClick={() => handleTogglePin(mode.id)}
+                  disabled={
+                    (!mode.is_pinned && pinnedCount >= MAX_PINNED_MODES) ||
+                    (mode.is_pinned && pinnedCount <= 1)
+                  }
+                  className={`shrink-0 p-1 rounded transition-colors cursor-pointer border-none bg-transparent ${
+                    mode.is_pinned
+                      ? "text-(--accent)"
+                      : pinnedCount >= MAX_PINNED_MODES
+                      ? "text-white/10 cursor-not-allowed"
+                      : "text-white/20 hover:text-white/50"
+                  }`}
+                  title={
+                    mode.is_pinned
+                      ? pinnedCount <= 1
+                        ? "At least one mode must be pinned"
+                        : "Unpin from Spotlight"
+                      : pinnedCount >= MAX_PINNED_MODES
+                      ? `Maximum ${MAX_PINNED_MODES} pinned modes`
+                      : "Pin to Spotlight"
+                  }
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill={mode.is_pinned ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+                  </svg>
+                </button>
+
+                {/* Name + description */}
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <span className="text-[13px] font-semibold text-white shrink-0">
+                    {mode.name}
+                  </span>
+                  <span className="text-[11px] text-white/30 truncate">
+                    {mode.description}
+                  </span>
+                </div>
+
+                {/* Model selector */}
+                <select
+                  value={getModeModelOptionId(mode)}
+                  onChange={(e) => handleSetModeModel(mode.id, e.target.value)}
+                  className="shrink-0 px-2 py-1 bg-white/[0.03] border border-white/[0.06] rounded text-white/50 text-[10px] outline-none focus:border-(--accent)/30 transition-colors cursor-pointer appearance-none"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 4px center',
+                    paddingRight: '16px',
+                    maxWidth: '140px'
+                  }}
+                >
+                  {!mode.model_override && (
+                    <option value="default">Default ({defaultModelName || "Not set"})</option>
+                  )}
+                  {modelOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Actions */}
+                {!mode.is_default && (
+                  <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => handleTogglePin(mode.id)}
-                      disabled={
-                        (!mode.is_pinned && pinnedCount >= MAX_PINNED_MODES) ||
-                        (mode.is_pinned && pinnedCount <= 1)
-                      }
-                      className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${
-                        mode.is_pinned
-                          ? pinnedCount <= 1
-                            ? "bg-(--accent)/10 border-(--accent)/20 text-(--accent)/50 cursor-not-allowed"
-                            : "bg-(--accent)/20 border-(--accent)/30 text-(--accent) hover:bg-(--accent)/30"
-                          : pinnedCount >= MAX_PINNED_MODES
-                          ? "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"
-                          : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60"
-                      }`}
-                      title={
-                        mode.is_pinned
-                          ? pinnedCount <= 1
-                            ? "At least one mode must be pinned"
-                            : "Unpin from Spotlight"
-                          : pinnedCount >= MAX_PINNED_MODES
-                          ? `Maximum ${MAX_PINNED_MODES} pinned modes`
-                          : "Pin to Spotlight"
-                      }
+                      onClick={() => setEditingMode(mode)}
+                      className="p-1.5 bg-transparent border-none rounded text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors cursor-pointer"
+                      title="Edit"
                     >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill={mode.is_pinned ? "currentColor" : "none"}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                       </svg>
                     </button>
-                    {!mode.is_default ? (
-                      <>
-                        <button
-                          onClick={() => setEditingMode(mode)}
-                          className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 hover:text-white/80 transition-colors cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => setDeleteModal({ open: true, mode })}
-                          className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    ) : (
-                      <span className="px-3 py-1.5 text-xs text-white/30">
-                        Built-in
-                      </span>
-                    )}
+                    <button
+                      onClick={() => setDeleteModal({ open: true, mode })}
+                      className="p-1.5 bg-transparent border-none rounded text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                      title="Delete"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
@@ -404,19 +373,20 @@ function ModesTab() {
 
       {/* Delete Confirmation Modal */}
       {deleteModal.open && deleteModal.mode && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
                   width="20"
                   height="20"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#ef4444"
+                  stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className="text-(--accent)"
                 >
                   <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                   <line x1="10" y1="11" x2="10" y2="17" />
@@ -425,24 +395,26 @@ function ModesTab() {
               </div>
               <div>
                 <h3 className="text-[16px] font-semibold text-white m-0">Delete Mode</h3>
-                <p className="text-[13px] text-white/50 m-0">This action cannot be undone</p>
+                <p className="text-[12px] text-white/45 m-0">This action cannot be undone</p>
               </div>
             </div>
 
-            <p className="text-[14px] text-white/70 mb-6">
-              Are you sure you want to delete <strong className="text-white">{deleteModal.mode.name}</strong>?
-            </p>
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+              <p className="text-[13px] text-white/65 leading-relaxed">
+                Are you sure you want to delete <strong className="text-white">{deleteModal.mode.name}</strong>?
+              </p>
+            </div>
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteModal({ open: false, mode: null })}
-                className="px-4 py-2 text-[13px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 text-[13px] bg-red-500 hover:bg-red-600 border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/45 rounded-xl text-(--accent) font-medium transition-colors cursor-pointer"
               >
                 Delete
               </button>
@@ -461,19 +433,20 @@ function ModesTab() {
 
       {/* Reset Confirmation Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
                   width="20"
                   height="20"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#f97316"
+                  stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className="text-(--accent)"
                 >
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                   <path d="M3 3v5h5" />
@@ -481,24 +454,26 @@ function ModesTab() {
               </div>
               <div>
                 <h3 className="text-[16px] font-semibold text-white m-0">Reset to Defaults</h3>
-                <p className="text-[13px] text-white/50 m-0">This action cannot be undone</p>
+                <p className="text-[12px] text-white/45 m-0">This action cannot be undone</p>
               </div>
             </div>
 
-            <p className="text-[14px] text-white/70 mb-6">
-              All custom modes will be <strong className="text-white">permanently deleted</strong>. Only built-in modes will remain.
-            </p>
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+              <p className="text-[13px] text-white/65 leading-relaxed">
+                All custom modes will be <strong className="text-white">permanently deleted</strong>. Only built-in modes will remain.
+              </p>
+            </div>
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowResetModal(false)}
-                className="px-4 py-2 text-[13px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleResetConfirm}
-                className="px-4 py-2 text-[13px] bg-orange-500 hover:bg-orange-600 border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/45 rounded-xl text-(--accent) font-medium transition-colors cursor-pointer"
               >
                 Reset
               </button>

@@ -75,11 +75,11 @@ fn get_available_models() -> Vec<ModelInfo> {
             id: "qwen3-4b-q4".to_string(),
             name: "Qwen3 4B Instruct".to_string(),
             version: "4B".to_string(),
-            size_bytes: 2_700_000_000,
+            size_bytes: 2_497_281_120,
             description: "Fast and accurate for text correction and translation. Great quality/performance ratio with Metal GPU support.".to_string(),
             url: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf".to_string(),
             filename: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf".to_string(),
-            sha256: "bf52d44a54b81d44219833556849529ee96f09da673a38783dddc2e2eaf17881".to_string(),
+            sha256: String::new(),
             quantization: "Q4_K_M".to_string(),
             recommended: true,
         },
@@ -87,11 +87,11 @@ fn get_available_models() -> Vec<ModelInfo> {
             id: "gemma3-4b-q4".to_string(),
             name: "Gemma 3 4B Instruct".to_string(),
             version: "4B".to_string(),
-            size_bytes: 2_490_000_000,
+            size_bytes: 2_489_758_112,
             description: "Google's compact model with 128K context window. Multilingual support for 140+ languages.".to_string(),
             url: "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf".to_string(),
             filename: "google_gemma-3-4b-it-Q4_K_M.gguf".to_string(),
-            sha256: "72813ef7237ca81bbc8df7d72eb6c08ade6be3f815f46ca41a1b6a04ddf92fe6".to_string(),
+            sha256: String::new(),
             quantization: "Q4_K_M".to_string(),
             recommended: false,
         },
@@ -179,7 +179,27 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
     let download_state = app.state::<DownloadState>();
     download_state.reset();
 
-    // Créer le client HTTP
+    // Créer le client HTTP (no redirect — we need to read headers from the 302)
+    let head_client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    // HEAD request to get the expected ETag (content hash) before downloading
+    let head_response = head_client
+        .head(&model_info.url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch model metadata: {}", e))?;
+
+    let expected_hash = head_response
+        .headers()
+        .get("x-linked-etag")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim_matches('"').to_string());
+
+    // Créer le client pour le téléchargement (with redirects)
     let client = Client::builder()
         .timeout(std::time::Duration::from_secs(300)) // 5 minutes timeout
         .build()
@@ -239,7 +259,8 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
             let progress = DownloadProgress {
                 downloaded_bytes,
                 total_bytes,
-                percentage: (downloaded_bytes as f64 / total_bytes as f64) * 100.0,
+                // Cap at 99% during download — 100% is only emitted after checksum verification
+                percentage: ((downloaded_bytes as f64 / total_bytes as f64) * 100.0).min(99.0),
                 speed_mbps,
             };
 
@@ -255,9 +276,12 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
         .map_err(|e| format!("Failed to sync file: {}", e))?;
     drop(file);
 
-    // Vérifier le checksum si disponible
-    if !model_info.sha256.is_empty() {
-        verify_checksum(&temp_path, &model_info.sha256)?;
+    // Vérifier le checksum via le hash récupéré dynamiquement (x-linked-etag)
+    if let Some(ref hash) = expected_hash {
+        if let Err(e) = verify_checksum(&temp_path, hash) {
+            let _ = fs::remove_file(&temp_path);
+            return Err(e);
+        }
     }
 
     // Renommer le fichier temporaire

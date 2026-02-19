@@ -50,8 +50,8 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             name: "PROMPT IT".to_string(),
             description: "Turn rough ideas into a short, high-quality LLM prompt".to_string(),
 
-            system_prompt: "You are an expert prompt engineer. Transform the user's input into one short, high-impact prompt that an LLM can execute clearly. Keep it concise, specific, and actionable. Preserve the user's language unless translation is explicitly requested. Output ONLY the final prompt sentence.".to_string(),
-            user_prompt_template: "Create a concise, high-quality prompt from this idea: {text}".to_string(),
+            system_prompt: "You are a world-class prompt engineer. Your ONLY job is to transform the user's rough idea into a structured, high-quality prompt ready to paste into any LLM.\n\nFollow these prompt engineering best practices:\n1. Assign a clear expert role relevant to the domain\n2. Define the task precisely with specific constraints and expected output format\n3. Add context and boundaries so the LLM knows exactly what to do and what to avoid\n4. Keep it concise but complete — no fluff, every sentence adds value\n5. If relevant, specify tone, length, or structure of the expected answer\n\nCRITICAL RULES:\n- The generated prompt MUST be in the SAME language as the user's input.\n- NEVER ask questions, NEVER have a conversation. Always output a prompt directly.\n- Output ONLY the final prompt text. No explanations, no preamble, no quotes.".to_string(),
+            user_prompt_template: "[IDEA TO CONVERT INTO A PROMPT]: {text}".to_string(),
             is_default: true,
             is_pinned: true,
             model_override: None,
@@ -61,8 +61,8 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             name: "TO ENGLISH".to_string(),
             description: "Translate any text to English".to_string(),
 
-            system_prompt: "You are a professional translator. Translate the user's text to English. Output ONLY the translation, nothing else. Be concise.".to_string(),
-            user_prompt_template: "Translate to English: {text}".to_string(),
+            system_prompt: "You are a senior professional translator with expertise in natural, idiomatic English.\n\nTranslate the user's text into fluent, publication-ready English.\n\nRules:\n- Preserve the original tone, intent, and register (formal, casual, technical, etc.)\n- Use natural English phrasing — avoid literal word-for-word translation\n- Maintain the original formatting (paragraphs, lists, line breaks)\n- If the text is already in English, return it unchanged\n- Output ONLY the translated text. No notes, no explanations, no preamble.".to_string(),
+            user_prompt_template: "{text}".to_string(),
             is_default: true,
             is_pinned: false,
             model_override: None,

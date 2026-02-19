@@ -395,12 +395,12 @@ function App() {
   const getPlaceholder = () => {
     if (selectedType === "flow") {
       const flow = flows.find((f) => f.id === mode);
-      if (flow) return `Enter text for flow "${flow.name}"...`;
+      if (flow) return `Refine your text with ${flow.name}...`;
     } else {
       const m = modes.find((m) => m.id === mode);
-      if (m) return `Enter text for ${m.name.toLowerCase()}...`;
+      if (m) return `Refine your text with ${m.name}...`;
     }
-    return "Enter text...";
+    return "Refine your text...";
   };
 
   // --- Render ---
@@ -408,7 +408,7 @@ function App() {
   return (
     <div className="h-screen w-screen bg-transparent flex flex-col overflow-hidden">
       <div className="flex-1 flex flex-col animate-slide-in min-h-0">
-        <div className="p-5 flex flex-col gap-3 flex-1 min-h-0">
+        <div className="px-5 pt-3 pb-3 flex flex-col flex-1 min-h-0">
           {/* Header: selector or processed bar */}
           {isProcessed ? (
             <ProcessedBar
@@ -508,7 +508,7 @@ function App() {
                 onKeyDown={handleKeyDown}
                 placeholder={getPlaceholder()}
                 disabled={isLoading}
-                className="text-input w-full h-full p-4 bg-white/5 border border-white/10 rounded-xl outline-none resize-none text-white text-[15px] leading-relaxed select-text transition-all duration-200 placeholder:text-white/40 focus:bg-white/8 focus:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`text-input w-full h-full p-4 bg-white/[0.03] border border-white/[0.06] rounded-xl outline-none resize-none text-white text-[15px] leading-relaxed select-text transition-all duration-200 placeholder:text-white/30 focus:bg-white/[0.05] focus:border-white/[0.12] disabled:cursor-not-allowed ${isLoading ? "animate-border-glow" : ""}`}
               />
             </div>
           </div>

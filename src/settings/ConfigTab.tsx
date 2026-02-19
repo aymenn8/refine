@@ -38,7 +38,7 @@ function ConfigTab() {
   const [launchOnLogin, setLaunchOnLogin] = useState(false);
 
   // Accent color
-  const [accentColor, setAccentColor] = useState("#F0B67F");
+  const [accentColor, setAccentColor] = useState("#8B9FBF");
   const [customColor, setCustomColor] = useState<string | null>(null);
   const colorisInitialized = useRef(false);
   const colorInputRef = useRef<HTMLInputElement>(null);
@@ -295,7 +295,7 @@ function ConfigTab() {
     }
   };
 
-  const PRESET_COLORS = ["#F0B67F", "#6BBFFF", "#A78BFA", "#F472B6", "#34D399"];
+  const PRESET_COLORS = ["#8B9FBF", "#F0B67F", "#6BBFFF", "#A78BFA", "#F472B6", "#34D399"];
 
   if (loading) {
     return (
@@ -736,11 +736,11 @@ function ConfigTab() {
 
       {/* Clipboard history clear confirmation modal */}
       {showClearClipboardModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="relative bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-[380px] w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+          <div className="relative w-full max-w-[380px] mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-red-200/90">
+              <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
                   <path d="M3 6h18" />
                   <path d="M8 6V4h8v2" />
                   <path d="M8 6v14h8V6" />
@@ -753,15 +753,15 @@ function ConfigTab() {
               </div>
             </div>
 
-            <div className="bg-white/5 rounded-xl p-4 mb-4">
-              <p className="text-[12px] text-white/55 leading-relaxed">
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-4">
+              <p className="text-[12px] text-white/60 leading-relaxed">
                 This will remove all saved clipboard items from your local database on this Mac.
               </p>
             </div>
 
             <button
               onClick={() => setShowClearClipboardModal(false)}
-              className="absolute top-4 right-4 w-7 h-7 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white/90 cursor-pointer transition-colors flex items-center justify-center"
+              className="absolute top-4 right-4 w-7 h-7 rounded-md bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-white/55 hover:text-white/85 cursor-pointer transition-colors flex items-center justify-center"
               aria-label="Close"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -773,14 +773,14 @@ function ConfigTab() {
               <button
                 onClick={() => setShowClearClipboardModal(false)}
                 disabled={isClearingClipboard}
-                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 rounded-xl text-[13px] text-white/60 font-medium cursor-pointer transition-colors"
+                className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.07] disabled:opacity-40 disabled:cursor-not-allowed border border-white/[0.08] rounded-xl text-[13px] text-white/65 font-medium cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={clearClipboardHistory}
                 disabled={isClearingClipboard}
-                className="flex-1 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed border border-red-400/30 rounded-xl text-[13px] text-red-100 font-medium cursor-pointer transition-colors"
+                className="flex-1 px-4 py-2.5 bg-(--accent)/15 hover:bg-(--accent)/25 disabled:opacity-40 disabled:cursor-not-allowed border border-(--accent)/45 rounded-xl text-[13px] text-(--accent) font-medium cursor-pointer transition-colors"
               >
                 {isClearingClipboard ? "Clearing..." : "Clear now"}
               </button>

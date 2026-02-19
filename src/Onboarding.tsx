@@ -69,12 +69,6 @@ function Onboarding() {
         setDownloadSpeed(p.speed_mbps);
         setDownloadedBytes(p.downloaded_bytes);
         setTotalBytes(p.total_bytes);
-        if (p.percentage >= 100) {
-          setDownloading(false);
-          invoke("set_active_model", { modelId: selectedModel }).then(() => {
-            setStep(3);
-          });
-        }
       }
     );
     return () => { unlisten.then((f) => f()); };
@@ -92,8 +86,12 @@ function Onboarding() {
     setError("");
     try {
       await invoke("download_model", { modelId: selectedModel });
+      setDownloading(false);
+      await invoke("set_active_model", { modelId: selectedModel });
+      setStep(3);
     } catch (e) {
       setDownloading(false);
+      setProgress(0);
       setError(typeof e === "string" ? e : String(e));
     }
   };

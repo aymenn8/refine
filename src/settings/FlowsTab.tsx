@@ -249,19 +249,20 @@ function FlowsTab() {
 
       {/* Delete Confirmation Modal */}
       {deleteModal.open && deleteModal.flow && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
                   width="20"
                   height="20"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#ef4444"
+                  stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  className="text-(--accent)"
                 >
                   <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                   <line x1="10" y1="11" x2="10" y2="17" />
@@ -270,24 +271,26 @@ function FlowsTab() {
               </div>
               <div>
                 <h3 className="text-[16px] font-semibold text-white m-0">Delete Flow</h3>
-                <p className="text-[13px] text-white/50 m-0">This action cannot be undone</p>
+                <p className="text-[12px] text-white/45 m-0">This action cannot be undone</p>
               </div>
             </div>
 
-            <p className="text-[14px] text-white/70 mb-6">
-              Are you sure you want to delete <strong className="text-white">{deleteModal.flow.name}</strong>?
-            </p>
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+              <p className="text-[13px] text-white/65 leading-relaxed">
+                Are you sure you want to delete <strong className="text-white">{deleteModal.flow.name}</strong>?
+              </p>
+            </div>
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteModal({ open: false, flow: null })}
-                className="px-4 py-2 text-[13px] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 text-[13px] bg-red-500 hover:bg-red-600 border-none rounded-lg text-white font-medium transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/45 rounded-xl text-(--accent) font-medium transition-colors cursor-pointer"
               >
                 Delete
               </button>

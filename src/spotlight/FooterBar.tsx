@@ -95,8 +95,8 @@ export function FooterBar({
   };
 
   return (
-    <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white/5 rounded-[10px] border border-white/10">
-      <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
+    <div className="shrink-0 flex items-center justify-between px-4 py-2.5 mt-1">
+      <div className="flex items-center gap-2 text-white/30 text-xs font-medium">
         <Kbd>Enter</Kbd>
         <span>{isProcessed ? "paste" : "send"}</span>
         <Dot />
@@ -130,10 +130,10 @@ export function FooterBar({
         <button
           onClick={onPaste}
           disabled={!hasText}
-          className={`flex items-center gap-2 px-[18px] py-[9px] border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${
+          className={`flex items-center gap-2 px-[18px] py-[9px] rounded-lg text-[13px] font-semibold cursor-pointer transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${
             copied
-              ? "bg-[#4CAF50] hover:bg-[#5CBF60]"
-              : "bg-(--accent) hover:bg-(--accent-hover)"
+              ? "bg-transparent border border-[#4CAF50]/50 text-[#4CAF50] hover:bg-[#4CAF50]/10"
+              : "bg-transparent border border-(--accent)/50 text-(--accent) hover:bg-(--accent)/10 hover:border-(--accent)"
           }`}
         >
           {copied ? (
@@ -156,15 +156,14 @@ export function FooterBar({
         <button
           onClick={onSend}
           disabled={isLoading || !hasText}
-          className="flex items-center gap-1.5 px-[18px] py-[9px] bg-(--accent) border-none rounded-lg text-white text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-(--accent-hover) disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-[18px] py-[9px] bg-transparent border border-(--accent)/50 rounded-lg text-(--accent) text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-(--accent)/10 hover:border-(--accent) disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isLoading ? (
-            <>
-              <svg className="w-[14px] h-[14px] animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-              </svg>
-              <span>Processing...</span>
-            </>
+            <span className="loading-dots flex items-center gap-[3px]">
+              <span />
+              <span />
+              <span />
+            </span>
           ) : (
             <>
               <span>Send</span>
@@ -184,7 +183,7 @@ function Kbd({ children, highlight }: { children: React.ReactNode; highlight?: b
     <kbd className={`inline-flex items-center justify-center min-w-6 px-[7px] py-1 border rounded-[5px] text-[11px] font-semibold transition-colors ${
       highlight
         ? "bg-(--accent)/20 border-(--accent)/30 text-(--accent)"
-        : "bg-white/10 border-white/15 text-white/70"
+        : "bg-white/[0.04] border-white/[0.08] text-white/40"
     }`}>
       {children}
     </kbd>

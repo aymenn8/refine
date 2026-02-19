@@ -234,7 +234,7 @@ function ModelsLibraryTab() {
         setLocalModels((prev) =>
           prev.map((m) =>
             m.info.id === model.info.id
-              ? { ...m, downloadProgress: progress.percentage, downloadedBytes: progress.downloaded_bytes, totalBytes: progress.total_bytes, downloadSpeed: progress.speed_mbps, status: progress.percentage >= 100 ? "downloaded" : "downloading" }
+              ? { ...m, downloadProgress: progress.percentage, downloadedBytes: progress.downloaded_bytes, totalBytes: progress.total_bytes, downloadSpeed: progress.speed_mbps }
               : m
           )
         );
@@ -248,8 +248,9 @@ function ModelsLibraryTab() {
     setLocalModels((prev) => prev.map((m) => m.info.id === modelId ? { ...m, status: "downloading", downloadProgress: 0, errorMessage: "" } : m));
     try {
       await invoke("download_model", { modelId });
+      setLocalModels((prev) => prev.map((m) => m.info.id === modelId ? { ...m, status: "downloaded", downloadProgress: 100 } : m));
     } catch (error) {
-      setLocalModels((prev) => prev.map((m) => m.info.id === modelId ? { ...m, status: "error", errorMessage: error instanceof Error ? error.message : String(error) } : m));
+      setLocalModels((prev) => prev.map((m) => m.info.id === modelId ? { ...m, status: "error", downloadProgress: 0, errorMessage: error instanceof Error ? error.message : String(error) } : m));
     }
   };
 
