@@ -83,8 +83,6 @@ function AboutTab({ updater, license }: AboutTabProps) {
         </div>
         <span className="text-[11px] text-white/25 font-mono mt-1">
           {appVersion ? `v${appVersion}` : ""}
-          {" "}
-          <span className="text-white/15">BETA</span>
         </span>
       </div>
 

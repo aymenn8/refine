@@ -1,4 +1,4 @@
-## Refine v0.1.4
+## Refine v0.1.6
 
 ### Highlights
 
@@ -29,3 +29,4 @@
 ### Bug Fixes
 
 - Fixed auto-update flow reliability.
+- Removed the `BETA` tag from Settings and About screens.

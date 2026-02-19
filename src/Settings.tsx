@@ -275,11 +275,6 @@ function Settings() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-[200px] border-r border-white/10 flex flex-col py-3">
-          <div className="px-3 mb-2">
-            <span className="text-[10px] text-white/40 bg-white/8 px-1.5 py-0.5 rounded font-medium">
-              BETA
-            </span>
-          </div>
           <nav className="flex-1 flex flex-col gap-0.5 px-3">
             {TABS.map((tab) => (
               <button
