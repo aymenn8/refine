@@ -27,6 +27,17 @@ Ce parametre est applique automatiquement dans:
 - `src-tauri/Cargo.toml`
 - `src-tauri/Cargo.lock` (package `refine`)
 
+4. Verifie la coherence des cles updater/signature:
+
+```bash
+python3 scripts/check-updater-signing-key.py --require-private-key
+```
+
+5. Si la cle updater change:
+- Les versions deja installees qui embarquent l'ancienne `pubkey` ne pourront pas verifier les nouvelles signatures.
+- Soit tu publies une release "pont" signee avec l'ancienne cle privee mais contenant la nouvelle `pubkey`,
+- Soit tu demandes une reinstall manuelle pour repartir sur la nouvelle chaine de confiance.
+
 ## Commandes
 
 ### 1) All (prepare + publish en une commande)

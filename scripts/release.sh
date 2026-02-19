@@ -293,6 +293,7 @@ prepare_cmd() {
   assert_project_version "$version"
 
   require_env_vars APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+  /usr/bin/python3 "${ROOT_DIR}/scripts/check-updater-signing-key.py" --require-private-key --skip-remote-check
 
   tag="v${version}"
   state_dir=".context/release-state/${tag}"
