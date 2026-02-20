@@ -182,7 +182,7 @@ function App() {
     if (!text.trim()) return;
     try {
       ignoreBlurUntilRef.current = Date.now() + 1500;
-      await invoke("paste_to_previous_app_keep_open", { text });
+      await invoke("paste_to_previous_app", { text });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {

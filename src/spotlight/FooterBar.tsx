@@ -98,7 +98,7 @@ export function FooterBar({
     <div className="shrink-0 flex items-center justify-between px-4 py-2.5 mt-1">
       <div className="flex items-center gap-2 text-white/30 text-xs font-medium">
         <Kbd>Enter</Kbd>
-        <span>{isProcessed ? "paste" : "send"}</span>
+        <span>{isProcessed ? "paste" : "refine"}</span>
         <Dot />
         <Kbd>Tab</Kbd>
         <span>browse</span>
@@ -159,14 +159,17 @@ export function FooterBar({
           className="flex items-center gap-1.5 px-[18px] py-[9px] bg-transparent border border-(--accent)/50 rounded-lg text-(--accent) text-[13px] font-semibold cursor-pointer transition-all duration-200 hover:bg-(--accent)/10 hover:border-(--accent) disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isLoading ? (
-            <span className="loading-dots flex items-center gap-[3px]">
-              <span />
-              <span />
-              <span />
+            <span className="inline-flex items-center gap-1.5">
+              <span>Refining</span>
+              <span className="loading-dots flex items-center gap-[3px]">
+                <span />
+                <span />
+                <span />
+              </span>
             </span>
           ) : (
             <>
-              <span>Send</span>
+              <span>Refine</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
