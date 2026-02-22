@@ -252,6 +252,10 @@ fn capture_selected_text(app: &AppHandle) -> String {
     let original_change_count = crate::native_mac::clipboard_change_count();
     let original_clipboard = app.clipboard().read_text().unwrap_or_default();
 
+    // Wait for modifier keys (Shift, R) from the global shortcut to be released,
+    // otherwise the simulated Cmd+C can be interpreted as Cmd+Shift+C by some apps.
+    thread::sleep(Duration::from_millis(80));
+
     // Simulate Cmd+C in the frontmost app
     let result = Command::new("osascript")
         .arg("-e")

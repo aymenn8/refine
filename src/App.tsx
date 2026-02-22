@@ -36,6 +36,7 @@ function App() {
   const [flowStepProgress, setFlowStepProgress] = useState<FlowStepProgress | null>(null);
   const [historyShortcut, setHistoryShortcut] = useState("CommandOrControl+Shift+V");
   const [spotlightTheme, setSpotlightTheme] = useState<"dark" | "light">("dark");
+  const [autoCopied, setAutoCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const ignoreBlurUntilRef = useRef(0);
 
@@ -83,9 +84,26 @@ function App() {
     }
   }, []);
 
+  const pickPinnedMode = useCallback(
+    (loadedModes: ProcessingMode[], preferredModeId?: string | null): string | null => {
+      if (loadedModes.length === 0) return null;
+
+      const pinned = loadedModes
+        .filter((m) => m.is_pinned)
+        .sort((a, b) => (a.pin_order ?? 0) - (b.pin_order ?? 0));
+
+      if (preferredModeId && pinned.some((m) => m.id === preferredModeId)) {
+        return preferredModeId;
+      }
+
+      return pinned[0]?.id ?? loadedModes[0].id;
+    },
+    []
+  );
+
   // --- Derived values ---
 
-  const pinnedModes = modes.filter((m) => m.is_pinned);
+  const pinnedModes = modes.filter((m) => m.is_pinned).sort((a, b) => (a.pin_order ?? 0) - (b.pin_order ?? 0));
   const isCurrentPinnedMode = pinnedModes.some((m) => m.id === mode) && selectedType === "mode";
   const currentSelectionName =
     selectedType === "flow"
@@ -143,6 +161,7 @@ function App() {
     setText(originalText);
     setIsProcessed(false);
     setCopied(false);
+    setAutoCopied(false);
     setFlowStepProgress(null);
     textareaRef.current?.focus();
   }, [originalText]);
@@ -168,7 +187,20 @@ function App() {
       }
       setText(transformedText);
       setIsProcessed(true);
+      setAutoCopied(false);
       playNotificationSound();
+      // Auto-copy result to clipboard if enabled
+      const store = await load("settings.json");
+      const autoCopy = await store.get<boolean>("autoCopyEnabled");
+      if (autoCopy !== false) {
+        try {
+          await writeText(transformedText);
+          setAutoCopied(true);
+          setTimeout(() => setAutoCopied(false), 3000);
+        } catch (e) {
+          console.error("Auto-copy failed:", e);
+        }
+      }
     } catch (err) {
       console.error("Failed to process text:", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -214,10 +246,10 @@ function App() {
       await loadFlows();
       const store = await load("settings.json");
       const defaultMode = await store.get<string>("defaultMode");
-      if (defaultMode && loadedModes.some((m) => m.id === defaultMode)) {
-        setMode(defaultMode);
-      } else if (loadedModes.length > 0) {
-        setMode(loadedModes[0].id);
+      const initialMode = pickPinnedMode(loadedModes, defaultMode ?? null);
+      if (initialMode) {
+        setMode(initialMode);
+        setSelectedType("mode");
       }
       const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
       setHistoryShortcut(currentHistoryShortcut);
@@ -235,8 +267,20 @@ function App() {
       setError(null);
 
       await applyAccentColor();
-      await loadModes();
+      const loadedModes = await loadModes();
       await loadFlows();
+
+      if (selectedType === "mode") {
+        const store = await load("settings.json");
+        const defaultMode = await store.get<string>("defaultMode");
+        const currentModePinned = loadedModes.some((m) => m.id === mode && m.is_pinned);
+        const preferredMode = currentModePinned ? mode : defaultMode ?? null;
+        const nextMode = pickPinnedMode(loadedModes, preferredMode);
+        if (nextMode && nextMode !== mode) {
+          setMode(nextMode);
+        }
+      }
+
       const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
       setHistoryShortcut(currentHistoryShortcut);
       await resolveSpotlightTheme();
@@ -256,7 +300,7 @@ function App() {
       unlisten.then((fn) => fn());
       unlistenHistoryToggle.then((fn) => fn());
     };
-  }, [loadModes, loadFlows, resolveSpotlightTheme]);
+  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode, mode, selectedType]);
 
   useEffect(() => {
     const unlisten = listen<FlowStepProgress>("flow-step-progress", (event) => {
@@ -404,14 +448,16 @@ function App() {
   };
 
   // --- Render ---
+  const isLightTheme = spotlightTheme === "light";
 
   return (
-    <div className="h-screen w-screen bg-transparent flex flex-col overflow-hidden">
+    <div className={`auto-light-contrast h-screen w-screen bg-transparent flex flex-col overflow-hidden ${isLightTheme ? "text-black" : "text-white"}`}>
       <div className="flex-1 flex flex-col animate-slide-in min-h-0">
         <div className="px-5 pt-3 pb-3 flex flex-col flex-1 min-h-0">
           {/* Header: selector or processed bar */}
           {isProcessed ? (
             <ProcessedBar
+              theme={spotlightTheme}
               selectedType={selectedType}
               modeName={modes.find((m) => m.id === mode)?.name}
               flowStepNames={getFlowStepNames(mode)}
@@ -419,6 +465,7 @@ function App() {
             />
           ) : (
             <SelectorBar
+              theme={spotlightTheme}
               pinnedModes={pinnedModes}
               mode={mode}
               selectedType={selectedType}
@@ -438,6 +485,7 @@ function App() {
           {/* Flow pipeline strip */}
           {selectedType === "flow" && !isProcessed && (
             <PipelineStrip
+              theme={spotlightTheme}
               stepNames={getFlowStepNames(mode)}
               isLoading={isLoading}
               flowStepProgress={flowStepProgress}
@@ -449,6 +497,7 @@ function App() {
             {/* Command palette overlay — covers full content area */}
             {showPalette && (
               <CommandPalette
+                theme={spotlightTheme}
                 modes={modes}
                 flows={flows}
                 currentMode={mode}
@@ -498,6 +547,22 @@ function App() {
                 />
               )}
 
+              {/* Auto-copy notification */}
+              {autoCopied && (
+                <div
+                  className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg backdrop-blur-sm text-[12px] animate-fade-in ${
+                    isLightTheme
+                      ? "bg-white/85 border border-black/10 text-black/70"
+                      : "bg-white/10 border border-white/10 text-white/70"
+                  }`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  Copied to clipboard
+                </div>
+              )}
+
               <textarea
                 ref={textareaRef}
                 value={text}
@@ -506,15 +571,27 @@ function App() {
                   if (error) setError(null);
                 }}
                 onKeyDown={handleKeyDown}
+                onMouseDown={() => {
+                  if (isProcessed) {
+                    setIsProcessed(false);
+                    setCopied(false);
+                    setAutoCopied(false);
+                  }
+                }}
                 placeholder={getPlaceholder()}
                 disabled={isLoading}
-                className={`text-input w-full h-full p-4 bg-white/[0.03] border border-white/[0.06] rounded-xl outline-none resize-none text-white text-[15px] leading-relaxed select-text transition-all duration-200 placeholder:text-white/30 focus:bg-white/[0.05] focus:border-white/[0.12] disabled:cursor-not-allowed ${isLoading ? "animate-border-glow" : ""}`}
+                className={`text-input w-full h-full p-4 rounded-xl outline-none resize-none text-[15px] leading-relaxed select-text transition-all duration-200 disabled:cursor-not-allowed ${
+                  isLightTheme
+                    ? "bg-black/[0.02] border border-black/[0.12] text-black/85 placeholder:text-black/35 focus:bg-black/[0.04] focus:border-black/[0.2]"
+                    : "bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-white/30 focus:bg-white/[0.05] focus:border-white/[0.12]"
+                } ${isLoading ? "animate-border-glow" : ""}`}
               />
             </div>
           </div>
 
           {/* Footer */}
           <FooterBar
+            theme={spotlightTheme}
             isProcessed={isProcessed}
             isLoading={isLoading}
             hasText={!!text.trim()}

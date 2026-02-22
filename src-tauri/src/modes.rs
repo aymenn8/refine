@@ -15,6 +15,9 @@ pub struct ProcessingMode {
     pub is_default: bool,
     #[serde(default)]
     pub is_pinned: bool,
+    /// Ordering value for pinned modes (lower = shown first). None if not pinned.
+    #[serde(default)]
+    pub pin_order: Option<u32>,
     /// Optional model override - if None, uses the default active model
     #[serde(default)]
     pub model_override: Option<ActiveModelConfig>,
@@ -54,6 +57,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             user_prompt_template: "[IDEA TO CONVERT INTO A PROMPT]: {text}".to_string(),
             is_default: true,
             is_pinned: true,
+            pin_order: Some(0),
             model_override: None,
         },
         ProcessingMode {
@@ -65,6 +69,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             user_prompt_template: "{text}".to_string(),
             is_default: true,
             is_pinned: false,
+            pin_order: None,
             model_override: None,
         },
         ProcessingMode {
@@ -76,6 +81,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             user_prompt_template: "Fix spelling/grammar errors only (do NOT translate): {text}".to_string(),
             is_default: true,
             is_pinned: true,
+            pin_order: Some(1),
             model_override: None,
         },
         ProcessingMode {
@@ -87,6 +93,7 @@ fn get_default_modes() -> Vec<ProcessingMode> {
             user_prompt_template: "{text}".to_string(),
             is_default: true,
             is_pinned: true,
+            pin_order: Some(2),
             model_override: None,
         },
     ]
@@ -144,6 +151,19 @@ fn append_missing_default_modes(modes: &mut Vec<ProcessingMode>) -> bool {
             let prompt_mode = modes.remove(prompt_idx);
             modes.insert(0, prompt_mode);
             changed = true;
+        }
+    }
+
+    // Migration: assign pin_order to pinned modes that don't have one yet
+    let needs_pin_order = modes.iter().any(|m| m.is_pinned && m.pin_order.is_none());
+    if needs_pin_order {
+        let mut order: u32 = 0;
+        for mode in modes.iter_mut() {
+            if mode.is_pinned && mode.pin_order.is_none() {
+                mode.pin_order = Some(order);
+                order += 1;
+                changed = true;
+            }
         }
     }
 
@@ -311,11 +331,10 @@ pub async fn reset_modes_to_defaults(app: AppHandle) -> Result<Vec<ProcessingMod
 
 const MAX_PINNED_MODES: usize = 3;
 
-/// Toggle pin status for a mode
+/// Toggle pin status for a mode.
+/// When pinning a new mode and already at max, automatically unpins the oldest pinned mode.
 #[tauri::command]
 pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), String> {
-    println!("[toggle_pin_mode] Called with mode_id: {}", mode_id);
-
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
@@ -326,37 +345,83 @@ pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), Stri
         .unwrap_or_else(get_default_modes);
     append_missing_default_modes(&mut modes);
 
-    // Find the mode and check current pin status
     let mode = modes.iter().find(|m| m.id == mode_id)
         .ok_or_else(|| format!("Mode not found: {}", mode_id))?;
 
     let currently_pinned = mode.is_pinned;
     let pinned_count = modes.iter().filter(|m| m.is_pinned).count();
 
-    // If trying to unpin, check we have at least 2 pinned (so 1 remains)
+    // Cannot unpin if it's the last pinned mode
     if currently_pinned && pinned_count <= 1 {
         return Err("At least one mode must be pinned".to_string());
     }
 
-    // If trying to pin, check if we already have max pinned modes
-    if !currently_pinned && pinned_count >= MAX_PINNED_MODES {
-        return Err(format!("Cannot pin more than {} modes", MAX_PINNED_MODES));
-    }
+    if currently_pinned {
+        // Unpin
+        if let Some(mode) = modes.iter_mut().find(|m| m.id == mode_id) {
+            mode.is_pinned = false;
+            mode.pin_order = None;
+        }
+    } else {
+        // Pin — if at max, auto-unpin the oldest (lowest pin_order)
+        if pinned_count >= MAX_PINNED_MODES {
+            let oldest_id = modes.iter()
+                .filter(|m| m.is_pinned)
+                .min_by_key(|m| m.pin_order.unwrap_or(u32::MAX))
+                .map(|m| m.id.clone());
+            if let Some(oldest_id) = oldest_id {
+                if let Some(oldest) = modes.iter_mut().find(|m| m.id == oldest_id) {
+                    oldest.is_pinned = false;
+                    oldest.pin_order = None;
+                }
+            }
+        }
 
-    // Toggle the pin status
-    if let Some(mode) = modes.iter_mut().find(|m| m.id == mode_id) {
-        mode.is_pinned = !mode.is_pinned;
-        println!("[toggle_pin_mode] Mode {} is now pinned: {}", mode_id, mode.is_pinned);
+        // Assign pin_order = max existing + 1
+        let max_order = modes.iter()
+            .filter_map(|m| m.pin_order)
+            .max()
+            .unwrap_or(0);
+        if let Some(mode) = modes.iter_mut().find(|m| m.id == mode_id) {
+            mode.is_pinned = true;
+            mode.pin_order = Some(max_order + 1);
+        }
     }
 
     store.set(
         MODES_KEY,
         serde_json::to_value(&modes).map_err(|e| format!("Failed to serialize modes: {}", e))?,
     );
+    store.save().map_err(|e| format!("Failed to save store: {}", e))?;
 
-    store
-        .save()
-        .map_err(|e| format!("Failed to save store: {}", e))?;
+    Ok(())
+}
+
+/// Reorder pinned modes. Takes an ordered list of pinned mode IDs.
+#[tauri::command]
+pub async fn reorder_pinned_modes(app: AppHandle, mode_ids: Vec<String>) -> Result<(), String> {
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("Failed to load store: {}", e))?;
+
+    let mut modes: Vec<ProcessingMode> = store
+        .get(MODES_KEY)
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(get_default_modes);
+    append_missing_default_modes(&mut modes);
+
+    // Update pin_order based on the provided order
+    for (i, id) in mode_ids.iter().enumerate() {
+        if let Some(mode) = modes.iter_mut().find(|m| &m.id == id && m.is_pinned) {
+            mode.pin_order = Some(i as u32);
+        }
+    }
+
+    store.set(
+        MODES_KEY,
+        serde_json::to_value(&modes).map_err(|e| format!("Failed to serialize modes: {}", e))?,
+    );
+    store.save().map_err(|e| format!("Failed to save store: {}", e))?;
 
     Ok(())
 }

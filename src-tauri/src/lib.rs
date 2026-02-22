@@ -152,6 +152,7 @@ pub fn run() {
             modes::delete_mode,
             modes::reset_modes_to_defaults,
             modes::toggle_pin_mode,
+            modes::reorder_pinned_modes,
             modes::set_mode_model,
             clipboard::get_clipboard_history,
             clipboard::query_clipboard_history,

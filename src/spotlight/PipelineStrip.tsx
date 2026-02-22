@@ -1,12 +1,14 @@
 import type { FlowStepProgress } from "./types";
 
 interface PipelineStripProps {
+  theme: "dark" | "light";
   stepNames: string[];
   isLoading: boolean;
   flowStepProgress: FlowStepProgress | null;
 }
 
 export function PipelineStrip({
+  theme,
   stepNames,
   isLoading,
   flowStepProgress,
@@ -34,7 +36,11 @@ export function PipelineStrip({
                     ? "text-(--accent)"
                     : stepStatus === "processing"
                     ? "text-(--accent) animate-step-pulse"
+                    : theme === "light"
+                    ? "text-black/25"
                     : "text-white/20"
+                  : theme === "light"
+                  ? "text-black/50"
                   : "text-white/45"
               }`}
             >
@@ -47,7 +53,17 @@ export function PipelineStrip({
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
               ) : (
-                <span className={`w-[6px] h-[6px] rounded-full ${isLoading ? "bg-white/15" : "bg-white/25"}`} />
+                <span
+                  className={`w-[6px] h-[6px] rounded-full ${
+                    isLoading
+                      ? theme === "light"
+                        ? "bg-black/20"
+                        : "bg-white/15"
+                      : theme === "light"
+                      ? "bg-black/30"
+                      : "bg-white/25"
+                  }`}
+                />
               )}
               <span className="text-[11px] font-medium">{name}</span>
             </span>
@@ -57,7 +73,11 @@ export function PipelineStrip({
                   isLoading
                     ? stepStatus === "done"
                       ? "text-(--accent)/40"
+                      : theme === "light"
+                      ? "text-black/20"
                       : "text-white/10"
+                    : theme === "light"
+                    ? "text-black/30"
                     : "text-white/20"
                 }`}
               >

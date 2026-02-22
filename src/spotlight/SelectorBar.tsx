@@ -1,6 +1,7 @@
 import type { ProcessingMode } from "./types";
 
 interface SelectorBarProps {
+  theme: "dark" | "light";
   pinnedModes: ProcessingMode[];
   mode: string;
   selectedType: "mode" | "flow";
@@ -14,6 +15,7 @@ interface SelectorBarProps {
 }
 
 export function SelectorBar({
+  theme,
   pinnedModes,
   mode,
   selectedType,
@@ -26,6 +28,12 @@ export function SelectorBar({
   onResetToDefault,
 }: SelectorBarProps) {
   const showsName = !showPalette && !isCurrentPinnedMode && !!currentSelectionName;
+  const inactiveTextClass =
+    theme === "light"
+      ? "text-black/45 hover:text-black/70"
+      : "text-white/40 hover:text-white/60";
+  const triggerOpenClass =
+    theme === "light" ? "text-black/70 border-b-transparent" : "text-white/60 border-b-transparent";
 
   const handleTriggerClick = () => {
     if (showPalette) {
@@ -45,7 +53,7 @@ export function SelectorBar({
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-[13px] font-medium cursor-pointer transition-all duration-150 border-0 border-b-2 border-solid ${
             mode === m.id && selectedType === "mode"
               ? "text-(--accent) border-b-(--accent)"
-              : "text-white/40 hover:text-white/60 border-b-transparent"
+              : `${inactiveTextClass} border-b-transparent`
           }`}
           onClick={() => onSelectMode(m.id)}
           disabled={isLoading}
@@ -59,8 +67,8 @@ export function SelectorBar({
           showsName
             ? "text-(--accent) border-b-(--accent)"
             : showPalette
-            ? "text-white/60 border-b-transparent"
-            : "text-white/40 hover:text-white/60 border-b-transparent"
+            ? triggerOpenClass
+            : `${inactiveTextClass} border-b-transparent`
         }`}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={handleTriggerClick}

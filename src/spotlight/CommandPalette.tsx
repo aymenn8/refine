@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import type { ProcessingMode, Flow } from "./types";
 
 interface CommandPaletteProps {
+  theme: "dark" | "light";
   modes: ProcessingMode[];
   flows: Flow[];
   currentMode: string;
@@ -11,6 +12,7 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({
+  theme,
   modes,
   flows,
   currentMode,
@@ -22,6 +24,7 @@ export function CommandPalette({
   const [index, setIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isLight = theme === "light";
 
   // Auto-focus search input on mount
   useEffect(() => {
@@ -129,10 +132,14 @@ export function CommandPalette({
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 z-10 bg-[#1a1a1a]/95 backdrop-blur-xl border border-white/[0.06] rounded-xl shadow-2xl flex flex-col overflow-hidden"
+      className={`absolute inset-0 z-10 backdrop-blur-xl rounded-xl shadow-2xl flex flex-col overflow-hidden ${
+        isLight
+          ? "bg-white/95 border border-black/[0.08]"
+          : "bg-[#1a1a1a]/95 border border-white/[0.06]"
+      }`}
     >
       {/* Search input */}
-      <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-white/10">
+      <div className={`shrink-0 flex items-center gap-2 px-3 py-2.5 border-b ${isLight ? "border-black/10" : "border-white/10"}`}>
         <svg
           width="14"
           height="14"
@@ -142,7 +149,7 @@ export function CommandPalette({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="text-white/40 shrink-0"
+          className={`${isLight ? "text-black/45" : "text-white/40"} shrink-0`}
         >
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -156,21 +163,23 @@ export function CommandPalette({
             setIndex(0);
           }}
           placeholder="Search modes & flows..."
-          className="flex-1 bg-transparent border-none outline-none text-white text-[13px] placeholder:text-white/30"
+          className={`flex-1 bg-transparent border-none outline-none text-[13px] ${
+            isLight ? "text-black/85 placeholder:text-black/35" : "text-white placeholder:text-white/30"
+          }`}
         />
       </div>
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto p-1.5">
         {paletteItems.items.length === 0 ? (
-          <div className="px-3 py-6 text-center text-white/40 text-[13px]">
+          <div className={`px-3 py-6 text-center text-[13px] ${isLight ? "text-black/45" : "text-white/40"}`}>
             No results found
           </div>
         ) : (
           <>
             {paletteItems.modeCount > 0 && (
               <>
-                <div className="text-[10px] text-white/30 uppercase tracking-wider px-3 py-1.5 font-medium">
+                <div className={`text-[10px] uppercase tracking-wider px-3 py-1.5 font-medium ${isLight ? "text-black/40" : "text-white/30"}`}>
                   Modes
                 </div>
                 {paletteItems.items
@@ -187,27 +196,31 @@ export function CommandPalette({
                         onClick={() => onSelect(item.type, item.id)}
                         className={`w-full flex items-start gap-2.5 px-3 py-2 rounded-lg text-left transition-colors border-none cursor-pointer ${
                           isHighlighted
-                            ? "bg-white/10"
+                            ? isLight
+                              ? "bg-black/10"
+                              : "bg-white/10"
                             : isSelected
                             ? "bg-(--accent)/15"
+                            : isLight
+                            ? "bg-transparent hover:bg-black/5"
                             : "bg-transparent hover:bg-white/5"
                         }`}
                       >
                         <span
                           className={`mt-1 w-[6px] h-[6px] rounded-full shrink-0 ${
-                            isSelected ? "bg-(--accent)" : "bg-white/25"
+                            isSelected ? "bg-(--accent)" : isLight ? "bg-black/25" : "bg-white/25"
                           }`}
                         />
                         <div className="flex-1 min-w-0">
                           <div
                             className={`text-[13px] font-medium ${
-                              isSelected ? "text-(--accent)" : "text-white/80"
+                              isSelected ? "text-(--accent)" : isLight ? "text-black/85" : "text-white/80"
                             }`}
                           >
                             {item.name}
                           </div>
                           {item.description && (
-                            <div className="text-[11px] text-white/35 truncate mt-0.5">
+                            <div className={`text-[11px] truncate mt-0.5 ${isLight ? "text-black/45" : "text-white/35"}`}>
                               {item.description}
                             </div>
                           )}
@@ -221,9 +234,9 @@ export function CommandPalette({
             {paletteItems.flowCount > 0 && (
               <>
                 {paletteItems.modeCount > 0 && (
-                  <div className="my-1 border-t border-white/10" />
+                  <div className={`my-1 border-t ${isLight ? "border-black/10" : "border-white/10"}`} />
                 )}
-                <div className="text-[10px] text-white/30 uppercase tracking-wider px-3 py-1.5 font-medium">
+                <div className={`text-[10px] uppercase tracking-wider px-3 py-1.5 font-medium ${isLight ? "text-black/40" : "text-white/30"}`}>
                   Flows
                 </div>
                 {paletteItems.items
@@ -243,9 +256,13 @@ export function CommandPalette({
                         onClick={() => onSelect(item.type, item.id)}
                         className={`w-full flex items-start gap-2.5 px-3 py-2 rounded-lg text-left transition-colors border-none cursor-pointer ${
                           isHighlighted
-                            ? "bg-white/10"
+                            ? isLight
+                              ? "bg-black/10"
+                              : "bg-white/10"
                             : isSelected
                             ? "bg-(--accent)/15"
+                            : isLight
+                            ? "bg-transparent hover:bg-black/5"
                             : "bg-transparent hover:bg-white/5"
                         }`}
                       >
@@ -259,7 +276,7 @@ export function CommandPalette({
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           className={`mt-0.5 shrink-0 ${
-                            isSelected ? "text-(--accent)" : "text-white/40"
+                            isSelected ? "text-(--accent)" : isLight ? "text-black/45" : "text-white/40"
                           }`}
                         >
                           <polyline points="16 3 21 3 21 8" />
@@ -269,17 +286,21 @@ export function CommandPalette({
                           <div className="flex items-center gap-2">
                             <span
                               className={`text-[13px] font-medium ${
-                                isSelected ? "text-(--accent)" : "text-white/80"
+                                isSelected ? "text-(--accent)" : isLight ? "text-black/85" : "text-white/80"
                               }`}
                             >
                               {item.name}
                             </span>
-                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/8 text-white/30 font-medium">
+                            <span
+                              className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium ${
+                                isLight ? "bg-black/8 text-black/40" : "bg-white/8 text-white/30"
+                              }`}
+                            >
                               flow
                             </span>
                           </div>
                           {stepNames.length > 0 && (
-                            <div className="text-[11px] text-white/35 truncate mt-0.5">
+                            <div className={`text-[11px] truncate mt-0.5 ${isLight ? "text-black/45" : "text-white/35"}`}>
                               {stepNames.join(" \u2192 ")}
                             </div>
                           )}

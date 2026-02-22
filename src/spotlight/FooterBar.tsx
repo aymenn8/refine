@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 
 interface FooterBarProps {
+  theme: "dark" | "light";
   isProcessed: boolean;
   isLoading: boolean;
   hasText: boolean;
@@ -36,6 +37,7 @@ function keysToShortcut(keys: Set<string>): string {
 }
 
 export function FooterBar({
+  theme,
   isProcessed,
   isLoading,
   hasText,
@@ -94,25 +96,28 @@ export function FooterBar({
     }
   };
 
+  const infoTextClass = theme === "light" ? "text-black/40" : "text-white/30";
+  const historyTextClass = theme === "light" ? "text-black/60 hover:text-black/80" : "text-white/50 hover:text-white/70";
+
   return (
     <div className="shrink-0 flex items-center justify-between px-4 py-2.5 mt-1">
-      <div className="flex items-center gap-2 text-white/30 text-xs font-medium">
-        <Kbd>Enter</Kbd>
+      <div className={`flex items-center gap-2 text-xs font-medium ${infoTextClass}`}>
+        <Kbd theme={theme}>Enter</Kbd>
         <span>{isProcessed ? "paste" : "refine"}</span>
-        <Dot />
-        <Kbd>Tab</Kbd>
+        <Dot theme={theme} />
+        <Kbd theme={theme}>Tab</Kbd>
         <span>browse</span>
-        <Dot />
+        <Dot theme={theme} />
         <button
           ref={btnRef}
           onClick={handleStartRecording}
           onKeyDown={handleKeyDown}
           className={`inline-flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer outline-none ${
-            isRecording ? "text-(--accent)" : "text-white/50 hover:text-white/70"
+            isRecording ? "text-(--accent)" : historyTextClass
           } transition-colors`}
           title="Click to change shortcut"
         >
-          <Kbd highlight={isRecording}>
+          <Kbd theme={theme} highlight={isRecording}>
             {isRecording
               ? recordedKeys.size > 0
                 ? formatShortcut(keysToShortcut(recordedKeys))
@@ -121,8 +126,8 @@ export function FooterBar({
           </Kbd>
           <span className="text-xs font-medium">history</span>
         </button>
-        <Dot />
-        <Kbd>Esc</Kbd>
+        <Dot theme={theme} />
+        <Kbd theme={theme}>Esc</Kbd>
         <span>{isProcessed ? "back" : "close"}</span>
       </div>
 
@@ -181,11 +186,21 @@ export function FooterBar({
   );
 }
 
-function Kbd({ children, highlight }: { children: React.ReactNode; highlight?: boolean }) {
+function Kbd({
+  children,
+  theme,
+  highlight,
+}: {
+  children: React.ReactNode;
+  theme: "dark" | "light";
+  highlight?: boolean;
+}) {
   return (
     <kbd className={`inline-flex items-center justify-center min-w-6 px-[7px] py-1 border rounded-[5px] text-[11px] font-semibold transition-colors ${
       highlight
         ? "bg-(--accent)/20 border-(--accent)/30 text-(--accent)"
+        : theme === "light"
+        ? "bg-black/[0.05] border-black/[0.12] text-black/50"
         : "bg-white/[0.04] border-white/[0.08] text-white/40"
     }`}>
       {children}
@@ -193,6 +208,6 @@ function Kbd({ children, highlight }: { children: React.ReactNode; highlight?: b
   );
 }
 
-function Dot() {
-  return <span className="text-white/30">&middot;</span>;
+function Dot({ theme }: { theme: "dark" | "light" }) {
+  return <span className={theme === "light" ? "text-black/30" : "text-white/30"}>&middot;</span>;
 }

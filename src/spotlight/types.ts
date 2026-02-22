@@ -6,6 +6,7 @@ export interface ProcessingMode {
   user_prompt_template: string;
   is_default: boolean;
   is_pinned?: boolean;
+  pin_order?: number | null;
 }
 
 export interface Flow {

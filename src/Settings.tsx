@@ -228,7 +228,7 @@ function Settings() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-transparent text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue',sans-serif]">
+    <div className="auto-light-contrast flex flex-col h-screen bg-transparent text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text','Helvetica_Neue',sans-serif]">
       {/* Title bar - draggable */}
       <div className="h-12 flex items-center px-4 border-b border-white/10 shrink-0 relative">
         {/* Buttons - Not draggable */}

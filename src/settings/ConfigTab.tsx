@@ -25,6 +25,9 @@ function ConfigTab() {
   const [soundVolume, setSoundVolume] = useState(0.5);
   const [soundType, setSoundType] = useState("Glass");
 
+  // Auto-copy
+  const [autoCopyEnabled, setAutoCopyEnabled] = useState(true);
+
   // Analytics
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
@@ -42,6 +45,7 @@ function ConfigTab() {
   const [customColor, setCustomColor] = useState<string | null>(null);
   const colorisInitialized = useRef(false);
   const colorInputRef = useRef<HTMLInputElement>(null);
+  const configContainerRef = useRef<HTMLDivElement>(null);
 
   const applyAccent = useCallback(
     async (hex: string, saveCustom?: string | null) => {
@@ -94,6 +98,7 @@ function ConfigTab() {
     Coloris.init();
     Coloris({
       el: "#accent-color-input",
+      parent: configContainerRef.current ?? ".settings-main",
       theme: "polaroid",
       themeMode: "dark",
       alpha: false,
@@ -107,6 +112,20 @@ function ConfigTab() {
       },
     });
   }, [handleAccentChange]);
+
+  useEffect(() => {
+    const container = configContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      Coloris.updatePosition();
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   const loadData = async () => {
     try {
@@ -129,6 +148,8 @@ function ConfigTab() {
         setSoundVolume(savedSoundVolume);
       const savedSoundType = await store.get<string>("soundType");
       if (savedSoundType) setSoundType(savedSoundType);
+      const savedAutoCopy = await store.get<boolean>("autoCopyEnabled");
+      if (savedAutoCopy !== null && savedAutoCopy !== undefined) setAutoCopyEnabled(savedAutoCopy);
       const savedAnalytics = await store.get<boolean>("analyticsEnabled");
       if (savedAnalytics !== null && savedAnalytics !== undefined) setAnalyticsEnabled(savedAnalytics);
       const savedAutoUpdate = await store.get<boolean>("autoUpdateEnabled");
@@ -317,7 +338,7 @@ function ConfigTab() {
   }
 
   return (
-    <div className="p-6 md:px-8 h-full overflow-y-auto">
+    <div ref={configContainerRef} className="relative p-6 md:px-8 h-full overflow-y-auto">
       <div className="mb-6">
         <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-1">
           Configuration
@@ -501,7 +522,7 @@ function ConfigTab() {
                 value={accentColor}
                 readOnly
                 data-coloris
-                className="w-0 h-0 overflow-hidden opacity-0 absolute pointer-events-none"
+                className="w-0 h-0 overflow-hidden opacity-0 pointer-events-none"
               />
               <button
                 onClick={() => colorInputRef.current?.click()}
@@ -651,6 +672,63 @@ function ConfigTab() {
               </div>
             </>
           )}
+        </div>
+      </section>
+
+      {/* Clipboard Section */}
+      <section className="mt-8">
+        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-3">
+          Clipboard
+        </h2>
+        <div className="space-y-3">
+          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-white/60"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                <div>
+                  <span className="text-[14px] text-white">Auto-copy result</span>
+                  <p className="text-[11px] text-white/35 mt-0.5">
+                    Automatically copy the processed text to clipboard
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  const newValue = !autoCopyEnabled;
+                  setAutoCopyEnabled(newValue);
+                  try {
+                    const store = await load("settings.json");
+                    await store.set("autoCopyEnabled", newValue);
+                    await store.save();
+                  } catch (error) {
+                    console.error("Failed to save auto-copy setting:", error);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
+                  autoCopyEnabled ? "bg-(--accent)" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    autoCopyEnabled ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 

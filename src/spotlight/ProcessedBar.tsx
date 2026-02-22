@@ -1,4 +1,5 @@
 interface ProcessedBarProps {
+  theme: "dark" | "light";
   selectedType: "mode" | "flow";
   modeName?: string;
   flowStepNames: string[];
@@ -6,16 +7,24 @@ interface ProcessedBarProps {
 }
 
 export function ProcessedBar({
+  theme,
   selectedType,
   modeName,
   flowStepNames,
   onBack,
 }: ProcessedBarProps) {
+  const backButtonClass =
+    theme === "light"
+      ? "text-black/65 hover:bg-black/8 hover:text-black/90"
+      : "text-white/60 hover:bg-white/10 hover:text-white/80";
+  const textMutedClass = theme === "light" ? "text-black/45" : "text-white/40";
+  const textPrimaryClass = theme === "light" ? "text-black/70" : "text-white/60";
+
   return (
     <div className="shrink-0 flex items-center gap-2 px-1 py-1.5 mb-1">
       <button
         onClick={onBack}
-        className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none bg-transparent text-white/60 hover:bg-white/10 hover:text-white/80"
+        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium cursor-pointer transition-all duration-150 border-none bg-transparent ${backButtonClass}`}
       >
         <svg
           width="14"
@@ -31,7 +40,7 @@ export function ProcessedBar({
         </svg>
         <span>Back</span>
       </button>
-      <div className="flex-1 flex items-center justify-center gap-1.5 text-[13px] text-white/40">
+      <div className={`flex-1 flex items-center justify-center gap-1.5 text-[13px] ${textMutedClass}`}>
         {selectedType === "flow" ? (
           <>
             <span className="mr-1">Processed:</span>
@@ -52,7 +61,7 @@ export function ProcessedBar({
         ) : (
           <>
             Processed with{" "}
-            <span className="text-white/60">{modeName}</span>
+            <span className={textPrimaryClass}>{modeName}</span>
           </>
         )}
       </div>

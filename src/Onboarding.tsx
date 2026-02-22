@@ -121,7 +121,7 @@ function Onboarding() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-transparent select-none">
+    <div className="auto-light-contrast h-screen flex flex-col bg-transparent select-none">
       {/* Title bar */}
       <div className="h-12 shrink-0" data-tauri-drag-region />
 

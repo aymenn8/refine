@@ -62,9 +62,23 @@ pub fn build_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> 
             &quit_item,
         ],
     )?;
+    let edit_menu = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::select_all(app, None)?,
+        ],
+    )?;
     let view_menu = Submenu::with_items(app, "View", true, &[&history_item])?;
 
-    Menu::with_items(app, &[&refine_menu, &view_menu])
+    Menu::with_items(app, &[&refine_menu, &edit_menu, &view_menu])
 }
 
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {

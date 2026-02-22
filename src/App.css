@@ -100,3 +100,53 @@
 }
 .loading-dots span:nth-child(2) { animation-delay: 0.16s; }
 .loading-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, -4px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@media (prefers-color-scheme: light) {
+  .auto-light-contrast [class*="text-white"] {
+    color: rgb(15 23 42 / 0.82) !important;
+  }
+
+  .auto-light-contrast [class*="text-white/0"] {
+    color: rgb(15 23 42 / 0) !important;
+  }
+
+  .auto-light-contrast [class*="hover:text-white/"]:hover {
+    color: rgb(15 23 42 / 0.9) !important;
+  }
+
+  .auto-light-contrast [class*="placeholder:text-white/"]::placeholder {
+    color: rgb(15 23 42 / 0.38) !important;
+  }
+
+  .auto-light-contrast [class*="bg-white/"] {
+    background-color: rgb(15 23 42 / 0.06) !important;
+  }
+
+  .auto-light-contrast [class*="hover:bg-white/"]:hover {
+    background-color: rgb(15 23 42 / 0.1) !important;
+  }
+
+  .auto-light-contrast [class*="border-white/"] {
+    border-color: rgb(15 23 42 / 0.16) !important;
+  }
+
+  .auto-light-contrast [class*="hover:border-white/"]:hover {
+    border-color: rgb(15 23 42 / 0.24) !important;
+  }
+
+  .auto-light-contrast svg[stroke="white"] {
+    stroke: rgb(15 23 42 / 0.75) !important;
+  }
+
+  .auto-light-contrast svg[fill="white"] {
+    fill: rgb(15 23 42 / 0.75) !important;
+  }
+}
