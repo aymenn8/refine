@@ -285,8 +285,15 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app, event| {
             #[cfg(target_os = "macos")]
-            if let RunEvent::Reopen { .. } = event {
-                open_settings_from_dock(app);
+            match event {
+                RunEvent::Reopen { .. } => open_settings_from_dock(app),
+                RunEvent::ExitRequested { code, api, .. } => {
+                    // Work around a macOS termination panic inside tao by
+                    // exiting the process directly after the exit request.
+                    api.prevent_exit();
+                    std::process::exit(code.unwrap_or(0));
+                }
+                _ => {}
             }
         });
 }

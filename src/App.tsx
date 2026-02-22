@@ -20,6 +20,32 @@ interface SpotlightPayload {
   previous_app: string;
 }
 
+function getModeShortcutIndex(e: {
+  key: string;
+  code: string;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}): number | null {
+  if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) {
+    return null;
+  }
+
+  const codeMatch =
+    e.code.match(/^Digit([1-9])$/) ?? e.code.match(/^Numpad([1-9])$/);
+  if (codeMatch) {
+    return Number(codeMatch[1]) - 1;
+  }
+
+  const keyMatch = e.key.match(/^[1-9]$/);
+  if (keyMatch) {
+    return Number(keyMatch[0]) - 1;
+  }
+
+  return null;
+}
+
 function App() {
   const [text, setText] = useState("");
   const [modes, setModes] = useState<ProcessingMode[]>([]);
@@ -39,6 +65,8 @@ function App() {
   const [autoCopied, setAutoCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const ignoreBlurUntilRef = useRef(0);
+  const modeRef = useRef(mode);
+  const selectedTypeRef = useRef(selectedType);
 
   // --- Data loading ---
 
@@ -238,7 +266,29 @@ function App() {
     setShowHistory(false);
   }, []);
 
+  const switchToPinnedModeByIndex = useCallback(
+    (modeIndex: number): boolean => {
+      const targetMode = pinnedModes[modeIndex];
+      if (!targetMode) return false;
+
+      setMode(targetMode.id);
+      setSelectedType("mode");
+      if (showPalette) setShowPalette(false);
+      if (showHistory) setShowHistory(false);
+      return true;
+    },
+    [pinnedModes, showPalette, showHistory]
+  );
+
   // --- Effects ---
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    selectedTypeRef.current = selectedType;
+  }, [selectedType]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -256,7 +306,9 @@ function App() {
       await resolveSpotlightTheme();
     };
     loadData();
+  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode]);
 
+  useEffect(() => {
     const unlisten = listen<SpotlightPayload>("spotlight-open", async (event) => {
       const { text: clipboardText } = event.payload;
       setText(clipboardText || "");
@@ -270,13 +322,16 @@ function App() {
       const loadedModes = await loadModes();
       await loadFlows();
 
-      if (selectedType === "mode") {
+      const currentType = selectedTypeRef.current;
+      const currentMode = modeRef.current;
+
+      if (currentType === "mode") {
         const store = await load("settings.json");
         const defaultMode = await store.get<string>("defaultMode");
-        const currentModePinned = loadedModes.some((m) => m.id === mode && m.is_pinned);
-        const preferredMode = currentModePinned ? mode : defaultMode ?? null;
+        const currentModePinned = loadedModes.some((m) => m.id === currentMode && m.is_pinned);
+        const preferredMode = currentModePinned ? currentMode : defaultMode ?? null;
         const nextMode = pickPinnedMode(loadedModes, preferredMode);
-        if (nextMode && nextMode !== mode) {
+        if (nextMode && nextMode !== currentMode) {
           setMode(nextMode);
         }
       }
@@ -300,7 +355,7 @@ function App() {
       unlisten.then((fn) => fn());
       unlistenHistoryToggle.then((fn) => fn());
     };
-  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode, mode, selectedType]);
+  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode]);
 
   useEffect(() => {
     const unlisten = listen<FlowStepProgress>("flow-step-progress", (event) => {
@@ -329,6 +384,20 @@ function App() {
       unlisten.then((fn) => fn());
     };
   }, [handleClose]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const modeIndex = getModeShortcutIndex(e);
+      if (modeIndex === null) return;
+
+      if (switchToPinnedModeByIndex(modeIndex)) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [switchToPinnedModeByIndex]);
 
   // --- Keyboard ---
 
@@ -404,16 +473,9 @@ function App() {
       }
     }
 
-    if ((e.metaKey || e.ctrlKey) && e.key >= "1" && e.key <= "9") {
-      const modeIndex = Number(e.key) - 1;
-      const targetMode = pinnedModes[modeIndex];
-      if (targetMode) {
-        e.preventDefault();
-        setMode(targetMode.id);
-        setSelectedType("mode");
-        if (showPalette) setShowPalette(false);
-        if (showHistory) setShowHistory(false);
-      }
+    const modeIndex = getModeShortcutIndex(e);
+    if (modeIndex !== null && switchToPinnedModeByIndex(modeIndex)) {
+      e.preventDefault();
       return;
     }
 
