@@ -134,8 +134,8 @@ export function CommandPalette({
       ref={containerRef}
       className={`absolute inset-0 z-10 backdrop-blur-xl rounded-xl shadow-2xl flex flex-col overflow-hidden ${
         isLight
-          ? "bg-white/95 border border-black/[0.08]"
-          : "bg-[#1a1a1a]/95 border border-white/[0.06]"
+          ? "bg-white/95 border border-black/8"
+          : "bg-[#1a1a1a]/95 border border-white/6"
       }`}
     >
       {/* Search input */}

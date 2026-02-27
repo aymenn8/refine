@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useLicense } from "./hooks/useLicense";
 import { useUpdater } from "./hooks/useUpdater";
 import "./Settings.css";
 
@@ -20,7 +19,6 @@ interface Tab {
   id: TabId;
   label: string;
   icon: React.ReactNode;
-  pro?: boolean;
 }
 
 // SF Symbols style icons
@@ -152,16 +150,15 @@ const Icons = {
 
 const TABS: Tab[] = [
   { id: "home", label: "Home", icon: Icons.home },
-  { id: "modes", label: "Modes", icon: Icons.modes, pro: true },
-  { id: "flows", label: "Flows", icon: Icons.flows, pro: true },
+  { id: "modes", label: "Modes", icon: Icons.modes },
+  { id: "flows", label: "Flows", icon: Icons.flows },
   { id: "quickactions", label: "Quick Actions", icon: Icons.quickactions },
   { id: "config", label: "Configuration", icon: Icons.config },
-  { id: "model", label: "Models Library", icon: Icons.model, pro: true },
+  { id: "model", label: "Models Library", icon: Icons.model },
   { id: "history", label: "History", icon: Icons.history },
 ];
 
 function Settings() {
-  const license = useLicense();
   const updater = useUpdater();
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [hoveredButton, setHoveredButton] = useState<'close' | 'minimize' | null>(null);
@@ -223,7 +220,7 @@ function Settings() {
       case "history":
         return <HistoryTab />;
       case "about":
-        return <AboutTab updater={updater} license={license} />;
+        return <AboutTab updater={updater} />;
     }
   };
 
@@ -294,9 +291,6 @@ function Settings() {
                   {tab.icon}
                 </span>
                 <span className="font-medium">{tab.label}</span>
-                {tab.pro && !license.hasLicense && (
-                  <span className="text-[8px] font-bold tracking-wider px-1 py-0.5 rounded bg-(--accent)/20 text-(--accent) ml-auto">PRO</span>
-                )}
               </button>
             ))}
           </nav>
@@ -336,11 +330,6 @@ function Settings() {
             >
               <img src="/logo-white-no-bg.png" alt="Refine" className="h-4 opacity-70" />
               <span className="text-[12px] font-medium text-white/50">refine</span>
-              {license.hasLicense && (
-                <span className="text-[8px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-(--accent)/20 text-(--accent)">
-                  PRO
-                </span>
-              )}
             </button>
           </div>
         </aside>
@@ -382,7 +371,7 @@ function Settings() {
       {/* Update modal — shows aggressively when update is available and not dismissed */}
       {updater.available && !updater.dismissed && !updater.ready && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="w-full max-w-[420px] mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+          <div className="w-full max-w-[420px] mx-4 rounded-2xl border border-white/8 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             {/* Header */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
@@ -404,7 +393,7 @@ function Settings() {
 
             {/* Patch notes */}
             {updater.body && (
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-4 max-h-[200px] overflow-y-auto">
+              <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-4 max-h-[200px] overflow-y-auto">
                 <h4 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-2">
                   What's new
                 </h4>
@@ -421,7 +410,7 @@ function Settings() {
                   <span className="text-[11px] text-white/40">Downloading update...</span>
                   <span className="text-[11px] text-(--accent) font-medium">{updater.progress}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-white/8 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-(--accent) rounded-full transition-all duration-300"
                     style={{ width: `${updater.progress}%` }}
@@ -442,7 +431,7 @@ function Settings() {
               {!updater.downloading && (
                 <button
                   onClick={() => updater.dismiss()}
-                  className="px-4 py-2.5 rounded-xl text-[12px] text-white/45 bg-white/[0.03] border border-white/[0.08] cursor-pointer hover:bg-white/[0.07] hover:text-white/65 transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-[12px] text-white/45 bg-white/3 border border-white/8 cursor-pointer hover:bg-white/7 hover:text-white/65 transition-colors"
                 >
                   Later
                 </button>

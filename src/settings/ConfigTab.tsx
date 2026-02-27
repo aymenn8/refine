@@ -9,10 +9,10 @@ import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 
 function ConfigTab() {
   const [globalShortcut, setGlobalShortcut] = useState(
-    "CommandOrControl+Shift+R"
+    "CommandOrControl+Shift+R",
   );
   const [historyShortcut, setHistoryShortcut] = useState(
-    "CommandOrControl+Shift+V"
+    "CommandOrControl+Shift+V",
   );
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +33,9 @@ function ConfigTab() {
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showClearClipboardModal, setShowClearClipboardModal] = useState(false);
   const [isClearingClipboard, setIsClearingClipboard] = useState(false);
-  const [clipboardClearMessage, setClipboardClearMessage] = useState<string | null>(null);
+  const [clipboardClearMessage, setClipboardClearMessage] = useState<
+    string | null
+  >(null);
   const [clipboardClearFailed, setClipboardClearFailed] = useState(false);
 
   // General
@@ -53,7 +55,7 @@ function ConfigTab() {
       document.documentElement.style.setProperty("--accent", hex);
       document.documentElement.style.setProperty(
         "--accent-hover",
-        lightenColor(hex, 15)
+        lightenColor(hex, 15),
       );
       try {
         const store = await load("settings.json");
@@ -66,7 +68,7 @@ function ConfigTab() {
         console.error("Failed to save accent color:", error);
       }
     },
-    []
+    [],
   );
 
   const handleAccentChange = useCallback(
@@ -76,7 +78,7 @@ function ConfigTab() {
       setCustomColor(hex);
       await applyAccent(hex, hex);
     },
-    [applyAccent]
+    [applyAccent],
   );
 
   const handlePresetClick = useCallback(
@@ -84,7 +86,7 @@ function ConfigTab() {
       setAccentColor(color);
       await applyAccent(color);
     },
-    [applyAccent]
+    [applyAccent],
   );
 
   useEffect(() => {
@@ -131,7 +133,9 @@ function ConfigTab() {
     try {
       const shortcut = await invoke<string>("get_global_shortcut");
       setGlobalShortcut(shortcut);
-      const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
+      const currentHistoryShortcut = await invoke<string>(
+        "get_history_shortcut",
+      );
       setHistoryShortcut(currentHistoryShortcut);
 
       const store = await load("settings.json");
@@ -149,15 +153,20 @@ function ConfigTab() {
       const savedSoundType = await store.get<string>("soundType");
       if (savedSoundType) setSoundType(savedSoundType);
       const savedAutoCopy = await store.get<boolean>("autoCopyEnabled");
-      if (savedAutoCopy !== null && savedAutoCopy !== undefined) setAutoCopyEnabled(savedAutoCopy);
+      if (savedAutoCopy !== null && savedAutoCopy !== undefined)
+        setAutoCopyEnabled(savedAutoCopy);
       const savedAnalytics = await store.get<boolean>("analyticsEnabled");
-      if (savedAnalytics !== null && savedAnalytics !== undefined) setAnalyticsEnabled(savedAnalytics);
+      if (savedAnalytics !== null && savedAnalytics !== undefined)
+        setAnalyticsEnabled(savedAnalytics);
       const savedAutoUpdate = await store.get<boolean>("autoUpdateEnabled");
-      if (savedAutoUpdate !== null && savedAutoUpdate !== undefined) setAutoUpdate(savedAutoUpdate);
+      if (savedAutoUpdate !== null && savedAutoUpdate !== undefined)
+        setAutoUpdate(savedAutoUpdate);
       try {
         const autoStartEnabled = await isEnabled();
         setLaunchOnLogin(autoStartEnabled);
-      } catch { /* autostart not available */ }
+      } catch {
+        /* autostart not available */
+      }
     } catch (error) {
       console.error("Failed to load config:", error);
     } finally {
@@ -221,7 +230,7 @@ function ConfigTab() {
       newKeys.has("Shift") ||
       newKeys.has("Alt");
     const mainKey = Array.from(newKeys).find(
-      (k) => !["Meta", "Control", "Shift", "Alt"].includes(k)
+      (k) => !["Meta", "Control", "Shift", "Alt"].includes(k),
     );
 
     if (hasModifier && mainKey) {
@@ -230,10 +239,13 @@ function ConfigTab() {
 
       // Check for conflicts
       try {
-        const conflict = await invoke<string | null>("check_shortcut_conflict", {
-          shortcutStr: shortcut,
-          excludeId: targetId,
-        });
+        const conflict = await invoke<string | null>(
+          "check_shortcut_conflict",
+          {
+            shortcutStr: shortcut,
+            excludeId: targetId,
+          },
+        );
         if (conflict) {
           setShortcutError(`Already used by "${conflict}"`);
           setIsRecording(null);
@@ -283,7 +295,7 @@ function ConfigTab() {
 
   const startRecording = (
     targetId: string,
-    buttonRef: HTMLButtonElement | null
+    buttonRef: HTMLButtonElement | null,
   ) => {
     setIsRecording(targetId);
     setRecordedKeys(new Set());
@@ -316,7 +328,14 @@ function ConfigTab() {
     }
   };
 
-  const PRESET_COLORS = ["#8B9FBF", "#F0B67F", "#6BBFFF", "#A78BFA", "#F472B6", "#34D399"];
+  const PRESET_COLORS = [
+    "#8B9FBF",
+    "#F0B67F",
+    "#6BBFFF",
+    "#A78BFA",
+    "#F472B6",
+    "#34D399",
+  ];
 
   if (loading) {
     return (
@@ -338,13 +357,17 @@ function ConfigTab() {
   }
 
   return (
-    <div ref={configContainerRef} className="relative p-6 md:px-8 h-full overflow-y-auto">
+    <div
+      ref={configContainerRef}
+      className="relative p-6 md:px-8 h-full overflow-y-auto"
+    >
       <div className="mb-6">
         <h1 className="text-[22px] font-semibold text-white tracking-[-0.02em] mb-1">
           Configuration
         </h1>
         <p className="text-[13px] text-white/40 m-0">
-          Customize keyboard shortcuts, appearance, and notification preferences.
+          Customize keyboard shortcuts, appearance, and notification
+          preferences.
         </p>
       </div>
 
@@ -356,7 +379,9 @@ function ConfigTab() {
         <div className="space-y-2">
           <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
             <div className="flex items-center justify-between">
-              <span className="text-[14px] text-white">Automatically check for updates</span>
+              <span className="text-[14px] text-white">
+                Automatically check for updates
+              </span>
               <button
                 onClick={async () => {
                   const newValue = !autoUpdate;
@@ -699,7 +724,9 @@ function ConfigTab() {
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                 </svg>
                 <div>
-                  <span className="text-[14px] text-white">Auto-copy result</span>
+                  <span className="text-[14px] text-white">
+                    Auto-copy result
+                  </span>
                   <p className="text-[11px] text-white/35 mt-0.5">
                     Automatically copy the processed text to clipboard
                   </p>
@@ -737,12 +764,15 @@ function ConfigTab() {
         <h2 className="text-xs font-semibold text-white/20 uppercase tracking-wide mb-3">
           Privacy
         </h2>
-        <div className="p-4 bg-white/[0.03] border border-white/[0.06] rounded-xl">
+        <div className="p-4 bg-white/3 border border-white/6 rounded-xl">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-[13px] text-white/50">Anonymous Usage Analytics</span>
+              <span className="text-[13px] text-white/50">
+                Anonymous Usage Analytics
+              </span>
               <p className="text-[11px] text-white/25 mt-0.5 max-w-[300px]">
-                Help improve Refine by sharing anonymous usage data. No personal data is ever collected.
+                Help improve Refine by sharing anonymous usage data. No personal
+                data is ever collected.
               </p>
             </div>
             <button
@@ -764,17 +794,31 @@ function ConfigTab() {
               />
             </button>
           </div>
-          <div className="mt-3 pt-3 border-t border-white/[0.05]">
+          <div className="mt-3 pt-3 border-t border-white/5">
             <p className="text-[10px] text-white/20 leading-relaxed">
-              We only track: app launches, feature usage counts (modes, flows, quick actions), model downloads, and license activations. We <strong className="text-white/30">never</strong> collect your text, prompts, API keys, personal info, or anything that could identify you.
+              We only track: app launches, feature usage counts (modes, flows,
+              quick actions), and model downloads. We{" "}
+              <strong className="text-white/30">never</strong> collect your
+              text, prompts, API keys, personal info, or anything that could
+              identify you.
             </p>
           </div>
         </div>
-        <div className="mt-3 p-4 bg-gradient-to-br from-red-500/[0.09] via-red-500/[0.04] to-white/[0.02] border border-red-400/25 rounded-xl">
+        <div className="mt-3 p-4 bg-linear-to-br from-red-500/9 via-red-500/4 to-white/2 border border-red-400/25 rounded-xl">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-red-500/15 border border-red-300/20 flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-red-200/90">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-red-200/90"
+                >
                   <path d="M3 6h18" />
                   <path d="M8 6V4h8v2" />
                   <path d="M8 6v14h8V6" />
@@ -782,7 +826,9 @@ function ConfigTab() {
                 </svg>
               </div>
               <div>
-                <span className="text-[13px] text-white/80 font-medium">Clipboard History</span>
+                <span className="text-[13px] text-white/80 font-medium">
+                  Clipboard History
+                </span>
                 <p className="text-[11px] text-white/45 mt-0.5">
                   Permanently delete all local clipboard entries.
                 </p>
@@ -815,10 +861,20 @@ function ConfigTab() {
       {/* Clipboard history clear confirmation modal */}
       {showClearClipboardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="relative w-full max-w-[380px] mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+          <div className="relative w-full max-w-[380px] mx-4 rounded-2xl border border-white/8 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-(--accent)"
+                >
                   <path d="M3 6h18" />
                   <path d="M8 6V4h8v2" />
                   <path d="M8 6v14h8V6" />
@@ -826,23 +882,35 @@ function ConfigTab() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-[15px] font-semibold text-white">Clear Clipboard History?</h3>
-                <p className="text-[11px] text-white/40">This action cannot be undone</p>
+                <h3 className="text-[15px] font-semibold text-white">
+                  Clear Clipboard History?
+                </h3>
+                <p className="text-[11px] text-white/40">
+                  This action cannot be undone
+                </p>
               </div>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-4">
+            <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-4">
               <p className="text-[12px] text-white/60 leading-relaxed">
-                This will remove all saved clipboard items from your local database on this Mac.
+                This will remove all saved clipboard items from your local
+                database on this Mac.
               </p>
             </div>
 
             <button
               onClick={() => setShowClearClipboardModal(false)}
-              className="absolute top-4 right-4 w-7 h-7 rounded-md bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-white/55 hover:text-white/85 cursor-pointer transition-colors flex items-center justify-center"
+              className="absolute top-4 right-4 w-7 h-7 rounded-md bg-white/3 hover:bg-white/7 border border-white/8 text-white/55 hover:text-white/85 cursor-pointer transition-colors flex items-center justify-center"
               aria-label="Close"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
@@ -851,7 +919,7 @@ function ConfigTab() {
               <button
                 onClick={() => setShowClearClipboardModal(false)}
                 disabled={isClearingClipboard}
-                className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.07] disabled:opacity-40 disabled:cursor-not-allowed border border-white/[0.08] rounded-xl text-[13px] text-white/65 font-medium cursor-pointer transition-colors"
+                className="flex-1 px-4 py-2.5 bg-white/3 hover:bg-white/7 disabled:opacity-40 disabled:cursor-not-allowed border border-white/8 rounded-xl text-[13px] text-white/65 font-medium cursor-pointer transition-colors"
               >
                 Cancel
               </button>
@@ -873,19 +941,34 @@ function ConfigTab() {
           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-[380px] w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white/40">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-white/40"
+                >
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-[15px] font-semibold text-white">Disable Analytics?</h3>
-                <p className="text-[11px] text-white/40">Your choice is respected instantly</p>
+                <h3 className="text-[15px] font-semibold text-white">
+                  Disable Analytics?
+                </h3>
+                <p className="text-[11px] text-white/40">
+                  Your choice is respected instantly
+                </p>
               </div>
             </div>
 
             <div className="bg-white/5 rounded-xl p-4 mb-4">
               <p className="text-[12px] text-white/50 leading-relaxed mb-3">
-                Refine uses <strong className="text-white/70">Aptabase</strong>, a privacy-first analytics service. Here's exactly what we track:
+                Refine uses <strong className="text-white/70">Aptabase</strong>,
+                a privacy-first analytics service. Here's exactly what we track:
               </p>
               <ul className="space-y-1.5 text-[11px] text-white/40">
                 <li className="flex items-center gap-2">
@@ -908,14 +991,12 @@ function ConfigTab() {
                   <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
                   Model downloaded (model name)
                 </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
-                  License activated (plan type)
-                </li>
               </ul>
-              <div className="mt-3 pt-3 border-t border-white/[0.06]">
+              <div className="mt-3 pt-3 border-t border-white/6">
                 <p className="text-[11px] text-white/30 leading-relaxed">
-                  We <strong className="text-white/50">never</strong> collect your text content, prompts, API keys, IP address, device identifiers, or any personal information.
+                  We <strong className="text-white/50">never</strong> collect
+                  your text content, prompts, API keys, IP address, device
+                  identifiers, or any personal information.
                 </p>
               </div>
             </div>

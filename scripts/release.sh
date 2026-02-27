@@ -259,7 +259,7 @@ wait_for_accepted() {
 prepare_cmd() {
   local version=""
   local targets="both"
-  local release_repo="${RELEASE_REPO:-aymenn8/refine-releases}"
+  local release_repo="${RELEASE_REPO:-aymenn8/refine}"
   local target_triples=()
   local state_dir manifest_path tag triple bundle_base dmg_path tar_path sig_path submission_id key
 
@@ -513,7 +513,7 @@ publish_cmd() {
   [ "${TAG:-}" = "$tag" ] || die "Manifest tag is ${TAG:-<empty>}, expected ${tag}"
 
   if [ -z "$release_repo" ]; then
-    release_repo="${RELEASE_REPO:-aymenn8/refine-releases}"
+    release_repo="${RELEASE_REPO:-aymenn8/refine}"
   fi
 
   release_dir="release-assets/${tag}"

@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { parsePremiumError, useLicense } from "../hooks/useLicense";
-import { PremiumPopup } from "../components/PremiumPopup";
 
 type Provider = "openai" | "anthropic" | "gemini" | "grok" | "mistral" | "ollama";
 
@@ -42,7 +40,6 @@ interface ModelOption {
 }
 
 function ModesTab() {
-  const { hasLicense } = useLicense();
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingMode, setEditingMode] = useState<ProcessingMode | null>(null);
@@ -52,7 +49,6 @@ function ModesTab() {
     mode: null,
   });
   const [showResetModal, setShowResetModal] = useState(false);
-  const [premiumFeature, setPremiumFeature] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [defaultModelName, setDefaultModelName] = useState<string>("");
 
@@ -126,12 +122,7 @@ function ModesTab() {
       setEditingMode(null);
       setIsCreating(false);
     } catch (error) {
-      const feature = parsePremiumError(String(error));
-      if (feature) {
-        setPremiumFeature(feature);
-      } else {
-        console.error("Failed to save mode:", error);
-      }
+      console.error("Failed to save mode:", error);
     }
   };
 
@@ -209,10 +200,6 @@ function ModesTab() {
   };
 
   const handleCreateNew = () => {
-    if (!hasLicense) {
-      setPremiumFeature("CustomModes");
-      return;
-    }
     setIsCreating(true);
     setEditingMode({
       id: `mode-${Date.now()}`,
@@ -271,9 +258,6 @@ function ModesTab() {
               className="px-3 py-1.5 text-[11px] bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer flex items-center gap-1.5"
             >
               + New
-              {!hasLicense && (
-                <span className="text-[8px] font-bold tracking-wider px-1 py-0.5 rounded bg-white/20 text-white/90">PRO</span>
-              )}
             </button>
           </div>
         </div>
@@ -336,7 +320,7 @@ function ModesTab() {
       {/* Delete Confirmation Modal */}
       {deleteModal.open && deleteModal.mode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/8 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
@@ -361,7 +345,7 @@ function ModesTab() {
               </div>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+            <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-6">
               <p className="text-[13px] text-white/65 leading-relaxed">
                 Are you sure you want to delete <strong className="text-white">{deleteModal.mode.name}</strong>?
               </p>
@@ -370,7 +354,7 @@ function ModesTab() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteModal({ open: false, mode: null })}
-                className="px-4 py-2.5 text-[13px] bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-white/3 hover:bg-white/7 border border-white/8 rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -385,18 +369,10 @@ function ModesTab() {
         </div>
       )}
 
-      {/* Premium Popup */}
-      {premiumFeature && (
-        <PremiumPopup
-          feature={premiumFeature}
-          onClose={() => setPremiumFeature(null)}
-        />
-      )}
-
       {/* Reset Confirmation Modal */}
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/8 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
@@ -420,7 +396,7 @@ function ModesTab() {
               </div>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+            <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-6">
               <p className="text-[13px] text-white/65 leading-relaxed">
                 All custom modes will be <strong className="text-white">permanently deleted</strong>. Only built-in modes will remain.
               </p>
@@ -429,7 +405,7 @@ function ModesTab() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowResetModal(false)}
-                className="px-4 py-2.5 text-[13px] bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-white/3 hover:bg-white/7 border border-white/8 rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -553,7 +529,7 @@ function ModeCard({
               {mode.name}
             </span>
             {mode.is_default ? (
-              <span className="shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium text-white/35 bg-white/[0.06]">built-in</span>
+              <span className="shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium text-white/35 bg-white/6">built-in</span>
             ) : (
               <span className="shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium text-(--accent)/70 bg-(--accent)/10">custom</span>
             )}

@@ -1,109 +1,70 @@
-# Refine - Release macOS (script unifie)
+# Refine - Local Release Guide
 
-Script principal:
-- `./scripts/release.sh`
+Releases are handled locally with scripts in `scripts/`.
+No GitHub Actions release workflow is used.
 
-Wrappers (compatibilite):
-- `./scripts/release-before-notarization.sh` -> `release.sh prepare`
-- `./scripts/notary-status.sh` -> `release.sh status`
-- `./scripts/release-after-notarization.sh` -> `release.sh publish`
+## Prerequisites
 
-## Pre-requis
+- macOS with Xcode CLI tools (`xcrun`, `notarytool`, `stapler`)
+- `pnpm`, Node.js, Rust toolchain (`rustup`)
+- `gh` CLI authenticated with access to the release repository
+- A local env file at `scripts/.env.local` (gitignored)
 
-1. Mets tes secrets dans `scripts/.env.local`:
+Required variables in `scripts/.env.local`:
+
 - `APPLE_SIGNING_IDENTITY`
 - `APPLE_ID`
 - `APPLE_PASSWORD`
 - `APPLE_TEAM_ID`
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+- Optional: `RELEASE_REPO` (default: `aymenn8/refine`)
 
-2. Verifie que `RELEASE_NOTES.md` contient tes notes de version.
+## Release Flow
 
-3. Le parametre `--version <x.y.z>` est obligatoire.
-Ce parametre est applique automatiquement dans:
-- `package.json`
-- `src-tauri/tauri.conf.json`
-- `src-tauri/Cargo.toml`
-- `src-tauri/Cargo.lock` (package `refine`)
-
-4. Verifie la coherence des cles updater/signature:
+1. Prepare release (version sync, build, notarization submit):
 
 ```bash
-python3 scripts/check-updater-signing-key.py --require-private-key
+./scripts/release.sh prepare --version 0.1.0 --targets both --release-repo owner/repo
 ```
 
-5. Si la cle updater change:
-- Les versions deja installees qui embarquent l'ancienne `pubkey` ne pourront pas verifier les nouvelles signatures.
-- Soit tu publies une release "pont" signee avec l'ancienne cle privee mais contenant la nouvelle `pubkey`,
-- Soit tu demandes une reinstall manuelle pour repartir sur la nouvelle chaine de confiance.
-
-## Commandes
-
-### 1) All (prepare + publish en une commande)
+2. Check notarization status:
 
 ```bash
-./scripts/release.sh all --version 0.1.1 --targets both
+./scripts/release.sh status --version 0.1.0
 ```
 
-Options:
-- `--version <x.y.z>` obligatoire
-- `--targets both|arm64|intel` (defaut: `both`)
-- `--wait-minutes <N>` optionnel (defaut: `240`)
-- `--release-repo owner/repo` optionnel
-
-### 2) Prepare (build + soumission notarization)
+3. Publish when notarization is accepted (staple, create `latest.json`, create GitHub release and upload assets):
 
 ```bash
-./scripts/release.sh prepare --version 0.1.1 --targets both
+./scripts/release.sh publish --version 0.1.0 --release-repo owner/repo
 ```
 
-Options:
-- `--version <x.y.z>` obligatoire
-- `--targets both|arm64|intel` (defaut: `both`)
-- `--release-repo owner/repo` (defaut: `aymenn8/refine-releases`)
-
-Sortie:
-- Manifest: `.context/release-state/v<version>/manifest.env`
-
-### 3) Status (suivi notarization)
+4. Optional all-in-one command:
 
 ```bash
-./scripts/release.sh status --version 0.1.1
-./scripts/release.sh status --version 0.1.1 --submission-id <id>
+./scripts/release.sh all --version 0.1.0 --targets both --wait-minutes 240 --release-repo owner/repo
 ```
 
-Options:
-- `--version <x.y.z>` obligatoire
-- `--submission-id <id>` optionnel
-- `--manifest <path>` optionnel
+The script stores release state in:
 
-### 4) Publish (attente Accepted + staple + release GitHub)
+- `.context/release-state/v<version>/manifest.env`
+- `release-assets/v<version>/`
 
-```bash
-./scripts/release.sh publish --version 0.1.1
-```
+Compatibility wrappers (legacy command names):
 
-Options:
-- `--version <x.y.z>` obligatoire
-- `--manifest <path>` optionnel (defaut: manifest de la version)
-- `--wait-minutes <N>` optionnel (defaut: `240`)
-- `--release-repo owner/repo` optionnel
+- `./scripts/release-before-notarization.sh` -> `release.sh prepare`
+- `./scripts/notary-status.sh` -> `release.sh status`
+- `./scripts/release-after-notarization.sh` -> `release.sh publish`
 
-Sortie:
-- Dossier: `release-assets/v<version>/`
-- Fichiers: DMG, `.app.tar.gz`, `.sig`, `latest.json`, `UPLOAD_ORDER.txt`
+## Updater Endpoint
 
-## Run recommande
+Set the updater endpoint in:
 
-1. Rapide (recommande): `./scripts/release.sh all --version 0.1.1 --targets both`
-2. Ou en 2 temps:
-3. `./scripts/release.sh prepare --version 0.1.1 --targets both`
-4. `./scripts/release.sh status --version 0.1.1` (optionnel)
-5. `./scripts/release.sh publish --version 0.1.1`
+- `src-tauri/tauri.conf.json` -> `plugins.updater.endpoints`
 
-## Verification updater
+Expected format:
 
-```bash
-curl -L https://github.com/aymenn8/refine-releases/releases/latest/download/latest.json
+```text
+https://github.com/aymenn8/refine/releases/latest/download/latest.json
 ```

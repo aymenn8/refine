@@ -644,8 +644,8 @@ function App() {
                 disabled={isLoading}
                 className={`text-input w-full h-full p-4 rounded-xl outline-none resize-none text-[15px] leading-relaxed select-text transition-all duration-200 disabled:cursor-not-allowed ${
                   isLightTheme
-                    ? "bg-black/[0.02] border border-black/[0.12] text-black/85 placeholder:text-black/35 focus:bg-black/[0.04] focus:border-black/[0.2]"
-                    : "bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-white/30 focus:bg-white/[0.05] focus:border-white/[0.12]"
+                    ? "bg-black/2 border border-black/12 text-black/85 placeholder:text-black/35 focus:bg-black/4 focus:border-black/20"
+                    : "bg-white/3 border border-white/6 text-white placeholder:text-white/30 focus:bg-white/5 focus:border-white/12"
                 } ${isLoading ? "animate-border-glow" : ""}`}
               />
             </div>

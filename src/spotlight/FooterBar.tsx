@@ -200,8 +200,8 @@ function Kbd({
       highlight
         ? "bg-(--accent)/20 border-(--accent)/30 text-(--accent)"
         : theme === "light"
-        ? "bg-black/[0.05] border-black/[0.12] text-black/50"
-        : "bg-white/[0.04] border-white/[0.08] text-white/40"
+        ? "bg-black/5 border-black/12 text-black/50"
+        : "bg-white/4 border-white/8 text-white/40"
     }`}>
       {children}
     </kbd>

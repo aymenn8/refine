@@ -361,7 +361,7 @@ function HistoryTab() {
       {/* Clear Confirmation Modal */}
       {showClearModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+          <div className="w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/8 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
@@ -385,7 +385,7 @@ function HistoryTab() {
               </div>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+            <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-6">
               <p className="text-[13px] text-white/65 leading-relaxed">
                 All your processing history will be permanently deleted.
               </p>
@@ -394,7 +394,7 @@ function HistoryTab() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowClearModal(false)}
-                className="flex-1 px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 text-[13px] font-medium cursor-pointer transition-colors"
+                className="flex-1 px-4 py-2.5 bg-white/3 hover:bg-white/7 border border-white/8 rounded-xl text-white/65 hover:text-white/85 text-[13px] font-medium cursor-pointer transition-colors"
               >
                 Cancel
               </button>

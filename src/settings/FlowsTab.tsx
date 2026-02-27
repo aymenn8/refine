@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { parsePremiumError, useLicense } from "../hooks/useLicense";
-import { PremiumPopup } from "../components/PremiumPopup";
 
 interface ProcessingMode {
   id: string;
@@ -16,7 +14,6 @@ interface Flow {
 }
 
 function FlowsTab() {
-  const { hasLicense } = useLicense();
   const [flows, setFlows] = useState<Flow[]>([]);
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +24,6 @@ function FlowsTab() {
     open: false,
     flow: null,
   });
-  const [premiumFeature, setPremiumFeature] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -55,12 +51,7 @@ function FlowsTab() {
       setEditingFlow(null);
       setIsCreating(false);
     } catch (error) {
-      const feature = parsePremiumError(String(error));
-      if (feature) {
-        setPremiumFeature(feature);
-      } else {
-        console.error("Failed to save flow:", error);
-      }
+      console.error("Failed to save flow:", error);
     }
   };
 
@@ -84,10 +75,6 @@ function FlowsTab() {
   };
 
   const handleCreateNew = () => {
-    if (!hasLicense) {
-      setPremiumFeature("Flows");
-      return;
-    }
     setIsCreating(true);
     setEditingFlow({
       id: `flow-${Date.now()}`,
@@ -137,9 +124,6 @@ function FlowsTab() {
             className="px-3 py-1.5 text-xs bg-(--accent) hover:bg-(--accent-hover) border-none rounded-lg text-white font-medium transition-colors cursor-pointer flex items-center gap-1.5"
           >
             + New Flow
-            {!hasLicense && (
-              <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-white/20 text-white/90">PRO</span>
-            )}
           </button>
         </div>
 
@@ -239,18 +223,10 @@ function FlowsTab() {
         )}
       </div>
 
-      {/* Premium Popup */}
-      {premiumFeature && (
-        <PremiumPopup
-          feature={premiumFeature}
-          onClose={() => setPremiumFeature(null)}
-        />
-      )}
-
       {/* Delete Confirmation Modal */}
       {deleteModal.open && deleteModal.flow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/[0.08] bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
+          <div className="w-full max-w-sm mx-4 rounded-2xl border border-white/8 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
                 <svg
@@ -275,7 +251,7 @@ function FlowsTab() {
               </div>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-6">
+            <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-6">
               <p className="text-[13px] text-white/65 leading-relaxed">
                 Are you sure you want to delete <strong className="text-white">{deleteModal.flow.name}</strong>?
               </p>
@@ -284,7 +260,7 @@ function FlowsTab() {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setDeleteModal({ open: false, flow: null })}
-                className="px-4 py-2.5 text-[13px] bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
+                className="px-4 py-2.5 text-[13px] bg-white/3 hover:bg-white/7 border border-white/8 rounded-xl text-white/65 hover:text-white/85 transition-colors cursor-pointer"
               >
                 Cancel
               </button>

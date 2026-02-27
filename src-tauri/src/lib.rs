@@ -18,7 +18,6 @@ mod credentials;
 mod flows;
 mod history;
 mod inference;
-pub mod license;
 mod model;
 mod modes;
 mod native_mac;
@@ -57,10 +56,22 @@ fn open_settings_from_dock(app: &tauri::AppHandle) {
 /// - System tray pour l'icône dans la barre de menu
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .menu(|app| tray::build_app_menu(app))
-        .on_menu_event(|app, event| tray::handle_menu_action(app, event.id().as_ref()))
-        .plugin(tauri_plugin_aptabase::Builder::new("A-EU-6987116306").build())
+        .on_menu_event(|app, event| tray::handle_menu_action(app, event.id().as_ref()));
+
+    // Optional analytics: disabled by default unless a compile-time key is provided.
+    let builder = if let Some(aptabase_key) = option_env!("REFINE_APTABASE_KEY") {
+        if !aptabase_key.is_empty() {
+            builder.plugin(tauri_plugin_aptabase::Builder::new(aptabase_key).build())
+        } else {
+            builder
+        }
+    } else {
+        builder
+    };
+
+    builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
@@ -175,11 +186,6 @@ pub fn run() {
             shortcuts::reload_quick_action_shortcuts,
             shortcuts::check_shortcut_conflict,
             sound::play_system_sound,
-            license::get_license_status,
-            license::activate_license,
-            license::deactivate_license,
-            license::revalidate_license,
-            license::check_feature_access,
             commands::check_onboarding_completed,
             commands::complete_onboarding,
             commands::restart_app

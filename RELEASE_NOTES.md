@@ -1,23 +1,21 @@
-## Refine v0.1.10
+## Refine v0.1.0
 
-### Highlights
+### Open Source Launch
 
-- Fixed a crash when quitting Refine normally on macOS.
-- Fixed Spotlight mode selection so switching modes works reliably again.
-- Restored `Cmd/Ctrl + 1..9` shortcuts for pinned modes, including non-US keyboard layouts.
+- Refine is now fully free to use.
+- All former premium-gated capabilities are unlocked by default.
 
-### Fixes
+### Product Changes
 
-- Fixed an app termination crash triggered during macOS shutdown/quit flow.
-- Fixed Spotlight state reset behavior that could force mode back to default.
-- Fixed pinned mode switching via keyboard when focus was not on the textarea.
-- Fixed mode hotkeys detection by using physical key codes (`Digit1..Digit9` / `Numpad1..9`) with fallback handling.
+- Removed paywall behavior from modes, flows, quick actions, and cloud model setup.
+- Updated the app UI to remove PRO/upgrade messaging.
+- Simplified About page to remove pricing/plan labeling.
 
-### Improvements
+### Backend Changes
 
-- Improved Spotlight keyboard handling by centralizing pinned-mode switching logic.
-- Improved consistency between mouse mode selection and keyboard shortcuts.
+- Replaced runtime licensing checks with always-allowed access.
+- Removed legacy licensing module and related Tauri commands.
 
-### Notes
+### Versioning
 
-- No UI/feature changes in this release: this update focuses on stability and mode-switching reliability.
+- Restarted versioning for the new open-source line at `0.1.0`.

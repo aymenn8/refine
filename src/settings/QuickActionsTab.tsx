@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { parsePremiumError, useLicense } from "../hooks/useLicense";
-import { PremiumPopup } from "../components/PremiumPopup";
 
 interface ProcessingMode {
   id: string;
@@ -21,8 +19,6 @@ interface QuickAction {
 }
 
 function QuickActionsTab() {
-  const { hasLicense } = useLicense();
-  const [premiumFeature, setPremiumFeature] = useState<string | null>(null);
   const [modes, setModes] = useState<ProcessingMode[]>([]);
   const [flows, setFlows] = useState<Flow[]>([]);
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
@@ -158,12 +154,6 @@ function QuickActionsTab() {
   const handleAddQuickAction = async () => {
     if (!selectedModeId) return;
 
-    // Premium check: free users can only have 1 quick action
-    if (!hasLicense && quickActions.length >= 1) {
-      setPremiumFeature("ExtraQuickActions");
-      return;
-    }
-
     const [type, ...idParts] = selectedModeId.split(":");
     const targetId = idParts.join(":");
     const actionType = type === "flow" ? "flow" : "mode";
@@ -194,12 +184,7 @@ function QuickActionsTab() {
       }]);
       setSelectedModeId("");
     } catch (error) {
-      const feature = parsePremiumError(String(error));
-      if (feature) {
-        setPremiumFeature(feature);
-      } else {
-        console.error("Failed to add quick action:", error);
-      }
+      console.error("Failed to add quick action:", error);
     }
   };
 
@@ -242,9 +227,6 @@ function QuickActionsTab() {
         </h1>
         <p className="text-[13px] text-white/40 m-0">
           Process text from any app without opening Refine. Select text anywhere on your Mac, press the shortcut, and the result automatically replaces your selection.
-          {!hasLicense && (
-            <span className="text-white/30"> Free plan: 1 quick action. </span>
-          )}
         </p>
       </div>
 
@@ -343,7 +325,7 @@ function QuickActionsTab() {
 
           {/* Add Quick Action */}
           {hasAvailableOptions && (
-            <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-dashed border-white/10 rounded-xl">
+            <div className="flex items-center gap-3 p-3 bg-white/2 border border-dashed border-white/10 rounded-xl">
               <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/30">
                   <line x1="12" y1="5" x2="12" y2="19" />
@@ -404,13 +386,6 @@ function QuickActionsTab() {
         </div>
       )}
 
-      {/* Premium Popup */}
-      {premiumFeature && (
-        <PremiumPopup
-          feature={premiumFeature}
-          onClose={() => setPremiumFeature(null)}
-        />
-      )}
     </div>
   );
 }
