@@ -27,3 +27,11 @@ dist-ssr
 .env.notarization
 
 release-assets
+
+
+# Scripts
+scripts
+
+# Release
+RELEASE_NOTES.md
+RELEASE_GUIDE.md
