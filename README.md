@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Free since v0.1.0</strong> · <strong>MIT</strong> · <strong>macOS only</strong>
+  <strong>MIT</strong> · <strong>macOS only</strong>
 </p>
 
 Refine is a desktop app built with Tauri, React, and TypeScript.
@@ -32,7 +32,7 @@ It lets you rewrite, clean up, transform, and reuse text from anywhere on your M
 - Local model support
 - Cloud provider support for OpenAI, Anthropic, and Ollama
 - Auto-copy and paste-friendly workflow
-- Native macOS release pipeline with notarization
+- Native macOS app packaging with notarization support
 
 ## Tech Stack
 
@@ -91,34 +91,6 @@ After launching the app:
 
 At that point, Refine is ready to use system-wide on your Mac.
 
-## Repository Setup
-
-Releases are published directly on the main open-source repository:
-
-- `aymenn8/refine`
-
-That means:
-
-- source code and release assets live in the same GitHub repo
-- the updater reads `latest.json` from the same repo
-- local release scripts publish directly to the main release page
-
-## Release Process
-
-Releases are local-only.
-GitHub Actions is not used for build or publishing.
-
-Main script:
-
-```bash
-./scripts/release.sh all --version 0.1.0 --targets both --release-repo owner/repo
-```
-
-Detailed guide:
-
-- [RELEASE_GUIDE.md](RELEASE_GUIDE.md)
-- [RELEASE_NOTES.md](RELEASE_NOTES.md)
-
 ## Updater
 
 Set the updater endpoint in [src-tauri/tauri.conf.json](src-tauri/tauri.conf.json):
@@ -133,16 +105,7 @@ In this repo, the updater points directly to `aymenn8/refine`.
 
 - [src](src): React frontend
 - [src-tauri](src-tauri): Rust backend and Tauri config
-- [scripts](scripts): local release scripts
 - [public](public): app assets
-
-## Open Source Status
-
-As of `0.1.0`:
-
-- premium gating has been removed
-- the project is MIT licensed
-- releases are prepared locally with gitignored env files
 
 ## Optional Analytics
 

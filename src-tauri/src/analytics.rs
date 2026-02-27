@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 const ANALYTICS_KEY: &str = "analyticsEnabled";
 const ANALYTICS_DISTINCT_ID_KEY: &str = "analyticsDistinctId";
+const FIRST_APP_LAUNCH_TRACKED_KEY: &str = "analyticsFirstAppLaunchTracked";
 const DEFAULT_POSTHOG_HOST: &str = "https://us.i.posthog.com";
 
 struct AnalyticsConfig {
@@ -62,6 +63,26 @@ fn get_or_create_distinct_id(app: &AppHandle) -> Option<String> {
     Some(distinct_id)
 }
 
+fn mark_first_app_launch_tracked(app: &AppHandle) {
+    let Ok(store) = app.store("settings.json") else {
+        return;
+    };
+
+    store.set(FIRST_APP_LAUNCH_TRACKED_KEY, Value::Bool(true));
+    let _ = store.save();
+}
+
+fn is_first_app_launch_tracked(app: &AppHandle) -> bool {
+    let Ok(store) = app.store("settings.json") else {
+        return false;
+    };
+
+    store
+        .get(FIRST_APP_LAUNCH_TRACKED_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 /// Track an event only if analytics is enabled
 pub fn track(app: &AppHandle, event: &str, props: Option<serde_json::Value>) {
     if !is_enabled(app) {
@@ -112,4 +133,31 @@ pub fn track(app: &AppHandle, event: &str, props: Option<serde_json::Value>) {
             Err(error) => eprintln!("[analytics] PostHog capture request failed: {}", error),
         }
     });
+}
+
+pub fn track_app_launch(app: &AppHandle) {
+    track(app, "app_launched", None);
+    track_first_app_launch_if_needed(app, None);
+}
+
+pub fn track_first_app_launch_if_needed(app: &AppHandle, source: Option<&str>) {
+    if !is_enabled(app) || is_first_app_launch_tracked(app) {
+        return;
+    }
+
+    let props = source.map(|value| serde_json::json!({ "consent_source": value }));
+    track(app, "first_app_launch", props);
+    mark_first_app_launch_tracked(app);
+}
+
+pub fn set_enabled(app: &AppHandle, enabled: bool, source: Option<&str>) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set(ANALYTICS_KEY, Value::Bool(enabled));
+    store.save().map_err(|e| e.to_string())?;
+
+    if enabled {
+        track_first_app_launch_if_needed(app, source);
+    }
+
+    Ok(())
 }

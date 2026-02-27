@@ -38,6 +38,15 @@ pub async fn complete_onboarding(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn set_analytics_enabled(
+    app: AppHandle,
+    enabled: bool,
+    source: Option<String>,
+) -> Result<(), String> {
+    crate::analytics::set_enabled(&app, enabled, source.as_deref())
+}
+
 /// Applique le texte de remplacement dans le clipboard et cache la fenêtre principale
 ///
 /// Cette commande est appelée lorsque l'utilisateur sélectionne un texte de remplacement.

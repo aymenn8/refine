@@ -1031,9 +1031,10 @@ function ConfigTab() {
   async function toggleAnalytics(enabled: boolean) {
     setAnalyticsEnabled(enabled);
     try {
-      const store = await load("settings.json");
-      await store.set("analyticsEnabled", enabled);
-      await store.save();
+      await invoke("set_analytics_enabled", {
+        enabled,
+        source: "settings",
+      });
     } catch (error) {
       console.error("Failed to save analytics setting:", error);
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { load } from "@tauri-apps/plugin-store";
 import "./Onboarding.css";
 
 interface DownloadProgress {
@@ -37,7 +38,10 @@ function Onboarding() {
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
   const [error, setError] = useState("");
+  const [analyticsError, setAnalyticsError] = useState("");
   const [downloadedModels, setDownloadedModels] = useState<Set<string>>(new Set());
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
+  const [savingAnalyticsChoice, setSavingAnalyticsChoice] = useState(false);
 
   // Route protection: redirect if onboarding already completed
   useEffect(() => {
@@ -60,6 +64,13 @@ function Onboarding() {
   }, []);
 
   useEffect(() => {
+    load("settings.json")
+      .then((store) => store.get<boolean>("analyticsEnabled"))
+      .then((enabled) => setAnalyticsEnabled(Boolean(enabled)))
+      .catch(() => setAnalyticsEnabled(false));
+  }, []);
+
+  useEffect(() => {
     if (!downloading) return;
     const unlisten = listen<DownloadProgress>(
       `model-download-progress-${selectedModel}`,
@@ -78,7 +89,7 @@ function Onboarding() {
     // If already downloaded, just set active and advance
     if (downloadedModels.has(selectedModel)) {
       await invoke("set_active_model", { modelId: selectedModel });
-      setStep(3);
+      setStep(4);
       return;
     }
     setDownloading(true);
@@ -88,11 +99,28 @@ function Onboarding() {
       await invoke("download_model", { modelId: selectedModel });
       setDownloading(false);
       await invoke("set_active_model", { modelId: selectedModel });
-      setStep(3);
+      setStep(4);
     } catch (e) {
       setDownloading(false);
       setProgress(0);
       setError(typeof e === "string" ? e : String(e));
+    }
+  };
+
+  const handleAnalyticsChoice = async (enabled: boolean) => {
+    setAnalyticsEnabled(enabled);
+    setSavingAnalyticsChoice(true);
+    setAnalyticsError("");
+    try {
+      await invoke("set_analytics_enabled", {
+        enabled,
+        source: "onboarding",
+      });
+      setStep(3);
+    } catch (e) {
+      setAnalyticsError(typeof e === "string" ? e : String(e));
+    } finally {
+      setSavingAnalyticsChoice(false);
     }
   };
 
@@ -103,7 +131,7 @@ function Onboarding() {
 
   useEffect(() => {
     const unlisten = listen("spotlight-shortcut-pressed", async () => {
-      if (step !== 3) return;
+      if (step !== 4) return;
       await invoke("complete_onboarding");
       await invoke("hide_settings_window");
     });
@@ -131,6 +159,14 @@ function Onboarding() {
           {step === 0 && <StepWelcome />}
           {step === 1 && <StepFeatures />}
           {step === 2 && (
+            <StepPrivacy
+              analyticsEnabled={analyticsEnabled}
+              onChoose={handleAnalyticsChoice}
+              isSaving={savingAnalyticsChoice}
+              error={analyticsError}
+            />
+          )}
+          {step === 3 && (
             <StepModel
               models={MODELS}
               selectedModel={selectedModel}
@@ -145,7 +181,7 @@ function Onboarding() {
               downloadedModels={downloadedModels}
             />
           )}
-          {step === 3 && <StepReady />}
+          {step === 4 && <StepReady />}
         </div>
       </div>
 
@@ -166,27 +202,31 @@ function Onboarding() {
             </>
           )}
 
-          {step === 2 && !downloading && (
+          {step === 2 && savingAnalyticsChoice && (
+            <span className="text-[12px] text-white/30">Saving your preference...</span>
+          )}
+
+          {step === 3 && !downloading && (
             <>
-              <button onClick={() => setStep(1)} className="onb-btn-ghost">Back</button>
+              <button onClick={() => setStep(2)} className="onb-btn-ghost">Back</button>
               <button onClick={handleDownload} className="onb-btn-primary">
                 {downloadedModels.has(selectedModel) ? "Continue" : "Download & Continue"}
               </button>
             </>
           )}
-          {step === 2 && downloading && (
+          {step === 3 && downloading && (
             <span className="text-[12px] text-white/30">Downloading model...</span>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <button onClick={handleComplete} className="onb-btn-primary">Open Refine</button>
           )}
         </div>
 
         {/* Skip link (model step only) */}
-        {step === 2 && !downloading && (
+        {step === 3 && !downloading && (
           <button
-            onClick={() => setStep(3)}
+            onClick={() => setStep(4)}
             className="text-[11px] text-white/20 hover:text-white/40 bg-transparent border-none cursor-pointer transition-colors -mt-2"
           >
             Skip — I'll set up a model later
@@ -195,7 +235,7 @@ function Onboarding() {
 
         {/* Dots */}
         <div className="flex items-center gap-2">
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <div
               key={i}
               className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -283,7 +323,71 @@ function StepFeatures() {
   );
 }
 
-/* ---- Step 3: Model Selection ---- */
+/* ---- Step 3: Privacy ---- */
+function StepPrivacy({
+  analyticsEnabled,
+  onChoose,
+  isSaving,
+  error,
+}: {
+  analyticsEnabled: boolean;
+  onChoose: (enabled: boolean) => void;
+  isSaving: boolean;
+  error: string;
+}) {
+  return (
+    <div className="flex flex-col items-center w-full max-w-md gap-4">
+      <div className="text-center mb-1">
+        <h2 className="text-xl font-semibold text-white/90 m-0">Help improve Refine?</h2>
+        <p className="text-[13px] text-white/35 mt-1 m-0">
+          Choose whether you want to share anonymous usage analytics.
+        </p>
+      </div>
+
+      <div className="w-full space-y-2.5">
+        <button
+          onClick={() => onChoose(true)}
+          disabled={isSaving}
+          className={`w-full p-4 rounded-xl border text-left cursor-pointer transition-all disabled:cursor-default ${
+            analyticsEnabled
+              ? "bg-(--accent)/10 border-(--accent)/40"
+              : "bg-white/5 border-white/10 hover:bg-white/8"
+          }`}
+        >
+          <div className="text-[13px] font-semibold text-white/90">Allow anonymous analytics</div>
+          <div className="text-[12px] text-white/40 mt-1 leading-relaxed">
+            Tracks first launch, app launches, feature usage counts, model downloads, and whether
+            processing used a local or cloud provider.
+          </div>
+        </button>
+
+        <button
+          onClick={() => onChoose(false)}
+          disabled={isSaving}
+          className={`w-full p-4 rounded-xl border text-left cursor-pointer transition-all disabled:cursor-default ${
+            !analyticsEnabled
+              ? "bg-white/8 border-white/16"
+              : "bg-white/5 border-white/10 hover:bg-white/8"
+          }`}
+        >
+          <div className="text-[13px] font-semibold text-white/90">Keep analytics off</div>
+          <div className="text-[12px] text-white/40 mt-1 leading-relaxed">
+            No usage events are sent. Your text, prompts, results, and API keys are never collected.
+          </div>
+        </button>
+      </div>
+
+      <p className="text-[11px] text-white/28 leading-relaxed text-center max-w-[360px] m-0">
+        Refine uses a random local install ID for anonymous counts only. You can change this later
+        in Settings.
+      </p>
+
+      {error && <p className="text-[11px] text-red-400 text-center m-0">{error}</p>}
+    </div>
+  );
+}
+
+/* ---- Step 4: Model Selection ---- */
 function StepModel({
   models, selectedModel, onSelectModel,
   downloading, progress, downloadSpeed, downloadedBytes, totalBytes,
@@ -353,7 +457,7 @@ function StepModel({
   );
 }
 
-/* ---- Step 4: Ready ---- */
+/* ---- Step 5: Ready ---- */
 function StepReady() {
   return (
     <div className="flex flex-col items-center text-center gap-4">

@@ -1,21 +1,23 @@
 ## Refine v0.1.0
 
-### Open Source Launch
+### Initial Release
 
-- Refine is now fully free to use.
-- All former premium-gated capabilities are unlocked by default.
+- First public release of Refine for macOS.
+- MIT-licensed desktop app built with Tauri, React, and TypeScript.
 
 ### Product Changes
 
-- Removed paywall behavior from modes, flows, quick actions, and cloud model setup.
-- Updated the app UI to remove PRO/upgrade messaging.
-- Simplified About page to remove pricing/plan labeling.
+- Global shortcut window for text refinement from anywhere on macOS.
+- Custom modes, flows, and quick actions for repeatable workflows.
+- Local history, clipboard support, and auto-copy/paste-friendly behavior.
+- Support for local models and cloud providers including OpenAI, Anthropic, and Ollama.
 
 ### Backend Changes
 
-- Replaced runtime licensing checks with always-allowed access.
-- Removed legacy licensing module and related Tauri commands.
+- Tauri backend with native macOS integration.
+- Local persistence for settings, history, and app preferences.
+- Built-in updater support via GitHub release metadata.
 
 ### Versioning
 
-- Restarted versioning for the new open-source line at `0.1.0`.
+- Version `0.1.0` marks the first release.

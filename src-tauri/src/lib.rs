@@ -177,6 +177,7 @@ pub fn run() {
             sound::play_system_sound,
             commands::check_onboarding_completed,
             commands::complete_onboarding,
+            commands::set_analytics_enabled,
             commands::restart_app
         ])
         .setup(move |app| {
@@ -209,7 +210,7 @@ pub fn run() {
             shortcuts::register_quick_action_shortcuts(app.handle());
 
             // Track app launch
-            analytics::track(app.handle(), "app_launched", None);
+            analytics::track_app_launch(app.handle());
 
             // Setup System Tray
             tray::setup_tray(app.handle())?;
