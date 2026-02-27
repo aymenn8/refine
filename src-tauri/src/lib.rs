@@ -60,17 +60,6 @@ pub fn run() {
         .menu(|app| tray::build_app_menu(app))
         .on_menu_event(|app, event| tray::handle_menu_action(app, event.id().as_ref()));
 
-    // Optional analytics: disabled by default unless a compile-time key is provided.
-    let builder = if let Some(aptabase_key) = option_env!("REFINE_APTABASE_KEY") {
-        if !aptabase_key.is_empty() {
-            builder.plugin(tauri_plugin_aptabase::Builder::new(aptabase_key).build())
-        } else {
-            builder
-        }
-    } else {
-        builder
-    };
-
     builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())

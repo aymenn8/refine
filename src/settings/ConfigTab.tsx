@@ -29,7 +29,7 @@ function ConfigTab() {
   const [autoCopyEnabled, setAutoCopyEnabled] = useState(true);
 
   // Analytics
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showClearClipboardModal, setShowClearClipboardModal] = useState(false);
   const [isClearingClipboard, setIsClearingClipboard] = useState(false);
@@ -771,17 +771,18 @@ function ConfigTab() {
                 Anonymous Usage Analytics
               </span>
               <p className="text-[11px] text-white/25 mt-0.5 max-w-[300px]">
-                Help improve Refine by sharing anonymous usage data. No personal
-                data is ever collected.
+                Off by default. Enable it only if you want to help improve
+                Refine with anonymous usage data.
               </p>
             </div>
             <button
               onClick={() => {
                 if (analyticsEnabled) {
-                  setShowAnalyticsModal(true);
-                } else {
-                  toggleAnalytics(true);
+                  toggleAnalytics(false);
+                  return;
                 }
+
+                setShowAnalyticsModal(true);
               }}
               className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
                 analyticsEnabled ? "bg-(--accent)/60" : "bg-white/10"
@@ -797,10 +798,11 @@ function ConfigTab() {
           <div className="mt-3 pt-3 border-t border-white/5">
             <p className="text-[10px] text-white/20 leading-relaxed">
               We only track: app launches, feature usage counts (modes, flows,
-              quick actions), and model downloads. We{" "}
+              quick actions), model downloads, and whether processing used a
+              local or cloud provider. We use a random install ID to count
+              repeat usage, and we{" "}
               <strong className="text-white/30">never</strong> collect your
-              text, prompts, API keys, personal info, or anything that could
-              identify you.
+              text, prompts, or API keys.
             </p>
           </div>
         </div>
@@ -935,7 +937,7 @@ function ConfigTab() {
         </div>
       )}
 
-      {/* Analytics opt-out confirmation modal */}
+      {/* Analytics opt-in confirmation modal */}
       {showAnalyticsModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 max-w-[380px] w-full mx-4 shadow-2xl">
@@ -957,18 +959,18 @@ function ConfigTab() {
               </div>
               <div>
                 <h3 className="text-[15px] font-semibold text-white">
-                  Disable Analytics?
+                  Enable Anonymous Analytics?
                 </h3>
                 <p className="text-[11px] text-white/40">
-                  Your choice is respected instantly
+                  Opt in only if you are comfortable sharing aggregate usage
                 </p>
               </div>
             </div>
 
             <div className="bg-white/5 rounded-xl p-4 mb-4">
               <p className="text-[12px] text-white/50 leading-relaxed mb-3">
-                Refine uses <strong className="text-white/70">Aptabase</strong>,
-                a privacy-first analytics service. Here's exactly what we track:
+                Refine uses <strong className="text-white/70">PostHog</strong>{" "}
+                with manual events only. Here's exactly what we track:
               </p>
               <ul className="space-y-1.5 text-[11px] text-white/40">
                 <li className="flex items-center gap-2">
@@ -995,8 +997,10 @@ function ConfigTab() {
               <div className="mt-3 pt-3 border-t border-white/6">
                 <p className="text-[11px] text-white/30 leading-relaxed">
                   We <strong className="text-white/50">never</strong> collect
-                  your text content, prompts, API keys, IP address, device
-                  identifiers, or any personal information.
+                  your text content, prompts, or API keys. Analytics use a
+                  random local install ID so repeat usage can be counted.
+                  Analytics stay disabled until you opt in, and you can turn
+                  them off at any time.
                 </p>
               </div>
             </div>
@@ -1006,16 +1010,16 @@ function ConfigTab() {
                 onClick={() => setShowAnalyticsModal(false)}
                 className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[13px] text-white/60 font-medium cursor-pointer transition-colors"
               >
-                Keep enabled
+                Not now
               </button>
               <button
                 onClick={() => {
-                  toggleAnalytics(false);
+                  toggleAnalytics(true);
                   setShowAnalyticsModal(false);
                 }}
-                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[13px] text-white/40 font-medium cursor-pointer transition-colors"
+                className="flex-1 px-4 py-2.5 bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/35 rounded-xl text-[13px] text-(--accent) font-medium cursor-pointer transition-colors"
               >
-                Disable
+                Enable
               </button>
             </div>
           </div>

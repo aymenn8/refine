@@ -144,6 +144,27 @@ As of `0.1.0`:
 - the project is MIT licensed
 - releases are prepared locally with gitignored env files
 
+## Optional Analytics
+
+Analytics are optional and disabled by default.
+
+If you want to enable anonymous product analytics, compile the app with:
+
+```bash
+REFINE_POSTHOG_API_KEY=phc_xxx pnpm tauri dev
+```
+
+Optional overrides:
+
+- `REFINE_POSTHOG_HOST=https://us.i.posthog.com`
+- `REFINE_POSTHOG_HOST=https://eu.i.posthog.com`
+- `REFINE_POSTHOG_HOST=https://your-posthog.yourdomain.com` for self-hosted PostHog
+
+Refine only sends manual product events after the user explicitly opts in from Settings.
+The app does not send input text, prompts, or API keys. It uses a random local
+installation ID to count repeat usage anonymously, and you can self-host
+PostHog if you do not want event traffic to reach PostHog Cloud.
+
 ## License
 
 This project is licensed under the MIT License.

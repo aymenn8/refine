@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { trackEvent } from "@aptabase/tauri";
 import { getVersion } from "@tauri-apps/api/app";
 
 interface AboutTabProps {
@@ -70,7 +69,6 @@ function AboutTab({ updater }: AboutTabProps) {
         <div className="flex items-center gap-4">
           <button
             onClick={() => {
-              trackEvent("link_clicked", { target: "feature_requests" });
               openUrl("https://refine.canny.io/feature-requests");
             }}
             className="flex items-center gap-1.5 text-[11px] text-white/30 hover:text-white/50 bg-transparent border-none cursor-pointer transition-colors"
@@ -83,7 +81,6 @@ function AboutTab({ updater }: AboutTabProps) {
           <span className="text-white/10">|</span>
           <button
             onClick={() => {
-              trackEvent("link_clicked", { target: "twitter" });
               openUrl("https://x.com/getrefineapp");
             }}
             className="flex items-center gap-1.5 text-[11px] text-white/30 hover:text-white/50 bg-transparent border-none cursor-pointer transition-colors"
