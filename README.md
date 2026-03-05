@@ -20,8 +20,7 @@ It lets you rewrite, clean up, transform, and reuse text from anywhere on your M
 - Trigger text processing from any app with global shortcuts
 - Create custom modes for your own prompts and workflows
 - Keep a local history of previous results
-- Run with local models or connect cloud providers
-- Update the app through a GitHub release feed
+- Run with local models or connect cloud providers / ollama
 
 ## Features
 
