@@ -1,6 +1,6 @@
 [package]
 name = "refine"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -38,6 +38,7 @@ hostname = "0.4.2"
 tauri-plugin-autostart = "2"
 rusqlite = "0.33"
 plist = "1.7"
+posthog-rs = { version = "0.3", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"
