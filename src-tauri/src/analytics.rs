@@ -1,6 +1,5 @@
-use chrono::Utc;
-use reqwest::Client;
-use serde_json::{Map, Value};
+use posthog_rs::{ClientOptionsBuilder, Event};
+use serde_json::Value;
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
@@ -8,31 +7,31 @@ use uuid::Uuid;
 const ANALYTICS_KEY: &str = "analyticsEnabled";
 const ANALYTICS_DISTINCT_ID_KEY: &str = "analyticsDistinctId";
 const FIRST_APP_LAUNCH_TRACKED_KEY: &str = "analyticsFirstAppLaunchTracked";
-const DEFAULT_POSTHOG_HOST: &str = "https://us.i.posthog.com";
+const DEFAULT_POSTHOG_ENDPOINT: &str = "https://us.i.posthog.com/i/v0/e/";
 
-struct AnalyticsConfig {
-    api_key: &'static str,
-    host: &'static str,
+fn is_configured() -> bool {
+    option_env!("REFINE_POSTHOG_API_KEY")
+        .filter(|k| !k.is_empty())
+        .is_some()
 }
 
-impl AnalyticsConfig {
-    fn from_env() -> Option<Self> {
-        let api_key = option_env!("REFINE_POSTHOG_API_KEY")?;
-        if api_key.is_empty() {
-            return None;
-        }
+fn get_api_key() -> &'static str {
+    option_env!("REFINE_POSTHOG_API_KEY").unwrap_or("")
+}
 
-        let host = option_env!("REFINE_POSTHOG_HOST")
-            .filter(|value| !value.is_empty())
-            .unwrap_or(DEFAULT_POSTHOG_HOST);
+fn get_api_endpoint() -> String {
+    let host = option_env!("REFINE_POSTHOG_HOST")
+        .filter(|value| !value.is_empty());
 
-        Some(Self { api_key, host })
+    match host {
+        Some(h) => format!("{}/i/v0/e/", h.trim_end_matches('/')),
+        None => DEFAULT_POSTHOG_ENDPOINT.to_string(),
     }
 }
 
 /// Check if analytics is enabled (default: false)
 fn is_enabled(app: &AppHandle) -> bool {
-    if AnalyticsConfig::from_env().is_none() {
+    if !is_configured() {
         return false;
     }
 
@@ -84,53 +83,49 @@ fn is_first_app_launch_tracked(app: &AppHandle) -> bool {
 }
 
 /// Track an event only if analytics is enabled
-pub fn track(app: &AppHandle, event: &str, props: Option<serde_json::Value>) {
+pub fn track(app: &AppHandle, event_name: &str, props: Option<serde_json::Value>) {
     if !is_enabled(app) {
         return;
     }
-
-    let Some(config) = AnalyticsConfig::from_env() else {
-        return;
-    };
 
     let Some(distinct_id) = get_or_create_distinct_id(app) else {
         return;
     };
 
-    let mut properties = match props {
-        Some(Value::Object(map)) => map,
-        _ => Map::new(),
-    };
-    properties.insert(
-        "$process_person_profile".to_string(),
-        Value::Bool(false),
-    );
-    properties.insert("source".to_string(), Value::String("tauri".to_string()));
-    properties.insert(
-        "app_version".to_string(),
-        Value::String(env!("CARGO_PKG_VERSION").to_string()),
-    );
+    let api_key = get_api_key().to_string();
+    let api_endpoint = get_api_endpoint();
 
-    let payload = serde_json::json!({
-        "api_key": config.api_key,
-        "event": event,
-        "distinct_id": distinct_id,
-        "properties": properties,
-        "timestamp": Utc::now().to_rfc3339(),
-    });
+    let mut event = Event::new(event_name, &distinct_id);
+    event.insert_prop("$process_person_profile", false).ok();
+    event.insert_prop("source", "tauri").ok();
+    event.insert_prop("app_version", env!("CARGO_PKG_VERSION")).ok();
 
-    let url = format!("{}/i/v0/e/", config.host.trim_end_matches('/'));
-    tauri::async_runtime::spawn(async move {
-        let client = Client::new();
-        let response = client.post(url).json(&payload).send().await;
+    if let Some(Value::Object(map)) = props {
+        for (key, value) in map {
+            match value {
+                Value::String(s) => { event.insert_prop(&key, s).ok(); }
+                Value::Bool(b) => { event.insert_prop(&key, b).ok(); }
+                Value::Number(n) => {
+                    if let Some(i) = n.as_i64() {
+                        event.insert_prop(&key, i).ok();
+                    } else if let Some(f) = n.as_f64() {
+                        event.insert_prop(&key, f).ok();
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
 
-        match response {
-            Ok(response) if response.status().is_success() => {}
-            Ok(response) => eprintln!(
-                "[analytics] PostHog capture failed with status {}",
-                response.status()
-            ),
-            Err(error) => eprintln!("[analytics] PostHog capture request failed: {}", error),
+    std::thread::spawn(move || {
+        let options = ClientOptionsBuilder::default()
+            .api_key(api_key)
+            .api_endpoint(api_endpoint)
+            .build()
+            .expect("Failed to build PostHog client options");
+        let client = posthog_rs::client(options);
+        if let Err(e) = client.capture(event) {
+            eprintln!("[analytics] PostHog capture failed: {}", e);
         }
     });
 }
