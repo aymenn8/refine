@@ -29,8 +29,6 @@ dist-ssr
 release-assets
 
 
-# Scripts
-scripts
 
 # Release
 RELEASE_NOTES.md
