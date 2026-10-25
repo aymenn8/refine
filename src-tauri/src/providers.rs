@@ -44,6 +44,53 @@ fn normalize_ollama_base_url(raw: &str) -> Result<String, String> {
     Ok(normalized)
 }
 
+/// Validates the base URL of an OpenAI-compatible endpoint and returns it without a
+/// trailing slash. Plain http is only allowed for loopback hosts. Errors never echo the input.
+pub fn normalize_custom_base_url(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("Enter the endpoint's base URL".to_string());
+    }
+    let with_scheme = if trimmed.contains("://") {
+        trimmed.to_string()
+    } else {
+        format!("https://{}", trimmed)
+    };
+    let parsed = reqwest::Url::parse(&with_scheme)
+        .map_err(|_| "The endpoint URL isn't a valid URL".to_string())?;
+
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("The endpoint URL must not contain a username or password".to_string());
+    }
+    if parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err("The endpoint URL must not contain ? or # parts".to_string());
+    }
+    let host = parsed
+        .host_str()
+        .filter(|h| !h.is_empty())
+        .ok_or_else(|| "The endpoint URL must include a host".to_string())?;
+    // IPv6 hosts come back bracketed ("[::1]"), so strip the brackets before parsing.
+    let is_loopback = host.eq_ignore_ascii_case("localhost")
+        || host
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .parse::<std::net::IpAddr>()
+            .map(|ip| ip.is_loopback())
+            .unwrap_or(false);
+    match parsed.scheme() {
+        "https" => {}
+        "http" if is_loopback => {}
+        "http" => return Err("Remote endpoints must use https".to_string()),
+        _ => return Err("The endpoint URL must use https".to_string()),
+    }
+
+    let mut normalized = parsed.to_string();
+    while normalized.ends_with('/') {
+        normalized.pop();
+    }
+    Ok(normalized)
+}
+
 /// Run inference using a cloud provider API
 pub async fn run_cloud_inference(
     provider: Provider,
@@ -317,4 +364,43 @@ async fn call_ollama_api(
         .map_err(|e| format!("Failed to parse Ollama response: {}", e))?;
 
     Ok(data.response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn custom_url_accepts_https_and_trims_trailing_slash() {
+        assert_eq!(normalize_custom_base_url("https://api.deepseek.com/").unwrap(), "https://api.deepseek.com");
+        assert_eq!(normalize_custom_base_url("  https://example.com/v1/ ").unwrap(), "https://example.com/v1");
+    }
+
+    #[test]
+    fn custom_url_adds_https_when_scheme_missing() {
+        assert_eq!(normalize_custom_base_url("api.deepseek.com").unwrap(), "https://api.deepseek.com");
+    }
+
+    #[test]
+    fn custom_url_allows_http_only_for_loopback() {
+        for ok in ["http://localhost:8080", "http://127.0.0.1:1234", "http://[::1]:8080"] {
+            assert!(normalize_custom_base_url(ok).is_ok(), "{ok}");
+        }
+        assert!(normalize_custom_base_url("http://api.deepseek.com").is_err());
+    }
+
+    #[test]
+    fn custom_url_rejects_credentials_query_fragment_and_other_schemes() {
+        for bad in [
+            "https://user:pw@example.com",
+            "https://example.com?a=1",
+            "https://example.com#f",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "ftp://example.com",
+            "",
+        ] {
+            assert!(normalize_custom_base_url(bad).is_err(), "{bad}");
+        }
+    }
 }
