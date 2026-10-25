@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { modifierPrefix, reservedShortcutHint, shortcutFromKeyEvent } from "../utils/shortcut";
 
 interface ProcessingMode {
   id: string;
@@ -25,7 +26,7 @@ function QuickActionsTab() {
   const [loading, setLoading] = useState(true);
   const [selectedModeId, setSelectedModeId] = useState("");
   const [isRecording, setIsRecording] = useState<string | null>(null);
-  const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
+  const [recordingPreview, setRecordingPreview] = useState("");
   const [shortcutError, setShortcutError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,20 +61,6 @@ function QuickActionsTab() {
       .replace(/\+/g, " ");
   };
 
-  const keysToShortcut = (keys: Set<string>): string => {
-    const parts: string[] = [];
-    if (keys.has("Meta") || keys.has("Control")) parts.push("CommandOrControl");
-    if (keys.has("Shift")) parts.push("Shift");
-    if (keys.has("Alt")) parts.push("Alt");
-    for (const key of keys) {
-      if (!["Meta", "Control", "Shift", "Alt"].includes(key)) {
-        parts.push(key.toUpperCase());
-        break;
-      }
-    }
-    return parts.join("+");
-  };
-
   const handleKeyDown = async (e: React.KeyboardEvent, targetId: string) => {
     if (isRecording !== targetId) return;
 
@@ -82,28 +69,15 @@ function QuickActionsTab() {
 
     if (e.key === "Escape") {
       setIsRecording(null);
-      setRecordedKeys(new Set());
+      setRecordingPreview("");
       return;
     }
 
-    const newKeys = new Set(recordedKeys);
-    if (e.metaKey) newKeys.add("Meta");
-    if (e.ctrlKey) newKeys.add("Control");
-    if (e.shiftKey) newKeys.add("Shift");
-    if (e.altKey) newKeys.add("Alt");
+    // Record from the physical key so Control, Command, Space and Option+letter come out right.
+    const shortcut = shortcutFromKeyEvent(e);
+    setRecordingPreview(shortcut ?? modifierPrefix(e));
 
-    const isModifier = ["Meta", "Control", "Shift", "Alt"].includes(e.key);
-    if (!isModifier && e.key.length === 1) {
-      newKeys.add(e.key.toUpperCase());
-    }
-
-    setRecordedKeys(newKeys);
-
-    const hasModifier = newKeys.has("Meta") || newKeys.has("Control") || newKeys.has("Shift") || newKeys.has("Alt");
-    const mainKey = Array.from(newKeys).find(k => !["Meta", "Control", "Shift", "Alt"].includes(k));
-
-    if (hasModifier && mainKey) {
-      const shortcut = keysToShortcut(newKeys);
+    if (shortcut) {
       setShortcutError(null);
 
       // Check for conflicts (exclude current action being edited)
@@ -115,7 +89,7 @@ function QuickActionsTab() {
         if (conflict) {
           setShortcutError(`"${formatShortcut(shortcut)}" is already used by "${conflict}"`);
           setIsRecording(null);
-          setRecordedKeys(new Set());
+          setRecordingPreview("");
           return;
         }
       } catch (error) {
@@ -140,13 +114,13 @@ function QuickActionsTab() {
         }
       }
       setIsRecording(null);
-      setRecordedKeys(new Set());
+      setRecordingPreview("");
     }
   };
 
   const startRecording = (targetId: string, buttonRef: HTMLButtonElement | null) => {
     setIsRecording(targetId);
-    setRecordedKeys(new Set());
+    setRecordingPreview("");
     setShortcutError(null);
     setTimeout(() => buttonRef?.focus(), 10);
   };
@@ -287,6 +261,11 @@ function QuickActionsTab() {
                     {action.action_type}
                   </span>
                 </div>
+                {action.shortcut && reservedShortcutHint(action.shortcut) && (
+                  <p className="mt-0.5 text-[11px] text-white/40">
+                    {reservedShortcutHint(action.shortcut)}
+                  </p>
+                )}
               </div>
 
               {/* Shortcut + delete */}
@@ -304,8 +283,8 @@ function QuickActionsTab() {
                   }`}
                 >
                   {isRecording === action.mode_id
-                    ? recordedKeys.size > 0
-                      ? formatShortcut(keysToShortcut(recordedKeys))
+                    ? recordingPreview
+                      ? formatShortcut(recordingPreview)
                       : "Press keys..."
                     : action.shortcut
                     ? formatShortcut(action.shortcut)

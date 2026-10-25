@@ -14,6 +14,7 @@ import { ClipboardHistory } from "./spotlight/ClipboardHistory";
 import { FooterBar } from "./spotlight/FooterBar";
 import type { ProcessingMode, Flow, FlowStepProgress } from "./spotlight/types";
 import "./App.css";
+import { eventMatchesShortcut } from "./utils/shortcut";
 
 interface SpotlightPayload {
   text: string;
@@ -401,22 +402,8 @@ function App() {
 
   // --- Keyboard ---
 
-  const matchesShortcut = (e: React.KeyboardEvent, shortcut: string): boolean => {
-    const parts = shortcut.split("+");
-    const key = parts[parts.length - 1].toLowerCase();
-    const needsMeta = parts.includes("CommandOrControl") || parts.includes("Command");
-    const needsShift = parts.includes("Shift");
-    const needsAlt = parts.includes("Alt");
-    return (
-      e.key.toLowerCase() === key &&
-      (!needsMeta || e.metaKey || e.ctrlKey) &&
-      (!needsShift || e.shiftKey) &&
-      (!needsAlt || e.altKey)
-    );
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (matchesShortcut(e, historyShortcut)) {
+    if (eventMatchesShortcut(e, historyShortcut)) {
       e.preventDefault();
       setShowHistory((prev) => !prev);
       return;

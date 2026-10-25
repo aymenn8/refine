@@ -5,6 +5,12 @@ import "@melloware/coloris/dist/coloris.css";
 import Coloris from "@melloware/coloris";
 import { playNotificationSound } from "../utils/sound";
 import { lightenColor } from "../utils/accent";
+import {
+  modifierPrefix,
+  normalizeShortcut,
+  reservedShortcutHint,
+  shortcutFromKeyEvent,
+} from "../utils/shortcut";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 
 function ConfigTab() {
@@ -17,7 +23,7 @@ function ConfigTab() {
   const [loading, setLoading] = useState(true);
 
   const [isRecording, setIsRecording] = useState<string | null>(null);
-  const [recordedKeys, setRecordedKeys] = useState<Set<string>>(new Set());
+  const [recordingPreview, setRecordingPreview] = useState("");
   const [shortcutError, setShortcutError] = useState<string | null>(null);
 
   // Sound
@@ -181,20 +187,6 @@ function ConfigTab() {
       .replace(/\+/g, " ");
   };
 
-  const keysToShortcut = (keys: Set<string>): string => {
-    const parts: string[] = [];
-    if (keys.has("Meta") || keys.has("Control")) parts.push("CommandOrControl");
-    if (keys.has("Shift")) parts.push("Shift");
-    if (keys.has("Alt")) parts.push("Alt");
-    for (const key of keys) {
-      if (!["Meta", "Control", "Shift", "Alt"].includes(key)) {
-        parts.push(key.toUpperCase());
-        break;
-      }
-    }
-    return parts.join("+");
-  };
-
   const handleKeyDown = async (e: React.KeyboardEvent, targetId: string) => {
     if (isRecording !== targetId) return;
 
@@ -203,34 +195,15 @@ function ConfigTab() {
 
     if (e.key === "Escape") {
       setIsRecording(null);
-      setRecordedKeys(new Set());
+      setRecordingPreview("");
       return;
     }
 
-    const newKeys = new Set(recordedKeys);
-    if (e.metaKey) newKeys.add("Meta");
-    if (e.ctrlKey) newKeys.add("Control");
-    if (e.shiftKey) newKeys.add("Shift");
-    if (e.altKey) newKeys.add("Alt");
+    // Record from the physical key so Control, Command, Space and Option+letter come out right.
+    const shortcut = shortcutFromKeyEvent(e);
+    setRecordingPreview(shortcut ?? modifierPrefix(e));
 
-    const isModifier = ["Meta", "Control", "Shift", "Alt"].includes(e.key);
-    if (!isModifier && e.key.length === 1) {
-      newKeys.add(e.key.toUpperCase());
-    }
-
-    setRecordedKeys(newKeys);
-
-    const hasModifier =
-      newKeys.has("Meta") ||
-      newKeys.has("Control") ||
-      newKeys.has("Shift") ||
-      newKeys.has("Alt");
-    const mainKey = Array.from(newKeys).find(
-      (k) => !["Meta", "Control", "Shift", "Alt"].includes(k),
-    );
-
-    if (hasModifier && mainKey) {
-      const shortcut = keysToShortcut(newKeys);
+    if (shortcut) {
       setShortcutError(null);
 
       // Check for conflicts
@@ -245,7 +218,7 @@ function ConfigTab() {
         if (conflict) {
           setShortcutError(`Already used by "${conflict}"`);
           setIsRecording(null);
-          setRecordedKeys(new Set());
+          setRecordingPreview("");
           return;
         }
       } catch (error) {
@@ -253,16 +226,16 @@ function ConfigTab() {
       }
 
       // Also check against each other (global vs history)
-      if (targetId === "global" && shortcut === historyShortcut) {
+      if (targetId === "global" && normalizeShortcut(shortcut) === normalizeShortcut(historyShortcut)) {
         setShortcutError('Already used by "Clipboard History"');
         setIsRecording(null);
-        setRecordedKeys(new Set());
+        setRecordingPreview("");
         return;
       }
-      if (targetId === "history" && shortcut === globalShortcut) {
+      if (targetId === "history" && normalizeShortcut(shortcut) === normalizeShortcut(globalShortcut)) {
         setShortcutError('Already used by "Open Refine"');
         setIsRecording(null);
-        setRecordedKeys(new Set());
+        setRecordingPreview("");
         return;
       }
 
@@ -274,6 +247,7 @@ function ConfigTab() {
           await invoke("reload_quick_action_shortcuts");
         } catch (error) {
           console.error("Failed to update shortcut:", error);
+          setShortcutError(String(error));
         }
       } else if (targetId === "history") {
         try {
@@ -281,11 +255,12 @@ function ConfigTab() {
           setHistoryShortcut(shortcut);
         } catch (error) {
           console.error("Failed to update history shortcut:", error);
+          setShortcutError(String(error));
         }
       }
 
       setIsRecording(null);
-      setRecordedKeys(new Set());
+      setRecordingPreview("");
     }
   };
 
@@ -294,7 +269,7 @@ function ConfigTab() {
     buttonRef: HTMLButtonElement | null,
   ) => {
     setIsRecording(targetId);
-    setRecordedKeys(new Set());
+    setRecordingPreview("");
     setShortcutError(null);
     setTimeout(() => buttonRef?.focus(), 10);
   };
@@ -426,12 +401,17 @@ function ConfigTab() {
                 }`}
               >
                 {isRecording === "global"
-                  ? recordedKeys.size > 0
-                    ? formatShortcut(keysToShortcut(recordedKeys))
+                  ? recordingPreview
+                    ? formatShortcut(recordingPreview)
                     : "Press keys..."
                   : formatShortcut(globalShortcut)}
               </button>
             </div>
+            {reservedShortcutHint(globalShortcut) && (
+              <p className="mt-2 text-[11px] text-white/40">
+                {reservedShortcutHint(globalShortcut)}
+              </p>
+            )}
           </div>
 
           <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
@@ -448,12 +428,17 @@ function ConfigTab() {
                 }`}
               >
                 {isRecording === "history"
-                  ? recordedKeys.size > 0
-                    ? formatShortcut(keysToShortcut(recordedKeys))
+                  ? recordingPreview
+                    ? formatShortcut(recordingPreview)
                     : "Press keys..."
                   : formatShortcut(historyShortcut)}
               </button>
             </div>
+            {reservedShortcutHint(historyShortcut) && (
+              <p className="mt-2 text-[11px] text-white/40">
+                {reservedShortcutHint(historyShortcut)}
+              </p>
+            )}
           </div>
         </div>
         {shortcutError && (
