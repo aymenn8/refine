@@ -39,7 +39,6 @@ function ConfigTab() {
   const [clipboardClearFailed, setClipboardClearFailed] = useState(false);
 
   // General
-  const [autoUpdate, setAutoUpdate] = useState(true);
   const [launchOnLogin, setLaunchOnLogin] = useState(false);
 
   // Accent color
@@ -158,9 +157,6 @@ function ConfigTab() {
       const savedAnalytics = await store.get<boolean>("analyticsEnabled");
       if (savedAnalytics !== null && savedAnalytics !== undefined)
         setAnalyticsEnabled(savedAnalytics);
-      const savedAutoUpdate = await store.get<boolean>("autoUpdateEnabled");
-      if (savedAutoUpdate !== null && savedAutoUpdate !== undefined)
-        setAutoUpdate(savedAutoUpdate);
       try {
         const autoStartEnabled = await isEnabled();
         setLaunchOnLogin(autoStartEnabled);
@@ -377,36 +373,6 @@ function ConfigTab() {
           General
         </h2>
         <div className="space-y-2">
-          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[14px] text-white">
-                Automatically check for updates
-              </span>
-              <button
-                onClick={async () => {
-                  const newValue = !autoUpdate;
-                  setAutoUpdate(newValue);
-                  try {
-                    const store = await load("settings.json");
-                    await store.set("autoUpdateEnabled", newValue);
-                    await store.save();
-                  } catch (error) {
-                    console.error("Failed to save auto-update setting:", error);
-                  }
-                }}
-                className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
-                  autoUpdate ? "bg-(--accent)" : "bg-white/20"
-                }`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                    autoUpdate ? "left-6" : "left-1"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
           <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
             <div className="flex items-center justify-between">
               <span className="text-[14px] text-white">Launch on login</span>

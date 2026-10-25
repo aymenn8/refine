@@ -29,6 +29,9 @@ mod state;
 mod tray;
 mod window;
 
+#[cfg(test)]
+mod fork_safety_tests;
+
 use state::GlobalShortcutState;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, RunEvent};
@@ -61,7 +64,6 @@ pub fn run() {
         .on_menu_event(|app, event| tray::handle_menu_action(app, event.id().as_ref()));
 
     builder
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -177,8 +179,7 @@ pub fn run() {
             sound::play_system_sound,
             commands::check_onboarding_completed,
             commands::complete_onboarding,
-            commands::set_analytics_enabled,
-            commands::restart_app
+            commands::set_analytics_enabled
         ])
         .setup(move |app| {
             // Charger le raccourci depuis le store
