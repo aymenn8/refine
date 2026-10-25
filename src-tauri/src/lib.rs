@@ -199,13 +199,18 @@ pub fn run() {
             app.manage(clipboard::ClipboardState::new());
             clipboard::start_clipboard_monitor(app.handle().clone());
 
-            // Enregistrer le raccourci global
-            app.global_shortcut().register(shortcut)?;
+            // Enregistrer le raccourci global (a shortcut that can't be registered,
+            // e.g. one another app holds, must not stop the app from starting)
+            if let Err(e) = app.global_shortcut().register(shortcut) {
+                eprintln!("[shortcuts] Couldn't register the open shortcut: {e}");
+            }
 
             // Enregistrer le raccourci global de l'historique clipboard
             let history_shortcut = shortcuts::load_history_shortcut_from_store(app.handle());
             if history_shortcut != shortcut {
-                app.global_shortcut().register(history_shortcut)?;
+                if let Err(e) = app.global_shortcut().register(history_shortcut) {
+                    eprintln!("[shortcuts] Couldn't register the clipboard history shortcut: {e}");
+                }
             }
 
             // Enregistrer les raccourcis des quick actions

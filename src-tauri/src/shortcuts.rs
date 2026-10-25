@@ -106,6 +106,25 @@ pub fn parse_shortcut(shortcut_str: &str) -> Option<Shortcut> {
     })
 }
 
+/// Replaces a registered shortcut without ever leaving the user with none: registers
+/// `new` first and only then unregisters `old`. If registering fails (e.g. another app
+/// holds the combination), `old` stays registered and the error is returned.
+fn swap_shortcut<S: Copy + PartialEq, E>(
+    old: Option<S>,
+    new: S,
+    mut register: impl FnMut(S) -> Result<(), E>,
+    mut unregister: impl FnMut(S),
+) -> Result<(), E> {
+    if old == Some(new) {
+        return Ok(());
+    }
+    register(new)?;
+    if let Some(old) = old {
+        unregister(old);
+    }
+    Ok(())
+}
+
 /// Met à jour le raccourci global de l'application
 ///
 /// Cette commande permet de changer le raccourci clavier qui ouvre le spotlight.
@@ -135,16 +154,17 @@ pub async fn update_global_shortcut(
     let new_shortcut = parse_shortcut(&shortcut_str)
         .ok_or_else(|| format!("Invalid shortcut format: {}", shortcut_str))?;
 
-    // Désenregistrer l'ancien raccourci
     if let Ok(mut current) = state.current_shortcut.lock() {
-        if let Some(old_shortcut) = current.as_ref() {
-            let _ = app.global_shortcut().unregister(*old_shortcut);
-        }
-
-        // Enregistrer le nouveau raccourci
-        app.global_shortcut()
-            .register(new_shortcut)
-            .map_err(|e| e.to_string())?;
+        // Register the new shortcut before releasing the old one
+        let shortcuts = app.global_shortcut();
+        swap_shortcut(
+            *current,
+            new_shortcut,
+            |s| shortcuts.register(s).map_err(|e| e.to_string()),
+            |s| {
+                let _ = shortcuts.unregister(s);
+            },
+        )?;
 
         // Sauvegarder dans le store
         let store = app.store("settings.json").map_err(|e| e.to_string())?;
@@ -277,14 +297,15 @@ pub async fn update_history_shortcut(app: AppHandle, shortcut_str: String) -> Re
     let old_shortcut_str = get_history_shortcut_from_store(&app);
     let old_shortcut = parse_shortcut(&old_shortcut_str);
 
-    if old_shortcut != Some(new_shortcut) {
-        if let Some(old) = old_shortcut {
-            let _ = app.global_shortcut().unregister(old);
-        }
-        app.global_shortcut()
-            .register(new_shortcut)
-            .map_err(|e| e.to_string())?;
-    }
+    let shortcuts = app.global_shortcut();
+    swap_shortcut(
+        old_shortcut,
+        new_shortcut,
+        |s| shortcuts.register(s).map_err(|e| e.to_string()),
+        |s| {
+            let _ = shortcuts.unregister(s);
+        },
+    )?;
 
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     store.set(HISTORY_SHORTCUT_KEY, shortcut_str);
@@ -424,4 +445,56 @@ pub async fn check_shortcut_conflict(
     }
 
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Runs swap_shortcut with closures that log their calls.
+    fn run_swap(old: Option<u8>, new: u8, register_ok: bool) -> (Result<(), String>, Vec<String>) {
+        let log = std::cell::RefCell::new(Vec::new());
+        let result = swap_shortcut(
+            old,
+            new,
+            |s| {
+                log.borrow_mut().push(format!("register {s}"));
+                if register_ok { Ok(()) } else { Err("taken".to_string()) }
+            },
+            |s| log.borrow_mut().push(format!("unregister {s}")),
+        );
+        (result, log.into_inner())
+    }
+
+    #[test]
+    fn swap_registers_new_before_unregistering_old() {
+        assert_eq!(run_swap(Some(1), 2, true), (Ok(()), vec!["register 2".to_string(), "unregister 1".to_string()]));
+    }
+
+    #[test]
+    fn failed_registration_keeps_the_old_shortcut() {
+        assert_eq!(run_swap(Some(1), 2, false), (Err("taken".to_string()), vec!["register 2".to_string()]));
+    }
+
+    #[test]
+    fn same_shortcut_is_left_alone() {
+        assert_eq!(run_swap(Some(2), 2, true), (Ok(()), Vec::<String>::new()));
+    }
+
+    #[test]
+    fn first_shortcut_has_nothing_to_unregister() {
+        assert_eq!(run_swap(None, 2, true), (Ok(()), vec!["register 2".to_string()]));
+    }
+
+    #[test]
+    fn parses_control_space() {
+        assert_eq!(parse_shortcut("Control+Space"), Some(Shortcut::new(Some(Modifiers::CONTROL), Code::Space)));
+    }
+
+    #[test]
+    fn legacy_command_or_control_still_parses_as_command() {
+        let legacy = parse_shortcut("CommandOrControl+Shift+R");
+        assert!(legacy.is_some());
+        assert_eq!(legacy, parse_shortcut("Command+Shift+R"));
+    }
 }
