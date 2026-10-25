@@ -131,6 +131,12 @@ pub fn clipboard_change_count() -> i64 {
 }
 
 /// Reactivate the previously stored frontmost app.
+/// Bundle ID of the app that was frontmost before the panel opened, if known.
+#[cfg(target_os = "macos")]
+pub fn previous_app_bundle_id() -> Option<String> {
+    PREVIOUS_APP_BUNDLE_ID.lock().ok()?.clone().filter(|id| !id.is_empty())
+}
+
 #[cfg(target_os = "macos")]
 pub fn activate_previous_app() {
     if let Ok(prev_bundle) = PREVIOUS_APP_BUNDLE_ID.lock() {

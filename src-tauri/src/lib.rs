@@ -25,6 +25,7 @@ mod native_mac;
 mod pasteboard;
 mod providers;
 mod quick_actions;
+mod selection;
 mod shortcuts;
 mod sound;
 mod state;
