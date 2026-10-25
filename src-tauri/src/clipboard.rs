@@ -737,7 +737,15 @@ pub async fn paste_clipboard_history_entry(app: AppHandle, id: i64) -> Result<()
     };
 
     touch_entry(&app, id)?;
-    crate::commands::paste_to_previous_app(app, text).await
+    let result = crate::commands::paste_after_hiding(&app, text).await;
+    if let Err(message) = &result {
+        let (toast_app, message) = (app.clone(), message.clone());
+        let _ = tokio::task::spawn_blocking(move || {
+            crate::quick_actions::show_error_toast(&toast_app, &message)
+        })
+        .await;
+    }
+    result
 }
 
 #[tauri::command]

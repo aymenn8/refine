@@ -66,21 +66,26 @@ unsafe fn array_items(array: id) -> Vec<id> {
     (0..count).map(|i| msg_send![array, objectAtIndex: i]).collect()
 }
 
-unsafe fn snapshot(pb: id) -> PasteboardSnapshot {
+/// None when any part of the clipboard can't be read — restoring a partial copy would lose data.
+unsafe fn snapshot(pb: id) -> Option<PasteboardSnapshot> {
     let items: id = msg_send![pb, pasteboardItems];
+    if items == nil {
+        return None;
+    }
     let mut saved = Vec::new();
     for item in array_items(items) {
         let types: id = msg_send![item, types];
         let mut pairs = Vec::new();
         for kind in array_items(types) {
             let data: id = msg_send![item, dataForType: kind];
-            if data != nil {
-                pairs.push((to_string(kind), to_bytes(data)));
+            if data == nil {
+                return None;
             }
+            pairs.push((to_string(kind), to_bytes(data)));
         }
         saved.push(pairs);
     }
-    PasteboardSnapshot(saved)
+    Some(PasteboardSnapshot(saved))
 }
 
 /// Replaces the pasteboard with `items`; the first item also gets the transient marker.
@@ -112,7 +117,7 @@ unsafe fn write_text_transient(pb: id, text: &str) {
     write(pb, &[vec![(PLAIN_TEXT_TYPE.to_string(), text.as_bytes().to_vec())]]);
 }
 
-pub fn snapshot_general() -> PasteboardSnapshot {
+pub fn snapshot_general() -> Option<PasteboardSnapshot> {
     autoreleasepool(|| unsafe { snapshot(general()) })
 }
 
@@ -208,10 +213,10 @@ mod tests {
                 ("public.rtf", b"{\\rtf1 hello}"),
                 ("com.example.custom", custom),
             ]]);
-            let original = snapshot(pb);
+            let original = snapshot(pb).expect("readable");
             let _: isize = msg_send![pb, clearContents];
             restore(pb, &original);
-            let restored = snapshot(pb);
+            let restored = snapshot(pb).expect("readable");
             assert_eq!(restored.0.len(), 1);
             let got = pairs(&restored, 0);
             for (kind, bytes) in pairs(&original, 0) {
@@ -220,7 +225,7 @@ mod tests {
             assert!(got.contains(&(TRANSIENT_TYPE.to_string(), Vec::new())));
             // Restoring again must not add a second marker.
             restore(pb, &restored);
-            let again = pairs(&snapshot(pb), 0);
+            let again = pairs(&snapshot(pb).expect("readable"), 0);
             assert_eq!(again.iter().filter(|(k, _)| k == TRANSIENT_TYPE).count(), 1);
         });
     }
@@ -229,9 +234,9 @@ mod tests {
     fn round_trips_multiple_items() {
         with_private_pasteboard(|pb| unsafe {
             write_items(pb, &[&[("public.utf8-plain-text", b"one")], &[("public.utf8-plain-text", b"two")]]);
-            let original = snapshot(pb);
+            let original = snapshot(pb).expect("readable");
             restore(pb, &original);
-            let restored = snapshot(pb);
+            let restored = snapshot(pb).expect("readable");
             assert_eq!(restored.0.len(), 2);
             assert!(pairs(&restored, 0).contains(&("public.utf8-plain-text".to_string(), b"one".to_vec())));
             assert!(pairs(&restored, 1).contains(&("public.utf8-plain-text".to_string(), b"two".to_vec())));
@@ -242,10 +247,20 @@ mod tests {
     fn restoring_an_empty_snapshot_leaves_the_pasteboard_empty() {
         with_private_pasteboard(|pb| unsafe {
             let _: isize = msg_send![pb, clearContents];
-            let empty = snapshot(pb);
+            let empty = snapshot(pb).expect("readable");
             write_items(pb, &[&[("public.utf8-plain-text", b"x")]]);
             restore(pb, &empty);
-            assert_eq!(snapshot(pb).0.len(), 0);
+            assert_eq!(snapshot(pb).expect("readable").0.len(), 0);
+        });
+    }
+
+    #[test]
+    fn a_type_without_data_makes_the_snapshot_unreadable() {
+        with_private_pasteboard(|pb| unsafe {
+            let _: isize = msg_send![pb, clearContents];
+            let types: id = msg_send![class!(NSArray), arrayWithObject: ns_string("com.example.promised")];
+            let _: isize = msg_send![pb, declareTypes: types owner: cocoa::base::nil];
+            assert!(snapshot(pb).is_none());
         });
     }
 
@@ -253,7 +268,7 @@ mod tests {
     fn transient_text_write_is_marked() {
         with_private_pasteboard(|pb| unsafe {
             write_text_transient(pb, "result");
-            let got = pairs(&snapshot(pb), 0);
+            let got = pairs(&snapshot(pb).expect("readable"), 0);
             assert!(got.contains(&("public.utf8-plain-text".to_string(), b"result".to_vec())));
             assert!(got.iter().any(|(k, _)| k == TRANSIENT_TYPE));
         });

@@ -227,9 +227,43 @@ pub async fn minimize_settings_window(app: AppHandle) -> Result<(), String> {
 /// * `Err(String)` si une erreur se produit
 #[tauri::command]
 pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), String> {
+    let result = paste_after_hiding(&app, text).await;
+    if result.is_err() {
+        // Bring the panel back so the result isn't lost and the error can be shown there.
+        reshow_panel(&app)?;
+    }
+    result
+}
+
+#[cfg(target_os = "macos")]
+fn reshow_panel(app: &AppHandle) -> Result<(), String> {
+    run_on_main_thread(app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("main") {
+            panel.show_and_make_key();
+            crate::native_mac::activate_our_app();
+            let content_view = panel.content_view();
+            panel.make_first_responder(Some(&content_view));
+        } else if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn reshow_panel(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+/// Hides Refine's windows, then pastes into the previous app.
+pub(crate) async fn paste_after_hiding(app: &AppHandle, text: String) -> Result<(), String> {
     // Cacher la fenêtre via panel API
     #[cfg(target_os = "macos")]
-    run_on_main_thread(&app, |app_handle| {
+    run_on_main_thread(app, |app_handle| {
         if let Ok(panel) = app_handle.get_webview_panel("main") {
             panel.hide();
         } else if let Some(window) = app_handle.get_webview_window("main") {
@@ -254,16 +288,9 @@ pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), S
     }
 
     // Paste off the async runtime; the clipboard is restored whatever happens.
-    let toast_app = app.clone();
-    tokio::task::spawn_blocking(move || {
-        let result = crate::selection::paste_into_previous_app(&text);
-        if let Err(message) = &result {
-            crate::quick_actions::show_error_toast(&toast_app, message);
-        }
-        result
-    })
-    .await
-    .map_err(|e| format!("Failed to paste: {}", e))?
+    tokio::task::spawn_blocking(move || crate::selection::paste_into_previous_app(&text))
+        .await
+        .map_err(|e| format!("Failed to paste: {}", e))?
 }
 
 /// Paste text to previous app but keep Spotlight open.

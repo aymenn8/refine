@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "macos")]
-use std::{process::Command, sync::Mutex};
+use std::sync::Mutex;
 
 #[cfg(target_os = "macos")]
 use cocoa::base::{id, nil};
@@ -17,8 +17,6 @@ use objc::*;
 #[cfg(target_os = "macos")]
 static PREVIOUS_APP_BUNDLE_ID: Mutex<Option<String>> = Mutex::new(None);
 
-#[cfg(target_os = "macos")]
-static PREVIOUS_APP_NAME: Mutex<Option<String>> = Mutex::new(None);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FrontmostAppInfo {
@@ -73,14 +71,6 @@ fn frontmost_app_info(store_previous: bool) -> FrontmostAppInfo {
                     Some(app_bundle_id.clone())
                 };
             }
-
-            if let Ok(mut prev_name) = PREVIOUS_APP_NAME.lock() {
-                *prev_name = if app_name.is_empty() {
-                    None
-                } else {
-                    Some(app_name.clone())
-                };
-            }
         }
 
         FrontmostAppInfo {
@@ -130,37 +120,46 @@ pub fn clipboard_change_count() -> i64 {
     0
 }
 
-/// Reactivate the previously stored frontmost app.
+#[cfg(target_os = "macos")]
+fn running_app(bundle_id: &str) -> Option<id> {
+    unsafe {
+        let ns_id: id = msg_send![class!(NSString), alloc];
+        let ns_id: id = msg_send![ns_id, initWithBytes: bundle_id.as_ptr() length: bundle_id.len() encoding: 4usize];
+        let ns_id: id = msg_send![ns_id, autorelease];
+        let apps: id = msg_send![class!(NSRunningApplication), runningApplicationsWithBundleIdentifier: ns_id];
+        let count: usize = msg_send![apps, count];
+        if count == 0 {
+            return None;
+        }
+        Some(msg_send![apps, objectAtIndex: 0usize])
+    }
+}
+
+/// True if an app with this bundle ID is running.
+#[cfg(target_os = "macos")]
+pub fn is_app_running(bundle_id: &str) -> bool {
+    objc::rc::autoreleasepool(|| running_app(bundle_id).is_some())
+}
+
+/// Brings the running app forward without relaunching it or opening a new window.
+/// False if it isn't running.
+#[cfg(target_os = "macos")]
+pub fn activate_running_app(bundle_id: &str) -> bool {
+    objc::rc::autoreleasepool(|| match running_app(bundle_id) {
+        Some(app) => unsafe {
+            const ACTIVATE_IGNORING_OTHER_APPS: usize = 1 << 1;
+            let _: bool = msg_send![app, activateWithOptions: ACTIVATE_IGNORING_OTHER_APPS];
+            true
+        },
+        None => false,
+    })
+}
+
 /// Bundle ID of the app that was frontmost before the panel opened, if known.
 #[cfg(target_os = "macos")]
 pub fn previous_app_bundle_id() -> Option<String> {
     PREVIOUS_APP_BUNDLE_ID.lock().ok()?.clone().filter(|id| !id.is_empty())
 }
-
-#[cfg(target_os = "macos")]
-pub fn activate_previous_app() {
-    if let Ok(prev_bundle) = PREVIOUS_APP_BUNDLE_ID.lock() {
-        if let Some(bundle_id) = prev_bundle.as_ref() {
-            if !bundle_id.is_empty() {
-                let _ = Command::new("open").arg("-b").arg(bundle_id).status();
-                return;
-            }
-        }
-    }
-
-    if let Ok(prev_name) = PREVIOUS_APP_NAME.lock() {
-        if let Some(name) = prev_name.as_ref() {
-            if !name.is_empty() {
-                let escaped = name.replace('\\', "\\\\").replace('"', "\\\"");
-                let script = format!("tell application \"{}\" to activate", escaped);
-                let _ = Command::new("osascript").arg("-e").arg(script).status();
-            }
-        }
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn activate_previous_app() {}
 
 /// Activate our own app so it receives keyboard events.
 /// Call this AFTER the panel is already visible on the current space —

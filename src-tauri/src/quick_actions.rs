@@ -177,8 +177,8 @@ pub async fn execute_quick_action(
     mode_id: String,
     action_type: String,
 ) -> Result<(), String> {
-    // The paste goes back to the app that had the selection.
-    crate::native_mac::get_and_store_frontmost_app();
+    // The paste goes back to the app that had the selection, and only if it is still in front.
+    let target = crate::native_mac::get_frontmost_app_info().bundle_id;
 
     let captured = tokio::task::spawn_blocking(crate::selection::capture_selection)
         .await
@@ -208,7 +208,7 @@ pub async fn execute_quick_action(
     match result {
         Ok(processed_text) => {
             let pasted = tokio::task::spawn_blocking(move || {
-                crate::selection::paste_into_previous_app(&processed_text)
+                crate::selection::paste_into_app(&target, false, &processed_text)
             })
             .await
             .map_err(|e| format!("Failed to paste: {}", e))?;

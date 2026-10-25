@@ -268,6 +268,8 @@ pub fn capture_and_show(app: &AppHandle) {
             let previous_app = crate::native_mac::get_and_store_frontmost_app();
             let (selected_text, capture_error) = match crate::selection::capture_selection() {
                 Ok(text) => (text, None),
+                // A press while the last capture is still running: that one opens the panel.
+                Err(message) if message == crate::selection::BUSY => return,
                 Err(message) => (String::new(), Some(message)),
             };
 
@@ -362,6 +364,7 @@ pub fn capture_and_show(app: &AppHandle) {
             let payload = SpotlightPayload {
                 text: String::new(),
                 previous_app,
+                capture_error: None,
             };
             let _ = window.emit("spotlight-open", payload);
         }

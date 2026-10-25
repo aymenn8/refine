@@ -15,6 +15,7 @@ import { FooterBar } from "./spotlight/FooterBar";
 import type { ProcessingMode, Flow, FlowStepProgress } from "./spotlight/types";
 import "./App.css";
 import { eventMatchesShortcut } from "./utils/shortcut";
+import { withSelectionWhitespace } from "./utils/whitespace";
 
 interface SpotlightPayload {
   text: string;
@@ -253,14 +254,18 @@ function App() {
     if (!text.trim()) return;
     try {
       ignoreBlurUntilRef.current = Date.now() + 1500;
-      await invoke("paste_to_previous_app", { text });
+      await invoke("paste_to_previous_app", {
+        text: isProcessed ? withSelectionWhitespace(originalText, text) : text,
+      });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to paste processed text:", err);
       ignoreBlurUntilRef.current = 0;
+      // The panel comes back with the result still in it; say why nothing was pasted.
+      setError(err instanceof Error ? err.message : String(err));
     }
-  }, [text]);
+  }, [text, isProcessed, originalText]);
 
   const cancelRun = useCallback(() => {
     runIdRef.current++;
