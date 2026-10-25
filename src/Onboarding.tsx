@@ -42,6 +42,10 @@ function Onboarding() {
   const [downloadedModels, setDownloadedModels] = useState<Set<string>>(new Set());
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
   const [savingAnalyticsChoice, setSavingAnalyticsChoice] = useState(false);
+  // Clipboard history is off unless the user picks it (default for Paste-style clipboard managers).
+  const [clipboardHistoryEnabled, setClipboardHistoryEnabled] = useState(false);
+  const [savingClipboardChoice, setSavingClipboardChoice] = useState(false);
+  const [clipboardError, setClipboardError] = useState("");
 
   // Route protection: redirect if onboarding already completed
   useEffect(() => {
@@ -89,7 +93,7 @@ function Onboarding() {
     // If already downloaded, just set active and advance
     if (downloadedModels.has(selectedModel)) {
       await invoke("set_active_model", { modelId: selectedModel });
-      setStep(4);
+      setStep(5);
       return;
     }
     setDownloading(true);
@@ -99,7 +103,7 @@ function Onboarding() {
       await invoke("download_model", { modelId: selectedModel });
       setDownloading(false);
       await invoke("set_active_model", { modelId: selectedModel });
-      setStep(4);
+      setStep(5);
     } catch (e) {
       setDownloading(false);
       setProgress(0);
@@ -124,6 +128,20 @@ function Onboarding() {
     }
   };
 
+  const handleClipboardChoice = async (enabled: boolean) => {
+    setClipboardHistoryEnabled(enabled);
+    setSavingClipboardChoice(true);
+    setClipboardError("");
+    try {
+      await invoke("set_clipboard_history_enabled", { enabled });
+      setStep(4);
+    } catch (e) {
+      setClipboardError(typeof e === "string" ? e : String(e));
+    } finally {
+      setSavingClipboardChoice(false);
+    }
+  };
+
   const handleComplete = async () => {
     await invoke("complete_onboarding");
     window.location.href = "/settings";
@@ -131,7 +149,7 @@ function Onboarding() {
 
   useEffect(() => {
     const unlisten = listen("spotlight-shortcut-pressed", async () => {
-      if (step !== 4) return;
+      if (step !== 5) return;
       await invoke("complete_onboarding");
       await invoke("hide_settings_window");
     });
@@ -167,6 +185,14 @@ function Onboarding() {
             />
           )}
           {step === 3 && (
+            <StepClipboard
+              historyEnabled={clipboardHistoryEnabled}
+              onChoose={handleClipboardChoice}
+              isSaving={savingClipboardChoice}
+              error={clipboardError}
+            />
+          )}
+          {step === 4 && (
             <StepModel
               models={MODELS}
               selectedModel={selectedModel}
@@ -181,7 +207,7 @@ function Onboarding() {
               downloadedModels={downloadedModels}
             />
           )}
-          {step === 4 && <StepReady />}
+          {step === 5 && <StepReady />}
         </div>
       </div>
 
@@ -206,27 +232,31 @@ function Onboarding() {
             <span className="text-[12px] text-white/30">Saving your preference...</span>
           )}
 
-          {step === 3 && !downloading && (
+          {step === 3 && savingClipboardChoice && (
+            <span className="text-[12px] text-white/30">Saving your preference...</span>
+          )}
+
+          {step === 4 && !downloading && (
             <>
-              <button onClick={() => setStep(2)} className="onb-btn-ghost">Back</button>
+              <button onClick={() => setStep(3)} className="onb-btn-ghost">Back</button>
               <button onClick={handleDownload} className="onb-btn-primary">
                 {downloadedModels.has(selectedModel) ? "Continue" : "Download & Continue"}
               </button>
             </>
           )}
-          {step === 3 && downloading && (
+          {step === 4 && downloading && (
             <span className="text-[12px] text-white/30">Downloading model...</span>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <button onClick={handleComplete} className="onb-btn-primary">Open Refine</button>
           )}
         </div>
 
         {/* Skip link (model step only) */}
-        {step === 3 && !downloading && (
+        {step === 4 && !downloading && (
           <button
-            onClick={() => setStep(4)}
+            onClick={() => setStep(5)}
             className="text-[11px] text-white/20 hover:text-white/40 bg-transparent border-none cursor-pointer transition-colors -mt-2"
           >
             Skip — I'll set up a model later
@@ -235,7 +265,7 @@ function Onboarding() {
 
         {/* Dots */}
         <div className="flex items-center gap-2">
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
               className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -380,6 +410,65 @@ function StepPrivacy({
       <p className="text-[11px] text-white/28 leading-relaxed text-center max-w-[360px] m-0">
         Refine uses a random local install ID for anonymous counts only. You can change this later
         in Settings.
+      </p>
+
+      {error && <p className="text-[11px] text-red-400 text-center m-0">{error}</p>}
+    </div>
+  );
+}
+
+/* ---- Clipboard history ---- */
+function StepClipboard({
+  historyEnabled,
+  onChoose,
+  isSaving,
+  error,
+}: {
+  historyEnabled: boolean;
+  onChoose: (enabled: boolean) => void;
+  isSaving: boolean;
+  error: string;
+}) {
+  return (
+    <div className="flex flex-col items-center w-full max-w-md gap-4">
+      <div className="text-center mb-1">
+        <h2 className="text-xl font-semibold text-white/90 m-0">Clipboard history?</h2>
+      </div>
+
+      <div className="w-full space-y-2.5">
+        <button
+          onClick={() => onChoose(false)}
+          disabled={isSaving}
+          className={`w-full p-4 rounded-xl border text-left cursor-pointer transition-all disabled:cursor-default ${
+            !historyEnabled
+              ? "bg-(--accent)/10 border-(--accent)/40"
+              : "bg-white/5 border-white/10 hover:bg-white/8"
+          }`}
+        >
+          <div className="text-[13px] font-semibold text-white/90">No — I use another clipboard manager</div>
+          <div className="text-[12px] text-white/40 mt-1 leading-relaxed">
+            Refine won't record what you copy, and ⌘⇧V stays free for apps like Paste.
+          </div>
+        </button>
+
+        <button
+          onClick={() => onChoose(true)}
+          disabled={isSaving}
+          className={`w-full p-4 rounded-xl border text-left cursor-pointer transition-all disabled:cursor-default ${
+            historyEnabled
+              ? "bg-(--accent)/10 border-(--accent)/40"
+              : "bg-white/5 border-white/10 hover:bg-white/8"
+          }`}
+        >
+          <div className="text-[13px] font-semibold text-white/90">Yes, keep a clipboard history</div>
+          <div className="text-[12px] text-white/40 mt-1 leading-relaxed">
+            Refine remembers recent text you copy. Password-manager copies are skipped.
+          </div>
+        </button>
+      </div>
+
+      <p className="text-[11px] text-white/28 leading-relaxed text-center max-w-[360px] m-0">
+        You can change this later in Settings.
       </p>
 
       {error && <p className="text-[11px] text-red-400 text-center m-0">{error}</p>}

@@ -8,6 +8,7 @@ interface FooterBarProps {
   hasText: boolean;
   copied: boolean;
   historyShortcut: string;
+  historyEnabled: boolean;
   onPaste: () => void;
   onSend: () => void;
   onHistoryShortcutChange?: (shortcut: string) => void;
@@ -30,6 +31,7 @@ export function FooterBar({
   hasText,
   copied,
   historyShortcut,
+  historyEnabled,
   onPaste,
   onSend,
   onHistoryShortcutChange,
@@ -84,25 +86,29 @@ export function FooterBar({
         <Dot theme={theme} />
         <Kbd theme={theme}>Tab</Kbd>
         <span>browse</span>
-        <Dot theme={theme} />
-        <button
-          ref={btnRef}
-          onClick={handleStartRecording}
-          onKeyDown={handleKeyDown}
-          className={`inline-flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer outline-none ${
-            isRecording ? "text-(--accent)" : historyTextClass
-          } transition-colors`}
-          title="Click to change shortcut"
-        >
-          <Kbd theme={theme} highlight={isRecording}>
-            {isRecording
-              ? recordingPreview
-                ? formatShortcut(recordingPreview)
-                : "..."
-              : formatShortcut(historyShortcut)}
-          </Kbd>
-          <span className="text-xs font-medium">history</span>
-        </button>
+        {historyEnabled && (
+          <>
+            <Dot theme={theme} />
+            <button
+              ref={btnRef}
+              onClick={handleStartRecording}
+              onKeyDown={handleKeyDown}
+              className={`inline-flex items-center gap-1.5 bg-transparent border-none p-0 cursor-pointer outline-none ${
+                isRecording ? "text-(--accent)" : historyTextClass
+              } transition-colors`}
+              title="Click to change shortcut"
+            >
+              <Kbd theme={theme} highlight={isRecording}>
+                {isRecording
+                  ? recordingPreview
+                    ? formatShortcut(recordingPreview)
+                    : "..."
+                  : formatShortcut(historyShortcut)}
+              </Kbd>
+              <span className="text-xs font-medium">history</span>
+            </button>
+          </>
+        )}
         <Dot theme={theme} />
         <Kbd theme={theme}>Esc</Kbd>
         <span>{isProcessed ? "back" : "close"}</span>

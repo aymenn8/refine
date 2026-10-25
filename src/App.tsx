@@ -63,6 +63,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [flowStepProgress, setFlowStepProgress] = useState<FlowStepProgress | null>(null);
   const [historyShortcut, setHistoryShortcut] = useState("CommandOrControl+Shift+V");
+  const [historyEnabled, setHistoryEnabled] = useState(false);
   const [spotlightTheme, setSpotlightTheme] = useState<"dark" | "light">("dark");
   const [autoCopied, setAutoCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -320,6 +321,7 @@ function App() {
       }
       const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
       setHistoryShortcut(currentHistoryShortcut);
+      setHistoryEnabled(await invoke<boolean>("get_clipboard_history_enabled"));
       await resolveSpotlightTheme();
     };
     loadData();
@@ -356,6 +358,7 @@ function App() {
 
       const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
       setHistoryShortcut(currentHistoryShortcut);
+      setHistoryEnabled(await invoke<boolean>("get_clipboard_history_enabled"));
       await resolveSpotlightTheme();
 
       setTimeout(() => {
@@ -420,7 +423,7 @@ function App() {
   // --- Keyboard ---
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (eventMatchesShortcut(e, historyShortcut)) {
+    if (historyEnabled && eventMatchesShortcut(e, historyShortcut)) {
       e.preventDefault();
       setShowHistory((prev) => !prev);
       return;
@@ -663,6 +666,7 @@ function App() {
             hasText={!!text.trim()}
             copied={copied}
             historyShortcut={historyShortcut}
+            historyEnabled={historyEnabled}
             onPaste={handlePasteProcessed}
             onSend={handleSendToAI}
             onHistoryShortcutChange={async (shortcut) => {
