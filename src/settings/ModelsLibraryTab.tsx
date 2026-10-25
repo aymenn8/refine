@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 
 // Types
 type ModelStatus = "not_downloaded" | "downloading" | "downloaded" | "error";
-type Provider = "openai" | "anthropic" | "ollama";
+type Provider = "openai" | "anthropic" | "ollama" | "openai_compatible";
 
 interface ModelInfo {
   id: string;
@@ -127,6 +127,14 @@ const PROVIDERS: ProviderDef[] = [
     defaultUrl: "http://localhost:11434",
     modelPlaceholder: "e.g. llama3, mistral, phi3, gemma2",
   },
+  {
+    id: "openai_compatible",
+    name: "OpenAI-compatible (DeepSeek…)",
+    requiresApiKey: true,
+    requiresUrl: true,
+    defaultUrl: "https://api.deepseek.com",
+    modelPlaceholder: "e.g. deepseek-flash, deepseek-v4-pro",
+  },
 ];
 
 function ModelsLibraryTab() {
@@ -181,7 +189,9 @@ function ModelsLibraryTab() {
             ? "Ollama"
             : c.provider === "anthropic"
               ? `Anthropic · ${c.model_id}`
-              : `OpenAI · ${c.model_id}`,
+              : c.provider === "openai_compatible"
+                ? `Compatible · ${c.model_id}`
+                : `OpenAI · ${c.model_id}`,
         setActive: () => handleSetActiveCloud(c.id),
       });
     }
@@ -380,20 +390,28 @@ function ModelsLibraryTab() {
     setSaving(true);
     setSaveError("");
     try {
+      // OpenAI-compatible endpoints need both the key and the endpoint URL.
+      const isCompatible = formProvider === "openai_compatible";
+      const baseUrl = isCompatible
+        ? formUrl || currentProvider?.defaultUrl || ""
+        : undefined;
       if (currentProvider?.requiresApiKey) {
         await invoke("test_api_key", {
           provider: formProvider,
           apiKey: formApiKey,
+          baseUrl,
         });
       }
-      const keyOrUrl = currentProvider?.requiresUrl
-        ? formUrl || currentProvider.defaultUrl || ""
-        : formApiKey;
+      const keyOrUrl =
+        currentProvider?.requiresUrl && !isCompatible
+          ? formUrl || currentProvider.defaultUrl || ""
+          : formApiKey;
       const credential = await invoke<ApiCredential>("save_api_credential", {
         provider: formProvider,
         modelId: formModel.trim(),
         displayName: formName.trim() || "",
         apiKey: keyOrUrl,
+        baseUrl,
       });
       setCredentials((prev) => [...prev, credential]);
       resetForm();
@@ -719,6 +737,21 @@ function ModelsLibraryTab() {
               />
             </div>
           </div>
+
+          {formProvider === "openai_compatible" && (
+            <button
+              type="button"
+              onClick={() => {
+                setFormUrl("https://api.deepseek.com");
+                setFormModel("deepseek-flash");
+                setFormName((name) => (name.trim() ? name : "DeepSeek"));
+                setSaveError("");
+              }}
+              className="mb-3 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 text-xs cursor-pointer transition-colors"
+            >
+              Use DeepSeek preset
+            </button>
+          )}
 
           {/* Row 2: Conditional fields */}
           {formProvider && (
