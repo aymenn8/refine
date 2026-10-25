@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn keeps_readable_credentials_when_one_has_an_unknown_provider() {
-        let raw = json!([credential("a", "openai"), credential("b", "openai_compatible")]);
+        let raw = json!([credential("a", "openai"), credential("b", "not_a_provider")]);
         let (items, dropped) = split_readable::<ApiCredential>(&raw);
         assert_eq!(items.iter().map(|c| c.id.as_str()).collect::<Vec<_>>(), ["a"]);
         assert!(dropped);
@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn backup_adds_the_original_only_once() {
-        let raw = json!([credential("b", "openai_compatible")]);
+        let raw = json!([credential("b", "not_a_provider")]);
         let first = with_backup(None, &raw).expect("first backup is written");
         assert_eq!(first, json!([raw.clone()]));
         assert_eq!(with_backup(Some(first), &raw), None);

@@ -91,6 +91,25 @@ pub fn normalize_custom_base_url(raw: &str) -> Result<String, String> {
     Ok(normalized)
 }
 
+/// What the Keychain stores for an OpenAI-compatible credential: the endpoint the key
+/// was entered with, and the key. Kept together so settings.json can't redirect the key.
+#[derive(Serialize, Deserialize)]
+pub struct CustomEndpointSecret {
+    pub base_url: String,
+    pub api_key: String,
+}
+
+impl CustomEndpointSecret {
+    pub fn to_keychain(&self) -> String {
+        serde_json::to_string(self).expect("two strings always serialize")
+    }
+
+    pub fn from_keychain(stored: &str) -> Result<Self, String> {
+        serde_json::from_str(stored)
+            .map_err(|_| "The saved endpoint details are unreadable; remove and re-add this model".to_string())
+    }
+}
+
 /// Run inference using a cloud provider API
 pub async fn run_cloud_inference(
     provider: Provider,
@@ -107,6 +126,7 @@ pub async fn run_cloud_inference(
             let base_url = normalize_ollama_base_url(api_key)?;
             call_ollama_api(model_id, &base_url, system_prompt, user_prompt).await
         }
+        Provider::OpenAICompatible => Err("OpenAI-compatible provider not wired yet".into()),
     }
 }
 
@@ -369,6 +389,29 @@ async fn call_ollama_api(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn compatible_provider_serializes_as_openai_compatible() {
+        assert_eq!(serde_json::to_value(Provider::OpenAICompatible).unwrap(), json!("openai_compatible"));
+        assert_eq!(serde_json::to_value(Provider::OpenAI).unwrap(), json!("openai"));
+    }
+
+    #[test]
+    fn keychain_secret_round_trips() {
+        let s = CustomEndpointSecret { base_url: "https://api.deepseek.com".into(), api_key: "sk-test".into() };
+        let back = CustomEndpointSecret::from_keychain(&s.to_keychain()).unwrap();
+        assert_eq!((back.base_url.as_str(), back.api_key.as_str()), ("https://api.deepseek.com", "sk-test"));
+    }
+
+    #[test]
+    fn unreadable_keychain_secret_error_does_not_echo_it() {
+        // No unwrap_err(): that needs Debug, and the secret type deliberately has none (it holds a key).
+        let Err(err) = CustomEndpointSecret::from_keychain("sk-plain-key-not-json") else {
+            panic!("a non-JSON secret must be rejected");
+        };
+        assert!(!err.contains("sk-plain-key-not-json"));
+    }
 
     #[test]
     fn custom_url_accepts_https_and_trims_trailing_slash() {

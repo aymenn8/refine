@@ -14,6 +14,10 @@ pub enum Provider {
     OpenAI,
     Anthropic,
     Ollama,
+    /// Any OpenAI-compatible endpoint (e.g. DeepSeek). Its Keychain secret holds
+    /// both the endpoint and the key, so the key only ever goes to that endpoint.
+    #[serde(rename = "openai_compatible")]
+    OpenAICompatible,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,14 +111,23 @@ pub async fn save_api_credential(
     model_id: String,
     display_name: String,
     api_key: String,
+    base_url: Option<String>,
 ) -> Result<ApiCredential, String> {
     println!("[save_api_credential] Saving credential for {:?} - {}", provider, model_id);
+
+    // For OpenAI-compatible endpoints, bind the validated endpoint to the key.
+    let secret = if provider == Provider::OpenAICompatible {
+        let base_url = crate::providers::normalize_custom_base_url(base_url.as_deref().unwrap_or(""))?;
+        crate::providers::CustomEndpointSecret { base_url, api_key }.to_keychain()
+    } else {
+        api_key
+    };
 
     // Create new credential
     let credential = ApiCredential::new(provider, model_id, display_name);
 
-    // Store API key (or Ollama URL) in Keychain
-    store_api_key(&credential, &api_key)?;
+    // Store API key (or Ollama URL, or endpoint + key) in Keychain
+    store_api_key(&credential, &secret)?;
 
     // Get existing credentials and add new one
     let mut credentials = get_credentials_from_store(&app)?;
