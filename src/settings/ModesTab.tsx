@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
-type Provider = "openai" | "anthropic" | "gemini" | "grok" | "mistral" | "ollama";
+type Provider = "openai" | "anthropic" | "gemini" | "grok" | "mistral" | "ollama" | "openai_compatible";
 
 interface ActiveModelConfig {
   type: "local" | "cloud";
