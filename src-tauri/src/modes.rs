@@ -112,7 +112,14 @@ fn get_default_modes() -> Vec<ProcessingMode> {
 
 const MODES_KEY: &str = "processingModes";
 
-fn append_missing_default_modes(modes: &mut Vec<ProcessingMode>) -> bool {
+const MODES_MIGRATION_KEY: &str = "modesMigrationVersion";
+/// Bump when a new one-time change to stored modes is added below.
+const MODES_MIGRATION_VERSION: u64 = 1;
+
+/// Repairs the stored modes. Built-ins that are missing come back and pinned modes get an order
+/// every time; the legacy upstream changes run only for lists saved before `MODES_MIGRATION_VERSION`,
+/// so they never override the user's own pins or order. Returns whether anything changed.
+pub fn normalize_modes(modes: &mut Vec<ProcessingMode>, migration_version: u64) -> bool {
     let mut changed = false;
     for default_mode in get_default_modes() {
         if !modes.iter().any(|m| m.id == default_mode.id) {
@@ -121,51 +128,11 @@ fn append_missing_default_modes(modes: &mut Vec<ProcessingMode>) -> bool {
         }
     }
 
-    // Migration: replace old pinned default setup
-    // Old setup had TO ENGLISH + CORRECT + ASK pinned (and PROMPT IT unpinned).
-    let prompt_pinned = modes
-        .iter()
-        .find(|m| m.id == "prompt-it")
-        .map(|m| m.is_pinned)
-        .unwrap_or(false);
-    let translate_pinned = modes
-        .iter()
-        .find(|m| m.id == "translate-to-english")
-        .map(|m| m.is_pinned)
-        .unwrap_or(false);
-    let correct_pinned = modes
-        .iter()
-        .find(|m| m.id == "correct")
-        .map(|m| m.is_pinned)
-        .unwrap_or(false);
-    let ask_pinned = modes
-        .iter()
-        .find(|m| m.id == "ask")
-        .map(|m| m.is_pinned)
-        .unwrap_or(false);
-    let pinned_count = modes.iter().filter(|m| m.is_pinned).count();
-
-    if !prompt_pinned && translate_pinned && correct_pinned && ask_pinned && pinned_count == 3 {
-        if let Some(mode) = modes.iter_mut().find(|m| m.id == "prompt-it") {
-            mode.is_pinned = true;
-            changed = true;
-        }
-        if let Some(mode) = modes.iter_mut().find(|m| m.id == "translate-to-english") {
-            mode.is_pinned = false;
-            changed = true;
-        }
+    if migration_version < 1 {
+        changed |= migrate_legacy_pins(modes);
     }
 
-    // Ensure PROMPT IT is first so it becomes the default selected mode when no explicit default exists.
-    if let Some(prompt_idx) = modes.iter().position(|m| m.id == "prompt-it") {
-        if prompt_idx != 0 {
-            let prompt_mode = modes.remove(prompt_idx);
-            modes.insert(0, prompt_mode);
-            changed = true;
-        }
-    }
-
-    // Migration: assign pin_order to pinned modes that don't have one yet
+    // Assign pin_order to pinned modes that don't have one yet
     let needs_pin_order = modes.iter().any(|m| m.is_pinned && m.pin_order.is_none());
     if needs_pin_order {
         let mut order: u32 = 0;
@@ -181,29 +148,69 @@ fn append_missing_default_modes(modes: &mut Vec<ProcessingMode>) -> bool {
     changed
 }
 
-/// Get all processing modes from storage
-#[tauri::command]
-pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
+/// Upstream's old default pinned TO ENGLISH + CORRECT + ASK; the new one pins PROMPT IT instead
+/// and lists it first.
+fn migrate_legacy_pins(modes: &mut Vec<ProcessingMode>) -> bool {
+    let mut changed = false;
+    let pinned = |modes: &[ProcessingMode], id: &str| modes.iter().any(|m| m.id == id && m.is_pinned);
+    let pinned_count = modes.iter().filter(|m| m.is_pinned).count();
+
+    if !pinned(modes, "prompt-it")
+        && pinned(modes, "translate-to-english")
+        && pinned(modes, "correct")
+        && pinned(modes, "ask")
+        && pinned_count == 3
+    {
+        if let Some(mode) = modes.iter_mut().find(|m| m.id == "prompt-it") {
+            mode.is_pinned = true;
+            changed = true;
+        }
+        if let Some(mode) = modes.iter_mut().find(|m| m.id == "translate-to-english") {
+            mode.is_pinned = false;
+            changed = true;
+        }
+    }
+
+    if let Some(prompt_idx) = modes.iter().position(|m| m.id == "prompt-it") {
+        if prompt_idx != 0 {
+            let prompt_mode = modes.remove(prompt_idx);
+            modes.insert(0, prompt_mode);
+            changed = true;
+        }
+    }
+
+    changed
+}
+
+type SettingsStore = std::sync::Arc<tauri_plugin_store::Store<tauri::Wry>>;
+
+/// The stored modes, repaired by `normalize_modes`; saved back (with the migration version)
+/// when that changed anything.
+fn load_modes(app: &AppHandle) -> Result<(SettingsStore, Vec<ProcessingMode>), String> {
     let store = app
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
+    let mut modes: Vec<ProcessingMode> =
+        crate::stored_list::load_list(&store, MODES_KEY).unwrap_or_else(get_default_modes);
+    let version = store.get(MODES_MIGRATION_KEY).and_then(|v| v.as_u64()).unwrap_or(0);
 
-    let from_store = crate::stored_list::load_list(&store, MODES_KEY);
-    println!("[get_modes] From store: {:?}", from_store.is_some());
-
-    let mut modes: Vec<ProcessingMode> = from_store.unwrap_or_else(get_default_modes);
-
-    let defaults_added = append_missing_default_modes(&mut modes);
-    if defaults_added {
+    if normalize_modes(&mut modes, version) || version < MODES_MIGRATION_VERSION {
         store.set(
             MODES_KEY,
-            serde_json::to_value(&modes)
-                .map_err(|e| format!("Failed to serialize modes: {}", e))?,
+            serde_json::to_value(&modes).map_err(|e| format!("Failed to serialize modes: {}", e))?,
         );
+        store.set(MODES_MIGRATION_KEY, MODES_MIGRATION_VERSION);
         store
             .save()
             .map_err(|e| format!("Failed to save store: {}", e))?;
     }
+    Ok((store, modes))
+}
+
+/// Get all processing modes from storage
+#[tauri::command]
+pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
+    let (_, modes) = load_modes(&app)?;
 
     println!("[get_modes] Returning {} modes", modes.len());
     println!("[get_modes] Mode IDs: {:?}", modes.iter().map(|m| &m.id).collect::<Vec<_>>());
@@ -216,13 +223,7 @@ pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
 pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), String> {
     println!("[save_mode] Called with mode id: {}, name: {}", mode.id, mode.name);
 
-    let store = app
-        .store("settings.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
-        .unwrap_or_else(get_default_modes);
-    append_missing_default_modes(&mut modes);
+    let (store, mut modes) = load_modes(&app)?;
 
     println!("[save_mode] Current modes count: {}", modes.len());
 
@@ -261,13 +262,7 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
 pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> {
     println!("[delete_mode] Called with mode_id: {}", mode_id);
 
-    let store = app
-        .store("settings.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
-        .unwrap_or_else(get_default_modes);
-    append_missing_default_modes(&mut modes);
+    let (store, mut modes) = load_modes(&app)?;
 
     println!("[delete_mode] Current modes count: {}", modes.len());
     println!("[delete_mode] Mode IDs: {:?}", modes.iter().map(|m| &m.id).collect::<Vec<_>>());
@@ -324,13 +319,7 @@ const MAX_PINNED_MODES: usize = 3;
 /// When pinning a new mode and already at max, automatically unpins the oldest pinned mode.
 #[tauri::command]
 pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), String> {
-    let store = app
-        .store("settings.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
-        .unwrap_or_else(get_default_modes);
-    append_missing_default_modes(&mut modes);
+    let (store, mut modes) = load_modes(&app)?;
 
     let mode = modes.iter().find(|m| m.id == mode_id)
         .ok_or_else(|| format!("Mode not found: {}", mode_id))?;
@@ -387,13 +376,7 @@ pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), Stri
 /// Reorder pinned modes. Takes an ordered list of pinned mode IDs.
 #[tauri::command]
 pub async fn reorder_pinned_modes(app: AppHandle, mode_ids: Vec<String>) -> Result<(), String> {
-    let store = app
-        .store("settings.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
-        .unwrap_or_else(get_default_modes);
-    append_missing_default_modes(&mut modes);
+    let (store, mut modes) = load_modes(&app)?;
 
     // Update pin_order based on the provided order
     for (i, id) in mode_ids.iter().enumerate() {
@@ -420,13 +403,7 @@ pub async fn set_mode_model(
 ) -> Result<(), String> {
     println!("[set_mode_model] Setting model for mode: {}", mode_id);
 
-    let store = app
-        .store("settings.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
-        .unwrap_or_else(get_default_modes);
-    append_missing_default_modes(&mut modes);
+    let (store, mut modes) = load_modes(&app)?;
 
     // Find and update the mode
     let mode = modes.iter_mut().find(|m| m.id == mode_id)
@@ -450,13 +427,7 @@ pub async fn set_mode_model(
 
 /// Get a specific mode by ID (used by inference)
 pub fn get_mode_by_id(app: &AppHandle, mode_id: &str) -> Result<ProcessingMode, String> {
-    let store = app
-        .store("settings.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
-        .unwrap_or_else(get_default_modes);
-    append_missing_default_modes(&mut modes);
+    let (_, modes) = load_modes(app)?;
 
     modes
         .into_iter()
@@ -486,5 +457,70 @@ mod tests {
     #[test]
     fn blank_template_sends_just_the_text() {
         assert_eq!(render_user_prompt("  ", "hey"), "hey");
+    }
+
+    fn custom(id: &str) -> ProcessingMode {
+        ProcessingMode {
+            id: id.to_string(),
+            name: id.to_uppercase(),
+            description: String::new(),
+            system_prompt: "Be friendly.".to_string(),
+            user_prompt_template: "{text}".to_string(),
+            is_default: false,
+            is_pinned: false,
+            pin_order: None,
+            model_override: None,
+        }
+    }
+
+    fn pins(modes: &[ProcessingMode]) -> Vec<(String, bool, Option<u32>)> {
+        modes.iter().map(|m| (m.id.clone(), m.is_pinned, m.pin_order)).collect()
+    }
+
+    /// Built-ins with PROMPT IT unpinned and TO ENGLISH, CORRECT, ASK pinned 0, 1, 2.
+    fn trio_pinned() -> Vec<ProcessingMode> {
+        let mut modes = get_default_modes();
+        for m in modes.iter_mut() {
+            (m.is_pinned, m.pin_order) = match m.id.as_str() {
+                "translate-to-english" => (true, Some(0)),
+                "correct" => (true, Some(1)),
+                "ask" => (true, Some(2)),
+                _ => (false, None),
+            };
+        }
+        modes
+    }
+
+    #[test]
+    fn user_pin_choice_survives_reload() {
+        let mut modes = trio_pinned();
+        let before = pins(&modes);
+        normalize_modes(&mut modes, MODES_MIGRATION_VERSION);
+        assert_eq!(pins(&modes), before);
+    }
+
+    #[test]
+    fn legacy_pin_layout_is_migrated_once() {
+        let mut modes = trio_pinned();
+        normalize_modes(&mut modes, 0);
+        let find = |id: &str| modes.iter().find(|m| m.id == id).unwrap().is_pinned;
+        assert!(find("prompt-it"));
+        assert!(!find("translate-to-english"));
+    }
+
+    #[test]
+    fn user_order_survives_reload() {
+        let mut modes = vec![custom("m1")];
+        modes.extend(get_default_modes());
+        normalize_modes(&mut modes, MODES_MIGRATION_VERSION);
+        assert_eq!(modes[0].id, "m1");
+        assert_eq!(modes[1].id, "prompt-it");
+    }
+
+    #[test]
+    fn missing_builtins_are_added_back() {
+        let mut modes: Vec<ProcessingMode> = get_default_modes().into_iter().filter(|m| m.id != "ask").collect();
+        assert!(normalize_modes(&mut modes, MODES_MIGRATION_VERSION));
+        assert!(modes.iter().any(|m| m.id == "ask"));
     }
 }
