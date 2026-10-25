@@ -216,7 +216,13 @@ function ModesTab() {
     return "default";
   };
 
+  const startEditing = (mode: ProcessingMode) => {
+    setActionError(null);
+    setEditingMode(mode);
+  };
+
   const handleCreateNew = () => {
+    setActionError(null);
     setIsCreating(true);
     setEditingMode({
       id: `mode-${Date.now()}`,
@@ -256,6 +262,7 @@ function ModesTab() {
         error={errorBanner}
         onSave={handleSave}
         onCancel={() => {
+          setActionError(null);
           setEditingMode(null);
           setIsCreating(false);
         }}
@@ -315,7 +322,7 @@ function ModesTab() {
                     getModeModelOptionId={getModeModelOptionId}
                     onTogglePin={handleTogglePin}
                     onSetModel={handleSetModeModel}
-                    onEdit={mode.is_default ? undefined : setEditingMode}
+                    onEdit={mode.is_default ? undefined : startEditing}
                     onDelete={mode.is_default ? undefined : (m) => setDeleteModal({ open: true, mode: m })}
                     onMoveUp={idx > 0 ? () => handleMovePinned(mode.id, "up") : undefined}
                     onMoveDown={idx < pinnedModes.length - 1 ? () => handleMovePinned(mode.id, "down") : undefined}
@@ -340,7 +347,7 @@ function ModesTab() {
                     getModeModelOptionId={getModeModelOptionId}
                     onTogglePin={handleTogglePin}
                     onSetModel={handleSetModeModel}
-                    onEdit={mode.is_default ? undefined : setEditingMode}
+                    onEdit={mode.is_default ? undefined : startEditing}
                     onDelete={mode.is_default ? undefined : (m) => setDeleteModal({ open: true, mode: m })}
                   />
                 ))}
