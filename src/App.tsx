@@ -67,6 +67,8 @@ function App() {
   const [autoCopied, setAutoCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const ignoreBlurUntilRef = useRef(0);
+  // Bumped whenever the panel closes or reopens, so a rewrite that finishes late is dropped.
+  const runIdRef = useRef(0);
   const modeRef = useRef(mode);
   const selectedTypeRef = useRef(selectedType);
 
@@ -199,6 +201,8 @@ function App() {
   const handleSendToAI = useCallback(async () => {
     if (!text.trim() || isLoading) return;
 
+    const runId = ++runIdRef.current;
+    const isStale = () => runId !== runIdRef.current;
     setOriginalText(text);
     setIsLoading(true);
     setError(null);
@@ -215,6 +219,7 @@ function App() {
           mode,
         });
       }
+      if (isStale()) return;
       setText(transformedText);
       setIsProcessed(true);
       setAutoCopied(false);
@@ -222,7 +227,7 @@ function App() {
       // Auto-copy result to clipboard if enabled
       const store = await load("settings.json");
       const autoCopy = await store.get<boolean>("autoCopyEnabled");
-      if (autoCopy !== false) {
+      if (autoCopy === true && !isStale()) {
         try {
           await writeText(transformedText);
           setAutoCopied(true);
@@ -232,11 +237,14 @@ function App() {
         }
       }
     } catch (err) {
+      if (isStale()) return;
       console.error("Failed to process text:", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsLoading(false);
-      setFlowStepProgress(null);
+      if (!isStale()) {
+        setIsLoading(false);
+        setFlowStepProgress(null);
+      }
     }
   }, [text, isLoading, selectedType, mode]);
 
@@ -253,7 +261,14 @@ function App() {
     }
   }, [text]);
 
+  const cancelRun = useCallback(() => {
+    runIdRef.current++;
+    setIsLoading(false);
+    setFlowStepProgress(null);
+  }, []);
+
   const handleClose = useCallback(async () => {
+    cancelRun();
     try {
       await invoke("hide_window");
       setText("");
@@ -262,7 +277,7 @@ function App() {
     } catch (err) {
       console.error("Failed to hide window:", err);
     }
-  }, []);
+  }, [cancelRun]);
 
   const closeHistory = useCallback(() => {
     setShowHistory(false);
@@ -313,6 +328,7 @@ function App() {
   useEffect(() => {
     const unlisten = listen<SpotlightPayload>("spotlight-open", async (event) => {
       const { text: clipboardText } = event.payload;
+      cancelRun();
       setText(clipboardText || "");
       setIsProcessed(false);
       setCopied(false);
@@ -357,7 +373,7 @@ function App() {
       unlisten.then((fn) => fn());
       unlistenHistoryToggle.then((fn) => fn());
     };
-  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode]);
+  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode, cancelRun]);
 
   useEffect(() => {
     const unlisten = listen<FlowStepProgress>("flow-step-progress", (event) => {

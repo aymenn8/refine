@@ -33,7 +33,7 @@ function ConfigTab() {
   const [soundType, setSoundType] = useState("Glass");
 
   // Auto-copy
-  const [autoCopyEnabled, setAutoCopyEnabled] = useState(true);
+  const [autoCopyEnabled, setAutoCopyEnabled] = useState(false);
 
   // Analytics
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
