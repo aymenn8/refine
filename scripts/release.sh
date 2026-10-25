@@ -268,7 +268,7 @@ wait_for_accepted() {
 prepare_cmd() {
   local version=""
   local targets="both"
-  local release_repo="${RELEASE_REPO:-aymenn8/refine}"
+  local release_repo="${RELEASE_REPO:-}"
   local target_triples=()
   local state_dir manifest_path tag triple bundle_base dmg_path tar_path sig_path submission_id key
 
@@ -297,12 +297,14 @@ prepare_cmd() {
   done
 
   [ -n "$version" ] || die "--version is required"
+  [ -n "$release_repo" ] || die "--release-repo (or RELEASE_REPO) is required"
   validate_version "$version"
-  sync_project_version "$version"
-  assert_project_version "$version"
 
   require_env_vars APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
   /usr/bin/python3 "${ROOT_DIR}/scripts/check-updater-signing-key.py" --require-private-key --skip-remote-check
+
+  sync_project_version "$version"
+  assert_project_version "$version"
 
   tag="v${version}"
   state_dir=".context/release-state/${tag}"
@@ -522,8 +524,9 @@ publish_cmd() {
   [ "${TAG:-}" = "$tag" ] || die "Manifest tag is ${TAG:-<empty>}, expected ${tag}"
 
   if [ -z "$release_repo" ]; then
-    release_repo="${RELEASE_REPO:-aymenn8/refine}"
+    release_repo="${RELEASE_REPO:-}"
   fi
+  [ -n "$release_repo" ] || die "--release-repo (or RELEASE_REPO in the manifest) is required"
 
   release_dir="release-assets/${tag}"
   mkdir -p "$release_dir"
@@ -628,6 +631,10 @@ PY
   else
     GH_NOTES_FLAG=(--notes "Release ${tag}")
   fi
+
+  local confirm_repo
+  read -r -p "Type ${release_repo} to publish ${tag} there: " confirm_repo
+  [ "$confirm_repo" = "$release_repo" ] || die "Publish cancelled"
 
   echo "Creating GitHub release ${tag} on ${release_repo}..."
   gh release create "${tag}" \

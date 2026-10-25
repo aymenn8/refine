@@ -92,13 +92,7 @@ At that point, Refine is ready to use system-wide on your Mac.
 
 ## Updater
 
-Set the updater endpoint in [src-tauri/tauri.conf.json](src-tauri/tauri.conf.json):
-
-```text
-https://github.com/<owner>/<repo>/releases/latest/download/latest.json
-```
-
-In this repo, the updater points directly to `aymenn8/refine`.
+This fork ships without an updater. Upstream's update feed and signing key were removed so a fork build can never install upstream Refine. A new feed and signing key will be added before public releases.
 
 ## Project Structure
 

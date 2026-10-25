@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useUpdater } from "./hooks/useUpdater";
 import "./Settings.css";
 
 import HomeTab from "./settings/HomeTab";
@@ -159,7 +158,6 @@ const TABS: Tab[] = [
 ];
 
 function Settings() {
-  const updater = useUpdater();
   const [activeTab, setActiveTab] = useState<TabId>("home");
   const [hoveredButton, setHoveredButton] = useState<'close' | 'minimize' | null>(null);
 
@@ -177,15 +175,10 @@ function Settings() {
     const unlisten1 = listen<string>("navigate-tab", (event) => {
       setActiveTab(event.payload as TabId);
     });
-    const unlisten2 = listen("check-update", () => {
-      setActiveTab("about");
-      updater.checkForUpdate(true);
-    });
     return () => {
       unlisten1.then((f) => f());
-      unlisten2.then((f) => f());
     };
-  }, [updater]);
+  }, []);
 
   const handleClose = async () => {
     try {
@@ -220,7 +213,7 @@ function Settings() {
       case "history":
         return <HistoryTab />;
       case "about":
-        return <AboutTab updater={updater} />;
+        return <AboutTab />;
     }
   };
 
@@ -296,34 +289,6 @@ function Settings() {
           </nav>
 
           <div className="px-3 py-3 mt-auto space-y-2">
-            {updater.available && (
-              <button
-                onClick={() => {
-                  if (updater.ready) {
-                    updater.installAndRelaunch();
-                  } else if (!updater.downloading) {
-                    updater.downloadAndInstall();
-                  }
-                }}
-                disabled={updater.downloading}
-                className="flex items-center gap-2 px-3 py-2 bg-(--accent)/10 hover:bg-(--accent)/20 border border-(--accent)/20 rounded-lg cursor-pointer transition-all w-full disabled:cursor-wait"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent) shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <div className="flex flex-col items-start min-w-0">
-                  <span className="text-[11px] text-(--accent) font-medium truncate">
-                    {updater.ready
-                      ? "Restart to update"
-                      : updater.downloading
-                      ? `Downloading... ${updater.progress}%`
-                      : `v${updater.version} available`}
-                  </span>
-                </div>
-              </button>
-            )}
             <button
               onClick={() => setActiveTab("about")}
               className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all w-full"
@@ -339,142 +304,6 @@ function Settings() {
           {renderContent()}
         </main>
       </div>
-
-      {updater.noUpdateNotice && (
-        <div className="fixed top-4 right-4 z-[70]">
-          <div className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-emerald-300"
-            >
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-            <span className="text-[12px] text-white/75">Refine is already up to date.</span>
-            <button
-              onClick={() => updater.dismissNoUpdateNotice()}
-              className="ml-1 text-white/30 hover:text-white/60 border-none bg-transparent cursor-pointer p-0 text-[13px] leading-none"
-              aria-label="Close up-to-date notification"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Update modal — shows aggressively when update is available and not dismissed */}
-      {updater.available && !updater.dismissed && !updater.ready && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="w-full max-w-[420px] mx-4 rounded-2xl border border-white/8 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-[16px] font-semibold text-white">
-                  Refine v{updater.version} is available
-                </h3>
-                <p className="text-[11px] text-white/40">
-                  A new version is ready to install
-                </p>
-              </div>
-            </div>
-
-            {/* Patch notes */}
-            {updater.body && (
-              <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-4 max-h-[200px] overflow-y-auto">
-                <h4 className="text-[11px] font-semibold text-white/40 uppercase tracking-wide mb-2">
-                  What's new
-                </h4>
-                <div className="text-[12px] text-white/60 leading-relaxed whitespace-pre-wrap">
-                  {updater.body}
-                </div>
-              </div>
-            )}
-
-            {/* Progress bar when downloading */}
-            {updater.downloading && (
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] text-white/40">Downloading update...</span>
-                  <span className="text-[11px] text-(--accent) font-medium">{updater.progress}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-white/8 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-(--accent) rounded-full transition-all duration-300"
-                    style={{ width: `${updater.progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => updater.downloadAndInstall()}
-                disabled={updater.downloading}
-                className="flex-1 py-2.5 rounded-xl text-[13px] font-medium border border-(--accent)/45 bg-(--accent)/15 hover:bg-(--accent)/25 text-(--accent) cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-wait"
-              >
-                {updater.downloading ? "Downloading..." : "Update now"}
-              </button>
-              {!updater.downloading && (
-                <button
-                  onClick={() => updater.dismiss()}
-                  className="px-4 py-2.5 rounded-xl text-[12px] text-white/45 bg-white/3 border border-white/8 cursor-pointer hover:bg-white/7 hover:text-white/65 transition-colors"
-                >
-                  Later
-                </button>
-              )}
-            </div>
-
-            {updater.error && (
-              <p className="text-[11px] text-red-300 mt-3 whitespace-pre-wrap break-words">
-                Update failed: {updater.error}
-              </p>
-            )}
-
-            <p className="text-[10px] text-white/25 text-center mt-3">
-              We strongly recommend updating for the latest fixes and features.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Restart modal — after download is complete */}
-      {updater.ready && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
-          <div className="w-full max-w-[380px] mx-4 rounded-2xl border border-(--accent)/35 bg-[#18181a]/95 p-6 shadow-[0_24px_70px_rgba(0,0,0,0.55)]">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-xl border border-(--accent)/35 bg-(--accent)/12 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-(--accent)">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-              </div>
-              <h3 className="text-[16px] font-semibold text-white">Update ready!</h3>
-              <p className="text-[12px] text-white/40">
-                Refine v{updater.version} has been downloaded. Restart to apply the update.
-              </p>
-              <button
-                onClick={() => updater.installAndRelaunch()}
-                className="w-full mt-2 py-2.5 rounded-xl text-[13px] font-medium border border-(--accent)/45 bg-(--accent)/15 hover:bg-(--accent)/25 text-(--accent) cursor-pointer transition-colors"
-              >
-                Restart now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

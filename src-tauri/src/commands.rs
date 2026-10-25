@@ -295,36 +295,6 @@ pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), S
     Ok(())
 }
 
-/// Restart the app properly on macOS by relaunching the exact .app bundle path.
-///
-/// The default `relaunch()` from tauri-plugin-process uses `std::env::current_exe()`
-/// which points to the binary inside the .app bundle. Spawning that binary directly
-/// doesn't properly launch a macOS application. Using `open -n <path-to-app>` ensures
-/// LaunchServices opens this exact bundle path (and not another installed copy).
-#[tauri::command]
-pub async fn restart_app(_app: AppHandle) -> Result<(), String> {
-    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    // Navigate from Contents/MacOS/Refine up to the .app bundle
-    let app_bundle = current_exe
-        .parent() // MacOS/
-        .and_then(|p| p.parent()) // Contents/
-        .and_then(|p| p.parent()) // Refine.app/
-        .ok_or("Could not determine .app bundle path")?
-        .to_path_buf();
-
-    Command::new("open")
-        .arg("-n")
-        .arg(&app_bundle)
-        .spawn()
-        .map_err(|e| format!("Failed to relaunch app: {}", e))?;
-
-    // Skip cleanup_before_exit() — it tries to remove the tray icon via
-    // NSStatusBar on the main thread, but this async command runs on a tokio
-    // worker thread, causing a macOS assertion crash (EXC_BREAKPOINT).
-    // process::exit() will terminate the process and the OS reclaims resources.
-    std::process::exit(0);
-}
-
 /// Paste text to previous app but keep Spotlight open.
 ///
 /// This variant is used by processed Spotlight answers:
