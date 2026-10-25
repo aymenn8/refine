@@ -15,10 +15,12 @@ import { FooterBar } from "./spotlight/FooterBar";
 import type { ProcessingMode, Flow, FlowStepProgress } from "./spotlight/types";
 import "./App.css";
 import { eventMatchesShortcut } from "./utils/shortcut";
+import { withSelectionWhitespace } from "./utils/whitespace";
 
 interface SpotlightPayload {
   text: string;
   previous_app: string;
+  capture_error?: string | null;
 }
 
 function getModeShortcutIndex(e: {
@@ -62,10 +64,13 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [flowStepProgress, setFlowStepProgress] = useState<FlowStepProgress | null>(null);
   const [historyShortcut, setHistoryShortcut] = useState("CommandOrControl+Shift+V");
+  const [historyEnabled, setHistoryEnabled] = useState(false);
   const [spotlightTheme, setSpotlightTheme] = useState<"dark" | "light">("dark");
   const [autoCopied, setAutoCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const ignoreBlurUntilRef = useRef(0);
+  // Bumped whenever the panel closes or reopens, so a rewrite that finishes late is dropped.
+  const runIdRef = useRef(0);
   const modeRef = useRef(mode);
   const selectedTypeRef = useRef(selectedType);
 
@@ -198,6 +203,8 @@ function App() {
   const handleSendToAI = useCallback(async () => {
     if (!text.trim() || isLoading) return;
 
+    const runId = ++runIdRef.current;
+    const isStale = () => runId !== runIdRef.current;
     setOriginalText(text);
     setIsLoading(true);
     setError(null);
@@ -214,6 +221,7 @@ function App() {
           mode,
         });
       }
+      if (isStale()) return;
       setText(transformedText);
       setIsProcessed(true);
       setAutoCopied(false);
@@ -221,7 +229,7 @@ function App() {
       // Auto-copy result to clipboard if enabled
       const store = await load("settings.json");
       const autoCopy = await store.get<boolean>("autoCopyEnabled");
-      if (autoCopy !== false) {
+      if (autoCopy === true && !isStale()) {
         try {
           await writeText(transformedText);
           setAutoCopied(true);
@@ -231,11 +239,14 @@ function App() {
         }
       }
     } catch (err) {
+      if (isStale()) return;
       console.error("Failed to process text:", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setIsLoading(false);
-      setFlowStepProgress(null);
+      if (!isStale()) {
+        setIsLoading(false);
+        setFlowStepProgress(null);
+      }
     }
   }, [text, isLoading, selectedType, mode]);
 
@@ -243,16 +254,27 @@ function App() {
     if (!text.trim()) return;
     try {
       ignoreBlurUntilRef.current = Date.now() + 1500;
-      await invoke("paste_to_previous_app", { text });
+      await invoke("paste_to_previous_app", {
+        text: isProcessed ? withSelectionWhitespace(originalText, text) : text,
+      });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to paste processed text:", err);
       ignoreBlurUntilRef.current = 0;
+      // The panel comes back with the result still in it; say why nothing was pasted.
+      setError(err instanceof Error ? err.message : String(err));
     }
-  }, [text]);
+  }, [text, isProcessed, originalText]);
+
+  const cancelRun = useCallback(() => {
+    runIdRef.current++;
+    setIsLoading(false);
+    setFlowStepProgress(null);
+  }, []);
 
   const handleClose = useCallback(async () => {
+    cancelRun();
     try {
       await invoke("hide_window");
       setText("");
@@ -261,7 +283,7 @@ function App() {
     } catch (err) {
       console.error("Failed to hide window:", err);
     }
-  }, []);
+  }, [cancelRun]);
 
   const closeHistory = useCallback(() => {
     setShowHistory(false);
@@ -304,6 +326,7 @@ function App() {
       }
       const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
       setHistoryShortcut(currentHistoryShortcut);
+      setHistoryEnabled(await invoke<boolean>("get_clipboard_history_enabled"));
       await resolveSpotlightTheme();
     };
     loadData();
@@ -312,12 +335,13 @@ function App() {
   useEffect(() => {
     const unlisten = listen<SpotlightPayload>("spotlight-open", async (event) => {
       const { text: clipboardText } = event.payload;
+      cancelRun();
       setText(clipboardText || "");
       setIsProcessed(false);
       setCopied(false);
       setShowHistory(false);
       setShowPalette(false);
-      setError(null);
+      setError(event.payload.capture_error ?? null);
 
       await applyAccentColor();
       const loadedModes = await loadModes();
@@ -339,6 +363,7 @@ function App() {
 
       const currentHistoryShortcut = await invoke<string>("get_history_shortcut");
       setHistoryShortcut(currentHistoryShortcut);
+      setHistoryEnabled(await invoke<boolean>("get_clipboard_history_enabled"));
       await resolveSpotlightTheme();
 
       setTimeout(() => {
@@ -356,7 +381,7 @@ function App() {
       unlisten.then((fn) => fn());
       unlistenHistoryToggle.then((fn) => fn());
     };
-  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode]);
+  }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode, cancelRun]);
 
   useEffect(() => {
     const unlisten = listen<FlowStepProgress>("flow-step-progress", (event) => {
@@ -388,6 +413,13 @@ function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // The textarea is disabled while a rewrite runs, so its Esc handler never sees the key.
+      if (e.key === "Escape" && isLoading) {
+        e.preventDefault();
+        handleClose();
+        return;
+      }
+
       const modeIndex = getModeShortcutIndex(e);
       if (modeIndex === null) return;
 
@@ -398,12 +430,12 @@ function App() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [switchToPinnedModeByIndex]);
+  }, [switchToPinnedModeByIndex, isLoading, handleClose]);
 
   // --- Keyboard ---
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (eventMatchesShortcut(e, historyShortcut)) {
+    if (historyEnabled && eventMatchesShortcut(e, historyShortcut)) {
       e.preventDefault();
       setShowHistory((prev) => !prev);
       return;
@@ -646,6 +678,7 @@ function App() {
             hasText={!!text.trim()}
             copied={copied}
             historyShortcut={historyShortcut}
+            historyEnabled={historyEnabled}
             onPaste={handlePasteProcessed}
             onSend={handleSendToAI}
             onHistoryShortcutChange={async (shortcut) => {

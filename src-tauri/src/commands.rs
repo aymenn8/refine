@@ -1,7 +1,4 @@
-use crate::window::{
-    activate_previous_app, hide_clipboard_history_window, show_clipboard_history_window,
-};
-use std::process::Command;
+use crate::window::{hide_clipboard_history_window, show_clipboard_history_window};
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -230,14 +227,43 @@ pub async fn minimize_settings_window(app: AppHandle) -> Result<(), String> {
 /// * `Err(String)` si une erreur se produit
 #[tauri::command]
 pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), String> {
-    // Écrire le texte dans le clipboard
-    app.clipboard()
-        .write_text(&text)
-        .map_err(|e| e.to_string())?;
+    let result = paste_after_hiding(&app, text).await;
+    if result.is_err() {
+        // Bring the panel back so the result isn't lost and the error can be shown there.
+        reshow_panel(&app)?;
+    }
+    result
+}
 
+#[cfg(target_os = "macos")]
+fn reshow_panel(app: &AppHandle) -> Result<(), String> {
+    run_on_main_thread(app, |app_handle| {
+        if let Ok(panel) = app_handle.get_webview_panel("main") {
+            panel.show_and_make_key();
+            crate::native_mac::activate_our_app();
+            let content_view = panel.content_view();
+            panel.make_first_responder(Some(&content_view));
+        } else if let Some(window) = app_handle.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn reshow_panel(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+/// Hides Refine's windows, then pastes into the previous app.
+pub(crate) async fn paste_after_hiding(app: &AppHandle, text: String) -> Result<(), String> {
     // Cacher la fenêtre via panel API
     #[cfg(target_os = "macos")]
-    run_on_main_thread(&app, |app_handle| {
+    run_on_main_thread(app, |app_handle| {
         if let Ok(panel) = app_handle.get_webview_panel("main") {
             panel.hide();
         } else if let Some(window) = app_handle.get_webview_window("main") {
@@ -261,38 +287,10 @@ pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), S
         }
     }
 
-    // Exécuter le paste dans un thread séparé pour ne pas bloquer
-    tokio::task::spawn_blocking(move || -> Result<(), String> {
-        // Réactiver l'application précédente
-        activate_previous_app();
-
-        // Attendre que l'app précédente soit bien active
-        thread::sleep(Duration::from_millis(100));
-
-        // Simuler Cmd+V pour coller (using osascript avoids native event crashes)
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg("tell application \"System Events\" to keystroke \"v\" using command down")
-            .output()
-            .map_err(|e| format!("Failed to run osascript paste: {}", e))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            if stderr.is_empty() {
-                return Err(format!(
-                    "Failed to paste: osascript exited with status {}",
-                    output.status
-                ));
-            }
-            return Err(format!("Failed to paste: {}", stderr));
-        }
-
-        Ok(())
-    })
-    .await
-    .map_err(|e| format!("Failed to paste: {}", e))??;
-
-    Ok(())
+    // Paste off the async runtime; the clipboard is restored whatever happens.
+    tokio::task::spawn_blocking(move || crate::selection::paste_into_previous_app(&text))
+        .await
+        .map_err(|e| format!("Failed to paste: {}", e))?
 }
 
 /// Paste text to previous app but keep Spotlight open.
@@ -303,37 +301,14 @@ pub async fn paste_to_previous_app(app: AppHandle, text: String) -> Result<(), S
 /// - re-activates Refine so Spotlight remains usable
 #[tauri::command]
 pub async fn paste_to_previous_app_keep_open(app: AppHandle, text: String) -> Result<(), String> {
-    app.clipboard()
-        .write_text(&text)
-        .map_err(|e| e.to_string())?;
-
-    tokio::task::spawn_blocking(move || -> Result<(), String> {
-        activate_previous_app();
-        thread::sleep(Duration::from_millis(100));
-
-        let output = Command::new("osascript")
-            .arg("-e")
-            .arg("tell application \"System Events\" to keystroke \"v\" using command down")
-            .output()
-            .map_err(|e| format!("Failed to run osascript paste: {}", e))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            if stderr.is_empty() {
-                return Err(format!(
-                    "Failed to paste: osascript exited with status {}",
-                    output.status
-                ));
-            }
-            return Err(format!("Failed to paste: {}", stderr));
-        }
-
+    let result = tokio::task::spawn_blocking(move || {
+        let result = crate::selection::paste_into_previous_app(&text);
         thread::sleep(Duration::from_millis(50));
         crate::native_mac::activate_our_app();
-        Ok(())
+        result
     })
     .await
-    .map_err(|e| format!("Failed to paste: {}", e))??;
+    .map_err(|e| format!("Failed to paste: {}", e))?;
 
     #[cfg(target_os = "macos")]
     run_on_main_thread(&app, |app_handle| {
@@ -355,5 +330,5 @@ pub async fn paste_to_previous_app_keep_open(app: AppHandle, text: String) -> Re
         let _ = window.set_focus();
     }
 
-    Ok(())
+    result
 }

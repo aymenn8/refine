@@ -1,9 +1,5 @@
 use serde::Serialize;
-use std::process::Command;
-use std::thread;
-use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_clipboard_manager::ClipboardExt;
 
 #[cfg(target_os = "macos")]
 use tauri_nspanel::{
@@ -42,14 +38,14 @@ tauri_panel! {
 pub struct SpotlightPayload {
     pub text: String,
     pub previous_app: String,
+    /// Why the selection couldn't be read (e.g. missing Accessibility permission).
+    pub capture_error: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
 pub struct ClipboardWindowPayload {
     pub previous_app: String,
 }
-
-pub use crate::native_mac::activate_previous_app;
 
 #[cfg(target_os = "macos")]
 fn run_on_main_thread<F>(app: &AppHandle, task: F)
@@ -244,46 +240,6 @@ pub fn hide_clipboard_history_window(app: &AppHandle) {
     }
 }
 
-/// Capture selected text from the frontmost app by simulating Cmd+C.
-/// Returns the selected text, or empty string if nothing was selected.
-/// Saves and restores the original clipboard content.
-#[cfg(target_os = "macos")]
-fn capture_selected_text(app: &AppHandle) -> String {
-    let original_change_count = crate::native_mac::clipboard_change_count();
-    let original_clipboard = app.clipboard().read_text().unwrap_or_default();
-
-    // Wait for modifier keys (Shift, R) from the global shortcut to be released,
-    // otherwise the simulated Cmd+C can be interpreted as Cmd+Shift+C by some apps.
-    thread::sleep(Duration::from_millis(80));
-
-    // Simulate Cmd+C in the frontmost app
-    let result = Command::new("osascript")
-        .arg("-e")
-        .arg("tell application \"System Events\" to keystroke \"c\" using command down")
-        .output();
-
-    if result.is_err() {
-        return String::new();
-    }
-
-    // Wait for the clipboard to update
-    thread::sleep(Duration::from_millis(50));
-
-    let new_change_count = crate::native_mac::clipboard_change_count();
-    if new_change_count == original_change_count {
-        // Clipboard didn't change — nothing was selected
-        return String::new();
-    }
-
-    // Read the newly copied text
-    let selected_text = app.clipboard().read_text().unwrap_or_default();
-
-    // Restore original clipboard content
-    let _ = app.clipboard().write_text(&original_clipboard);
-
-    selected_text
-}
-
 /// Affiche la fenêtre principale (spotlight) par-dessus les apps en plein écran.
 ///
 /// Utilise NSPanel via tauri-nspanel pour overlay sans quitter le Space plein écran.
@@ -292,9 +248,30 @@ pub fn capture_and_show(app: &AppHandle) {
     {
         let app_clone = app.clone();
         std::thread::spawn(move || {
+            // A second press closes the panel: decide before touching the frontmost app or the clipboard.
+            let main_visible = app_clone
+                .get_webview_window("main")
+                .and_then(|window| window.is_visible().ok())
+                .unwrap_or(false);
+            if main_visible {
+                run_on_main_thread(&app_clone, |app_handle| {
+                    if let Ok(panel) = app_handle.get_webview_panel("main") {
+                        panel.hide();
+                    } else if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.hide();
+                    }
+                });
+                return;
+            }
+
             // Capture previous app and selected text while previous app is still frontmost
             let previous_app = crate::native_mac::get_and_store_frontmost_app();
-            let selected_text = capture_selected_text(&app_clone);
+            let (selected_text, capture_error) = match crate::selection::capture_selection() {
+                Ok(text) => (text, None),
+                // A press while the last capture is still running: that one opens the panel.
+                Err(message) if message == crate::selection::BUSY => return,
+                Err(message) => (String::new(), Some(message)),
+            };
 
             run_on_main_thread(&app_clone, move |app_handle| {
                 if let Ok(clipboard_panel) = app_handle.get_webview_panel("clipboard") {
@@ -333,6 +310,7 @@ pub fn capture_and_show(app: &AppHandle) {
                         let payload = SpotlightPayload {
                             text: selected_text,
                             previous_app,
+                            capture_error,
                         };
                         let _ = window.emit("spotlight-open", payload);
                     }
@@ -349,6 +327,7 @@ pub fn capture_and_show(app: &AppHandle) {
                     let payload = SpotlightPayload {
                         text: selected_text,
                         previous_app,
+                        capture_error,
                     };
                     let _ = window.emit("spotlight-open", payload);
                 }
@@ -385,6 +364,7 @@ pub fn capture_and_show(app: &AppHandle) {
             let payload = SpotlightPayload {
                 text: String::new(),
                 previous_app,
+                capture_error: None,
             };
             let _ = window.emit("spotlight-open", payload);
         }

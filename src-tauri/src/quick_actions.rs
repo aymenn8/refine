@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, LogicalPosition, Manager};
@@ -166,82 +165,57 @@ fn show_error_and_hide(app: &AppHandle, message: &str) {
     crate::window::hide_toast_panel(app);
 }
 
+/// Loading toast immediately followed by an error message.
+pub(crate) fn show_error_toast(app: &AppHandle, message: &str) {
+    show_toast(app);
+    show_error_and_hide(app, message);
+}
+
 /// Execute a quick action: copy selected text, process, paste result
 pub async fn execute_quick_action(
     app: AppHandle,
     mode_id: String,
     action_type: String,
 ) -> Result<(), String> {
-    // 1. Save current clipboard content to detect if selection exists
-    let previous_clipboard = get_clipboard_content().unwrap_or_default();
+    // The paste goes back to the app that had the selection, and only if it is still in front.
+    let target = crate::native_mac::get_frontmost_app_info().bundle_id;
 
-    // 2. Clear clipboard with a unique marker
-    let marker = format!(
-        "__refine_marker_{}__",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    );
-    set_clipboard_content(&marker)?;
-
-    // Small delay
-    thread::sleep(Duration::from_millis(50));
-
-    // 3. Simulate Cmd+C to COPY selected text (not cut yet)
-    let copy_result = Command::new("osascript")
-        .arg("-e")
-        .arg("tell application \"System Events\" to keystroke \"c\" using command down")
-        .output();
-
-    if let Err(e) = copy_result {
-        // Restore clipboard
-        let _ = set_clipboard_content(&previous_clipboard);
-        return Err(format!("Failed to copy: {}", e));
-    }
-
-    // Wait for clipboard to update
-    thread::sleep(Duration::from_millis(150));
-
-    // 4. Get the clipboard content
-    let clipboard_content = get_clipboard_content()?;
-
-    // 5. Check if clipboard changed (if still marker = nothing was selected)
-    if clipboard_content == marker || clipboard_content.trim().is_empty() {
-        let _ = set_clipboard_content(&previous_clipboard);
-        show_toast(&app);
-        show_error_and_hide(&app, "No text selected");
-        return Err("No text selected".to_string());
-    }
+    let captured = tokio::task::spawn_blocking(crate::selection::capture_selection)
+        .await
+        .map_err(|e| format!("Failed to copy: {}", e))?;
+    let selected_text = match captured {
+        Ok(text) if !text.trim().is_empty() => text,
+        Ok(_) => {
+            show_error_toast(&app, "No text selected");
+            return Err("No text selected".to_string());
+        }
+        Err(message) => {
+            show_error_toast(&app, &message);
+            return Err(message);
+        }
+    };
 
     // Now we know there's a selection - show toast
     show_toast(&app);
     crate::analytics::track(&app, "quick_action_used", None);
 
-    // 3. Process the text
     let result = if action_type == "flow" {
-        crate::inference::process_flow(app.clone(), clipboard_content, mode_id).await
+        crate::inference::process_flow(app.clone(), selected_text, mode_id).await
     } else {
-        crate::inference::process_text(app.clone(), clipboard_content, mode_id).await
+        crate::inference::process_text(app.clone(), selected_text, mode_id).await
     };
 
     match result {
         Ok(processed_text) => {
-            // Set the clipboard to the processed text
-            set_clipboard_content(&processed_text)?;
+            let pasted = tokio::task::spawn_blocking(move || {
+                crate::selection::paste_into_app(&target, false, &processed_text)
+            })
+            .await
+            .map_err(|e| format!("Failed to paste: {}", e))?;
 
-            // Small delay
-            thread::sleep(Duration::from_millis(50));
-
-            // 5. Simulate Cmd+V to paste
-            let paste_result = Command::new("osascript")
-                .arg("-e")
-                .arg("tell application \"System Events\" to keystroke \"v\" using command down")
-                .output();
-
-            if let Err(e) = paste_result {
-                show_error_and_hide(&app, "Failed to paste");
-                return Err(format!("Failed to paste: {}", e));
+            if let Err(message) = pasted {
+                show_error_and_hide(&app, &message);
+                return Err(message);
             }
 
             // Show "Done!" then hide
@@ -254,36 +228,4 @@ pub async fn execute_quick_action(
             Err(e)
         }
     }
-}
-
-/// Get clipboard content using pbpaste
-fn get_clipboard_content() -> Result<String, String> {
-    let output = Command::new("pbpaste")
-        .output()
-        .map_err(|e| format!("Failed to read clipboard: {}", e))?;
-
-    String::from_utf8(output.stdout).map_err(|e| format!("Invalid clipboard content: {}", e))
-}
-
-/// Set clipboard content using pbcopy
-fn set_clipboard_content(content: &str) -> Result<(), String> {
-    use std::io::Write;
-    use std::process::Stdio;
-
-    let mut child = Command::new("pbcopy")
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to set clipboard: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(content.as_bytes())
-            .map_err(|e| format!("Failed to write to clipboard: {}", e))?;
-    }
-
-    child
-        .wait()
-        .map_err(|e| format!("Failed to set clipboard: {}", e))?;
-
-    Ok(())
 }

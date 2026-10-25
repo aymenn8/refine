@@ -294,18 +294,19 @@ pub async fn update_history_shortcut(app: AppHandle, shortcut_str: String) -> Re
         }
     }
 
-    let old_shortcut_str = get_history_shortcut_from_store(&app);
-    let old_shortcut = parse_shortcut(&old_shortcut_str);
-
-    let shortcuts = app.global_shortcut();
-    swap_shortcut(
-        old_shortcut,
-        new_shortcut,
-        |s| shortcuts.register(s).map_err(|e| e.to_string()),
-        |s| {
-            let _ = shortcuts.unregister(s);
-        },
-    )?;
+    // With clipboard history off the shortcut is only saved, never registered.
+    if crate::clipboard::clipboard_history_enabled(&app) {
+        let old_shortcut = parse_shortcut(&get_history_shortcut_from_store(&app));
+        let shortcuts = app.global_shortcut();
+        swap_shortcut(
+            old_shortcut,
+            new_shortcut,
+            |s| shortcuts.register(s).map_err(|e| e.to_string()),
+            |s| {
+                let _ = shortcuts.unregister(s);
+            },
+        )?;
+    }
 
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     store.set(HISTORY_SHORTCUT_KEY, shortcut_str);
@@ -364,7 +365,7 @@ pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<Vec<String>
     let main_shortcut = load_shortcut_from_store(&app);
     let mut items = vec![("Open Refine".to_string(), main_shortcut)];
     let history_shortcut = load_history_shortcut_from_store(&app);
-    if history_shortcut != main_shortcut {
+    if crate::clipboard::clipboard_history_enabled(&app) && history_shortcut != main_shortcut {
         items.push(("Clipboard History".to_string(), history_shortcut));
     }
     for action in crate::quick_actions::get_quick_actions_sync(&app) {

@@ -21,8 +21,11 @@ mod inference;
 mod model;
 mod modes;
 mod native_mac;
+#[cfg(target_os = "macos")]
+mod pasteboard;
 mod providers;
 mod quick_actions;
+mod selection;
 mod shortcuts;
 mod sound;
 mod state;
@@ -162,6 +165,8 @@ pub fn run() {
             clipboard::recopy_clipboard_history_entry,
             clipboard::paste_clipboard_history_entry,
             clipboard::clear_clipboard_history,
+            clipboard::get_clipboard_history_enabled,
+            clipboard::set_clipboard_history_enabled,
             credentials::save_api_credential,
             credentials::get_api_credentials,
             credentials::delete_api_credential,
@@ -205,9 +210,9 @@ pub fn run() {
                 eprintln!("[shortcuts] Couldn't register the open shortcut: {e}");
             }
 
-            // Enregistrer le raccourci global de l'historique clipboard
+            // Enregistrer le raccourci global de l'historique clipboard (only when the user turned history on)
             let history_shortcut = shortcuts::load_history_shortcut_from_store(app.handle());
-            if history_shortcut != shortcut {
+            if clipboard::clipboard_history_enabled(app.handle()) && history_shortcut != shortcut {
                 if let Err(e) = app.global_shortcut().register(history_shortcut) {
                     eprintln!("[shortcuts] Couldn't register the clipboard history shortcut: {e}");
                 }

@@ -33,7 +33,7 @@ function ConfigTab() {
   const [soundType, setSoundType] = useState("Glass");
 
   // Auto-copy
-  const [autoCopyEnabled, setAutoCopyEnabled] = useState(true);
+  const [autoCopyEnabled, setAutoCopyEnabled] = useState(false);
 
   // Analytics
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
@@ -47,6 +47,7 @@ function ConfigTab() {
 
   // General
   const [launchOnLogin, setLaunchOnLogin] = useState(false);
+  const [clipboardHistoryEnabled, setClipboardHistoryEnabled] = useState(false);
 
   // Accent color
   const [accentColor, setAccentColor] = useState("#8B9FBF");
@@ -164,6 +165,7 @@ function ConfigTab() {
       const savedAnalytics = await store.get<boolean>("analyticsEnabled");
       if (savedAnalytics !== null && savedAnalytics !== undefined)
         setAnalyticsEnabled(savedAnalytics);
+      setClipboardHistoryEnabled((await store.get<boolean>("clipboardHistoryEnabled")) === true);
       try {
         const autoStartEnabled = await isEnabled();
         setLaunchOnLogin(autoStartEnabled);
@@ -387,6 +389,40 @@ function ConfigTab() {
               </button>
             </div>
           </div>
+
+          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[14px] text-white">Clipboard history</span>
+                <p className="text-[11px] text-white/35 mt-0.5">
+                  Off if you use another clipboard manager like Paste. Password-manager copies are never recorded.
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  const newValue = !clipboardHistoryEnabled;
+                  setClipboardHistoryEnabled(newValue);
+                  setShortcutError(null);
+                  try {
+                    const failed = await invoke<string[]>("set_clipboard_history_enabled", { enabled: newValue });
+                    if (failed.length > 0) setShortcutError(`Couldn't register: ${failed.join(", ")} — another app may be using that shortcut.`);
+                  } catch (error) {
+                    console.error("Failed to save clipboard history setting:", error);
+                    setClipboardHistoryEnabled(!newValue);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors border-none cursor-pointer ${
+                  clipboardHistoryEnabled ? "bg-(--accent)" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    clipboardHistoryEnabled ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -423,32 +459,34 @@ function ConfigTab() {
             </p>
           </div>
 
-          <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[14px] text-white">Clipboard History</span>
-              <button
-                onClick={(e) => startRecording("history", e.currentTarget)}
-                onKeyDown={(e) => handleKeyDown(e, "history")}
-                tabIndex={0}
-                className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
-                  isRecording === "history"
-                    ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
-                    : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
-                }`}
-              >
-                {isRecording === "history"
-                  ? recordingPreview
-                    ? formatShortcut(recordingPreview)
-                    : "Press keys..."
-                  : formatShortcut(historyShortcut)}
-              </button>
+          {clipboardHistoryEnabled && (
+            <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] text-white">Clipboard History</span>
+                <button
+                  onClick={(e) => startRecording("history", e.currentTarget)}
+                  onKeyDown={(e) => handleKeyDown(e, "history")}
+                  tabIndex={0}
+                  className={`px-3 py-1.5 rounded-lg text-[13px] font-mono transition-all cursor-pointer border outline-none ${
+                    isRecording === "history"
+                      ? "bg-(--accent)/20 border-(--accent) text-(--accent)"
+                      : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                  }`}
+                >
+                  {isRecording === "history"
+                    ? recordingPreview
+                      ? formatShortcut(recordingPreview)
+                      : "Press keys..."
+                    : formatShortcut(historyShortcut)}
+                </button>
+              </div>
+              {reservedShortcutHint(historyShortcut) && (
+                <p className="mt-2 text-[11px] text-white/40">
+                  {reservedShortcutHint(historyShortcut)}
+                </p>
+              )}
             </div>
-            {reservedShortcutHint(historyShortcut) && (
-              <p className="mt-2 text-[11px] text-white/40">
-                {reservedShortcutHint(historyShortcut)}
-              </p>
-            )}
-          </div>
+          )}
         </div>
         {shortcutError && (
           <div className="mt-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[12px] text-red-400">
