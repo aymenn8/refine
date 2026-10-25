@@ -413,6 +413,13 @@ function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // The textarea is disabled while a rewrite runs, so its Esc handler never sees the key.
+      if (e.key === "Escape" && isLoading) {
+        e.preventDefault();
+        handleClose();
+        return;
+      }
+
       const modeIndex = getModeShortcutIndex(e);
       if (modeIndex === null) return;
 
@@ -423,7 +430,7 @@ function App() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [switchToPinnedModeByIndex]);
+  }, [switchToPinnedModeByIndex, isLoading, handleClose]);
 
   // --- Keyboard ---
 
