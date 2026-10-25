@@ -257,10 +257,37 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
     Ok(())
 }
 
+/// What uses this mode: flows with it as a step, and quick actions that run it.
+pub fn mode_users(
+    mode_id: &str,
+    flows: &[crate::flows::Flow],
+    actions: &[crate::quick_actions::QuickAction],
+) -> Vec<String> {
+    let in_flows = flows
+        .iter()
+        .filter(|f| f.steps.iter().any(|step| step == mode_id))
+        .map(|f| format!("flow \"{}\"", f.name));
+    let in_actions = actions
+        .iter()
+        .filter(|a| a.mode_id == mode_id && a.action_type == "mode")
+        .map(|a| format!("quick action {}", a.shortcut));
+    in_flows.chain(in_actions).collect()
+}
+
 /// Delete a mode by ID
 #[tauri::command]
 pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> {
     println!("[delete_mode] Called with mode_id: {}", mode_id);
+
+    // Deleting a mode a flow or quick action runs would break them.
+    let users = mode_users(
+        &mode_id,
+        &crate::flows::get_flows_sync(&app),
+        &crate::quick_actions::get_quick_actions_sync(&app),
+    );
+    if !users.is_empty() {
+        return Err(format!("This mode is used by {} — remove it there first.", users.join(", ")));
+    }
 
     let (store, mut modes) = load_modes(&app)?;
 
@@ -515,6 +542,44 @@ mod tests {
         normalize_modes(&mut modes, MODES_MIGRATION_VERSION);
         assert_eq!(modes[0].id, "m1");
         assert_eq!(modes[1].id, "prompt-it");
+    }
+
+    fn flow(name: &str, steps: &[&str]) -> crate::flows::Flow {
+        crate::flows::Flow {
+            id: name.to_lowercase(),
+            name: name.to_string(),
+            description: String::new(),
+            steps: steps.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    fn quick_action(mode_id: &str, shortcut: &str, action_type: &str) -> crate::quick_actions::QuickAction {
+        crate::quick_actions::QuickAction {
+            mode_id: mode_id.to_string(),
+            mode_name: String::new(),
+            shortcut: shortcut.to_string(),
+            action_type: action_type.to_string(),
+        }
+    }
+
+    #[test]
+    fn mode_in_use_by_flow_and_quick_action_is_named() {
+        let flows = [flow("Polish", &["correct", "m1"])];
+        let actions = [quick_action("m1", "Control+Alt+C", "mode")];
+        assert_eq!(mode_users("m1", &flows, &actions), ["flow \"Polish\"", "quick action Control+Alt+C"]);
+    }
+
+    #[test]
+    fn unused_mode_has_no_users() {
+        let flows = [flow("Polish", &["correct", "m1"])];
+        let actions = [quick_action("m1", "Control+Alt+C", "mode")];
+        assert!(mode_users("m2", &flows, &actions).is_empty());
+    }
+
+    #[test]
+    fn flow_quick_action_does_not_count() {
+        let actions = [quick_action("m1", "Control+Alt+C", "flow")];
+        assert!(mode_users("m1", &[], &actions).is_empty());
     }
 
     #[test]
