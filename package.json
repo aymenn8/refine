@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "source .env.local && tauri dev",
-    "tauri:build": "source .env.local && tauri build"
+    "tauri:build": "source .env.local && tauri build",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@melloware/coloris": "^0.25.0",
