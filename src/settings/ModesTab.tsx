@@ -49,6 +49,7 @@ function ModesTab() {
     mode: null,
   });
   const [showResetModal, setShowResetModal] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [defaultModelName, setDefaultModelName] = useState<string>("");
 
@@ -115,7 +116,11 @@ function ModesTab() {
     loadModelOptions();
   }, []);
 
+  const reportError = (error: unknown) =>
+    setActionError(typeof error === "string" ? error : String(error));
+
   const handleSave = async (mode: ProcessingMode) => {
+    setActionError(null);
     try {
       await invoke("save_mode", { mode });
       await loadModes();
@@ -123,11 +128,13 @@ function ModesTab() {
       setIsCreating(false);
     } catch (error) {
       console.error("Failed to save mode:", error);
+      reportError(error);
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (!deleteModal.mode) return;
+    setActionError(null);
     try {
       console.log("Deleting mode:", deleteModal.mode.id);
       await invoke("delete_mode", { modeId: deleteModal.mode.id });
@@ -136,25 +143,31 @@ function ModesTab() {
       setDeleteModal({ open: false, mode: null });
     } catch (error) {
       console.error("Failed to delete mode:", error);
+      reportError(error);
+      setDeleteModal({ open: false, mode: null });
     }
   };
 
   const handleResetConfirm = async () => {
+    setActionError(null);
     try {
       const result = await invoke<ProcessingMode[]>("reset_modes_to_defaults");
       setModes(result);
       setShowResetModal(false);
     } catch (error) {
       console.error("Failed to reset modes:", error);
+      reportError(error);
     }
   };
 
   const handleTogglePin = async (modeId: string) => {
+    setActionError(null);
     try {
       await invoke("toggle_pin_mode", { modeId });
       await loadModes();
     } catch (error) {
       console.error("Failed to toggle pin:", error);
+      reportError(error);
     }
   };
 
@@ -168,11 +181,13 @@ function ModesTab() {
     if (newIdx < 0 || newIdx >= pinnedModes.length) return;
     const reordered = [...pinnedModes];
     [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    setActionError(null);
     try {
       await invoke("reorder_pinned_modes", { modeIds: reordered.map((m) => m.id) });
       await loadModes();
     } catch (error) {
       console.error("Failed to reorder pinned modes:", error);
+      reportError(error);
     }
   };
 
@@ -180,11 +195,13 @@ function ModesTab() {
     const option = modelOptions.find((o) => o.id === optionId);
     if (!option) return;
 
+    setActionError(null);
     try {
       await invoke("set_mode_model", { modeId, modelConfig: option.config });
       await loadModes();
     } catch (error) {
       console.error("Failed to set mode model:", error);
+      reportError(error);
     }
   };
 
@@ -219,10 +236,24 @@ function ModesTab() {
     );
   }
 
+  const errorBanner = actionError && (
+    <div className="mb-3 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[12px] text-red-400 flex items-start justify-between gap-3">
+      <span>{actionError}</span>
+      <button
+        onClick={() => setActionError(null)}
+        aria-label="Dismiss"
+        className="bg-transparent border-none p-0 text-red-400/70 hover:text-red-400 cursor-pointer"
+      >
+        ×
+      </button>
+    </div>
+  );
+
   if (editingMode) {
     return (
       <ModeEditor
         mode={editingMode}
+        error={errorBanner}
         onSave={handleSave}
         onCancel={() => {
           setEditingMode(null);
@@ -261,6 +292,8 @@ function ModesTab() {
             </button>
           </div>
         </div>
+
+        {errorBanner}
 
         {/* Modes list */}
         <div className="flex-1 overflow-y-auto">
@@ -589,12 +622,14 @@ function ModeCard({
 
 interface ModeEditorProps {
   mode: ProcessingMode;
+  /** Why the last save failed, shown above the form. */
+  error?: React.ReactNode;
   onSave: (mode: ProcessingMode) => void;
   onCancel: () => void;
   isCreating: boolean;
 }
 
-function ModeEditor({ mode, onSave, onCancel, isCreating }: ModeEditorProps) {
+function ModeEditor({ mode, error, onSave, onCancel, isCreating }: ModeEditorProps) {
   const [form, setForm] = useState<ProcessingMode>(mode);
   const [aiDescription, setAiDescription] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -650,6 +685,7 @@ function ModeEditor({ mode, onSave, onCancel, isCreating }: ModeEditorProps) {
         </h1>
       </div>
 
+      {error}
       <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4 overflow-y-auto">
         {isCreating && (
           <div className="p-4 bg-white/5 border border-white/10 rounded-xl mb-2">
