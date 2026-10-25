@@ -19,6 +19,7 @@ import { eventMatchesShortcut } from "./utils/shortcut";
 interface SpotlightPayload {
   text: string;
   previous_app: string;
+  capture_error?: string | null;
 }
 
 function getModeShortcutIndex(e: {
@@ -317,7 +318,7 @@ function App() {
       setCopied(false);
       setShowHistory(false);
       setShowPalette(false);
-      setError(null);
+      setError(event.payload.capture_error ?? null);
 
       await applyAccentColor();
       const loadedModes = await loadModes();
