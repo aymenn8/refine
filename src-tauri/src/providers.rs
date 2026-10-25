@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use crate::credentials::Provider;
@@ -110,6 +112,124 @@ impl CustomEndpointSecret {
     }
 }
 
+const CUSTOM_CHAT_TIMEOUT: Duration = Duration::from_secs(60);
+const CUSTOM_KEY_TEST_TIMEOUT: Duration = Duration::from_secs(10);
+const CONNECT_FAILED: &str = "Couldn't connect to the endpoint";
+const TIMED_OUT: &str = "The endpoint didn't respond in time";
+
+/// HTTP client for OpenAI-compatible endpoints: never follows redirects, so the key
+/// can't be carried to another host.
+fn custom_endpoint_client_builder(timeout: Duration) -> reqwest::ClientBuilder {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(timeout)
+}
+
+fn build_custom_client(timeout: Duration) -> Result<reqwest::Client, String> {
+    custom_endpoint_client_builder(timeout)
+        .build()
+        .map_err(|_| CONNECT_FAILED.to_string())
+}
+
+/// Maps a send failure to a fixed message (reqwest's text can include the URL).
+fn send_error(e: reqwest::Error) -> String {
+    if e.is_timeout() { TIMED_OUT } else { CONNECT_FAILED }.to_string()
+}
+
+/// Maps a non-success status to a fixed message; the response body is never shown.
+fn check_status(status: reqwest::StatusCode) -> Result<(), String> {
+    match status.as_u16() {
+        _ if status.is_success() => Ok(()),
+        401 | 403 => Err("The endpoint rejected the API key".to_string()),
+        404 => Err("Endpoint or model not found — check the base URL and model ID".to_string()),
+        429 => Err("The endpoint is rate limiting requests — try again shortly".to_string()),
+        _ if status.is_redirection() => Err("The endpoint tried to redirect — use its final URL".to_string()),
+        code => Err(format!("The endpoint returned HTTP {}", code)),
+    }
+}
+
+/// Chat completion against an OpenAI-compatible endpoint (e.g. DeepSeek).
+async fn call_openai_compatible(
+    client: &reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    model_id: &str,
+    system_prompt: &str,
+    user_prompt: &str,
+) -> Result<String, String> {
+    #[derive(Serialize)]
+    struct Message<'a> {
+        role: &'a str,
+        content: &'a str,
+    }
+
+    #[derive(Serialize)]
+    struct Request<'a> {
+        model: &'a str,
+        messages: [Message<'a>; 2],
+        max_tokens: u32,
+    }
+
+    #[derive(Deserialize)]
+    struct Response {
+        #[serde(default)]
+        choices: Vec<Choice>,
+    }
+
+    #[derive(Deserialize)]
+    struct Choice {
+        message: ReplyMessage,
+    }
+
+    #[derive(Deserialize)]
+    struct ReplyMessage {
+        #[serde(default)]
+        content: Option<String>,
+    }
+
+    let base = normalize_custom_base_url(base_url)?;
+    let request = Request {
+        model: model_id,
+        messages: [
+            Message { role: "system", content: system_prompt },
+            Message { role: "user", content: user_prompt },
+        ],
+        max_tokens: 2048,
+    };
+
+    let response = client
+        .post(format!("{}/chat/completions", base))
+        .bearer_auth(api_key)
+        .json(&request)
+        .send()
+        .await
+        .map_err(send_error)?;
+    check_status(response.status())?;
+
+    let data: Response = response.json().await.map_err(|e| {
+        if e.is_timeout() { TIMED_OUT.to_string() } else { "The endpoint's reply wasn't chat-completions JSON".to_string() }
+    })?;
+
+    data.choices
+        .into_iter()
+        .next()
+        .and_then(|c| c.message.content)
+        .filter(|content| !content.trim().is_empty())
+        .ok_or_else(|| "The endpoint returned an empty reply".to_string())
+}
+
+/// Checks a key against an OpenAI-compatible endpoint by listing its models.
+async fn test_openai_compatible_key(client: &reqwest::Client, base_url: &str, api_key: &str) -> Result<(), String> {
+    let base = normalize_custom_base_url(base_url)?;
+    let response = client
+        .get(format!("{}/models", base))
+        .bearer_auth(api_key)
+        .send()
+        .await
+        .map_err(send_error)?;
+    check_status(response.status())
+}
+
 /// Run inference using a cloud provider API
 pub async fn run_cloud_inference(
     provider: Provider,
@@ -126,7 +246,12 @@ pub async fn run_cloud_inference(
             let base_url = normalize_ollama_base_url(api_key)?;
             call_ollama_api(model_id, &base_url, system_prompt, user_prompt).await
         }
-        Provider::OpenAICompatible => Err("OpenAI-compatible provider not wired yet".into()),
+        Provider::OpenAICompatible => {
+            // For OpenAI-compatible endpoints, the Keychain secret holds the endpoint and the key
+            let secret = CustomEndpointSecret::from_keychain(api_key)?;
+            let client = build_custom_client(CUSTOM_CHAT_TIMEOUT)?;
+            call_openai_compatible(&client, &secret.base_url, &secret.api_key, model_id, system_prompt, user_prompt).await
+        }
     }
 }
 
@@ -202,11 +327,15 @@ async fn call_openai_api(
 
 /// Test if an API key is valid by making a minimal API call
 #[tauri::command]
-pub async fn test_api_key(provider: String, api_key: String) -> Result<(), String> {
+pub async fn test_api_key(provider: String, api_key: String, base_url: Option<String>) -> Result<(), String> {
     match provider.as_str() {
         "openai" => test_openai_key(&api_key).await,
         "anthropic" => test_anthropic_key(&api_key).await,
         "ollama" => Ok(()),
+        "openai_compatible" => {
+            let client = build_custom_client(CUSTOM_KEY_TEST_TIMEOUT)?;
+            test_openai_compatible_key(&client, base_url.as_deref().unwrap_or(""), &api_key).await
+        }
         _ => Err(format!("Unknown provider: {}", provider)),
     }
 }
@@ -445,5 +574,140 @@ mod tests {
         ] {
             assert!(normalize_custom_base_url(bad).is_err(), "{bad}");
         }
+    }
+}
+
+#[cfg(test)]
+mod endpoint_tests {
+    use super::*;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    fn http_response(status_line: &str, extra_headers: &str, body: &str) -> String {
+        format!(
+            "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{extra_headers}\r\n{body}",
+            body.len()
+        )
+    }
+
+    /// Serves one request on 127.0.0.1, answers with `response`, and hands back the raw request.
+    async fn one_shot_server(response: String) -> (String, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let handle = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 4096];
+            loop {
+                let n = socket.read(&mut chunk).await.unwrap();
+                if n == 0 {
+                    break;
+                }
+                buf.extend_from_slice(&chunk[..n]);
+                let text = String::from_utf8_lossy(&buf);
+                if let Some(end) = text.find("\r\n\r\n") {
+                    let body_len = text[..end]
+                        .lines()
+                        .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse::<usize>().unwrap_or(0)))
+                        .unwrap_or(0);
+                    if buf.len() >= end + 4 + body_len {
+                        break;
+                    }
+                }
+            }
+            socket.write_all(response.as_bytes()).await.unwrap();
+            socket.shutdown().await.ok();
+            String::from_utf8_lossy(&buf).into_owned()
+        });
+        (url, handle)
+    }
+
+    /// Accepts a connection and never answers.
+    async fn hanging_server() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            let (_socket, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+        url
+    }
+
+    fn test_client(timeout_ms: u64) -> reqwest::Client {
+        custom_endpoint_client_builder(Duration::from_millis(timeout_ms)).no_proxy().build().unwrap()
+    }
+
+    const CHAT_OK: &str = r#"{"choices":[{"message":{"content":"hi"}}]}"#;
+
+    #[tokio::test]
+    async fn chat_sends_key_and_model_to_configured_endpoint() {
+        let (url, req) = one_shot_server(http_response("200 OK", "", CHAT_OK)).await;
+        let out = call_openai_compatible(&test_client(5000), &format!("{url}/v1/"), "test-key", "deepseek-flash", "s", "u").await;
+        assert_eq!(out.unwrap(), "hi");
+        let req = req.await.unwrap();
+        assert!(req.starts_with("POST /v1/chat/completions "), "{req}");
+        assert!(req.to_ascii_lowercase().contains("authorization: bearer test-key"), "{req}");
+        assert!(req.contains(r#""model":"deepseek-flash""#), "{req}");
+    }
+
+    #[tokio::test]
+    async fn key_test_hits_models_endpoint() {
+        let (url, req) = one_shot_server(http_response("200 OK", "", r#"{"object":"list","data":[]}"#)).await;
+        assert_eq!(test_openai_compatible_key(&test_client(5000), &url, "k").await, Ok(()));
+        assert!(req.await.unwrap().starts_with("GET /models "));
+    }
+
+    #[tokio::test]
+    async fn key_test_reports_rejected_key() {
+        let (url, _req) = one_shot_server(http_response("401 Unauthorized", "", "{}")).await;
+        assert_eq!(
+            test_openai_compatible_key(&test_client(5000), &url, "k").await,
+            Err("The endpoint rejected the API key".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn error_body_is_not_echoed() {
+        let (url, _req) = one_shot_server(http_response("500 Internal Server Error", "", "sk-secret-echo")).await;
+        let err = call_openai_compatible(&test_client(5000), &url, "k", "m", "s", "u").await.unwrap_err();
+        assert!(err.contains("HTTP 500"), "{err}");
+        assert!(!err.contains("sk-secret-echo"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn redirect_is_not_followed() {
+        let (url, _req) = one_shot_server(http_response("302 Found", "Location: https://evil.example/\r\n", "")).await;
+        assert_eq!(
+            call_openai_compatible(&test_client(5000), &url, "k", "m", "s", "u").await,
+            Err("The endpoint tried to redirect — use its final URL".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn null_content_is_an_error() {
+        let (url, _req) = one_shot_server(http_response("200 OK", "", r#"{"choices":[{"message":{"content":null}}]}"#)).await;
+        assert_eq!(
+            call_openai_compatible(&test_client(5000), &url, "k", "m", "s", "u").await,
+            Err("The endpoint returned an empty reply".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn hanging_endpoint_times_out() {
+        let url = hanging_server().await;
+        assert_eq!(
+            call_openai_compatible(&test_client(200), &url, "k", "m", "s", "u").await,
+            Err("The endpoint didn't respond in time".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn routes_compatible_provider_to_its_own_endpoint() {
+        let (url, req) = one_shot_server(http_response("200 OK", "", CHAT_OK)).await;
+        let secret = CustomEndpointSecret { base_url: url, api_key: "k".into() }.to_keychain();
+        let out = run_cloud_inference(Provider::OpenAICompatible, "deepseek-flash", &secret, "s", "u").await;
+        assert_eq!(out.unwrap(), "hi");
+        assert!(req.await.unwrap().starts_with("POST /chat/completions "));
     }
 }
