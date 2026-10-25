@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { modifierPrefix, shortcutFromKeyEvent } from "../utils/shortcut";
+import { modifierPrefix, shortcutFromKeyEvent, shortcutProblem } from "../utils/shortcut";
 
 interface FooterBarProps {
   theme: "dark" | "light";
@@ -61,6 +61,12 @@ export function FooterBar({
     setRecordingPreview(shortcut ?? modifierPrefix(e));
 
     if (shortcut) {
+      if (shortcutProblem(shortcut)) {
+        // Refused (would fire while typing or break copy/paste): stop without saving
+        setIsRecording(false);
+        setRecordingPreview("");
+        return;
+      }
       onHistoryShortcutChange?.(shortcut);
       setIsRecording(false);
       setRecordingPreview("");

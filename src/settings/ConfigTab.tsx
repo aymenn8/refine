@@ -10,6 +10,7 @@ import {
   normalizeShortcut,
   reservedShortcutHint,
   shortcutFromKeyEvent,
+  shortcutProblem,
 } from "../utils/shortcut";
 import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 
@@ -204,6 +205,13 @@ function ConfigTab() {
     setRecordingPreview(shortcut ?? modifierPrefix(e));
 
     if (shortcut) {
+      const problem = shortcutProblem(shortcut);
+      if (problem) {
+        setShortcutError(problem);
+        setIsRecording(null);
+        setRecordingPreview("");
+        return;
+      }
       setShortcutError(null);
 
       // Check for conflicts
@@ -244,7 +252,8 @@ function ConfigTab() {
           await invoke("update_global_shortcut", { shortcutStr: shortcut });
           setGlobalShortcut(shortcut);
           // Reload all shortcuts to keep registrations in sync
-          await invoke("reload_quick_action_shortcuts");
+          const failed = await invoke<string[]>("reload_quick_action_shortcuts");
+          if (failed.length > 0) setShortcutError(`Couldn't register: ${failed.join(", ")} — another app may be using that shortcut.`);
         } catch (error) {
           console.error("Failed to update shortcut:", error);
           setShortcutError(String(error));
@@ -407,11 +416,11 @@ function ConfigTab() {
                   : formatShortcut(globalShortcut)}
               </button>
             </div>
-            {reservedShortcutHint(globalShortcut) && (
-              <p className="mt-2 text-[11px] text-white/40">
-                {reservedShortcutHint(globalShortcut)}
-              </p>
-            )}
+            {/* Shown up front: while macOS owns ⌃Space the recorder never sees it */}
+            <p className="mt-2 text-[11px] text-white/40">
+              {reservedShortcutHint(globalShortcut) ??
+                "To use ⌃Space, first turn off System Settings → Keyboard → Keyboard Shortcuts… → Input Sources → “Select the previous input source”."}
+            </p>
           </div>
 
           <div className="p-3 bg-white/5 border border-white/10 rounded-xl">

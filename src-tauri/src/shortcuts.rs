@@ -354,33 +354,40 @@ pub fn get_quick_action_for_shortcut(app: &AppHandle, shortcut: &Shortcut) -> Op
 /// string is no longer in the store - so we can't selectively unregister it.
 /// Instead, we unregister everything and re-register from scratch.
 #[tauri::command]
-pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<(), String> {
+pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<Vec<String>, String> {
     // 1. Unregister ALL global shortcuts
     app.global_shortcut()
         .unregister_all()
         .map_err(|e| e.to_string())?;
 
-    // 2. Re-register the main spotlight shortcut
+    // 2. Re-register the open, clipboard history and quick action shortcuts
     let main_shortcut = load_shortcut_from_store(&app);
-    let _ = app.global_shortcut().register(main_shortcut);
-
-    // 2b. Re-register clipboard history shortcut
+    let mut items = vec![("Open Refine".to_string(), main_shortcut)];
     let history_shortcut = load_history_shortcut_from_store(&app);
     if history_shortcut != main_shortcut {
-        let _ = app.global_shortcut().register(history_shortcut);
+        items.push(("Clipboard History".to_string(), history_shortcut));
     }
-
-    // 3. Re-register all quick action shortcuts
-    let actions = crate::quick_actions::get_quick_actions_sync(&app);
-    for action in &actions {
-        if !action.shortcut.is_empty() {
-            if let Some(shortcut) = parse_shortcut(&action.shortcut) {
-                let _ = app.global_shortcut().register(shortcut);
-            }
+    for action in crate::quick_actions::get_quick_actions_sync(&app) {
+        if action.shortcut.is_empty() {
+            continue;
+        }
+        if let Some(shortcut) = parse_shortcut(&action.shortcut) {
+            items.push((action.mode_name, shortcut));
         }
     }
 
-    Ok(())
+    // 3. Report the ones that couldn't be registered, so the UI can say so
+    let shortcuts = app.global_shortcut();
+    Ok(register_each(&items, |s| shortcuts.register(s)))
+}
+
+/// Registers each labelled shortcut and returns the labels whose registration failed.
+fn register_each<S: Copy, E>(items: &[(String, S)], mut register: impl FnMut(S) -> Result<(), E>) -> Vec<String> {
+    items
+        .iter()
+        .filter(|(_, shortcut)| register(*shortcut).is_err())
+        .map(|(label, _)| label.clone())
+        .collect()
 }
 
 /// Check if a shortcut string is already in use by another binding.
@@ -484,6 +491,13 @@ mod tests {
     #[test]
     fn first_shortcut_has_nothing_to_unregister() {
         assert_eq!(run_swap(None, 2, true), (Ok(()), vec!["register 2".to_string()]));
+    }
+
+    #[test]
+    fn register_each_reports_the_labels_that_failed() {
+        let items = vec![("Open".to_string(), 1u8), ("Clipboard".to_string(), 2u8), ("Fix grammar".to_string(), 3u8)];
+        let failed = register_each(&items, |s| if s == 2 { Err("taken") } else { Ok(()) });
+        assert_eq!(failed, vec!["Clipboard".to_string()]);
     }
 
     #[test]

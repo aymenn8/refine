@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { modifierPrefix, reservedShortcutHint, shortcutFromKeyEvent } from "../utils/shortcut";
+import { modifierPrefix, reservedShortcutHint, shortcutFromKeyEvent, shortcutProblem } from "../utils/shortcut";
 
 interface ProcessingMode {
   id: string;
@@ -78,6 +78,13 @@ function QuickActionsTab() {
     setRecordingPreview(shortcut ?? modifierPrefix(e));
 
     if (shortcut) {
+      const problem = shortcutProblem(shortcut);
+      if (problem) {
+        setShortcutError(problem);
+        setIsRecording(null);
+        setRecordingPreview("");
+        return;
+      }
       setShortcutError(null);
 
       // Check for conflicts (exclude current action being edited)
@@ -108,9 +115,11 @@ function QuickActionsTab() {
           setQuickActions(prev =>
             prev.map(a => a.mode_id === targetId ? { ...a, shortcut } : a)
           );
-          await invoke("reload_quick_action_shortcuts");
+          const failed = await invoke<string[]>("reload_quick_action_shortcuts");
+          if (failed.length > 0) setShortcutError(`Couldn't register: ${failed.join(", ")} — another app may be using that shortcut.`);
         } catch (error) {
           console.error("Failed to update quick action:", error);
+          setShortcutError(String(error));
         }
       }
       setIsRecording(null);

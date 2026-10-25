@@ -25,9 +25,9 @@ const MODIFIER_NAMES: Record<string, string> = {
 };
 
 const INPUT_SOURCES_HINT =
-  "macOS uses this to switch input sources. If it doesn't open the panel, turn it off in System Settings → Keyboard → Keyboard Shortcuts → Input Sources.";
+  "macOS uses this to switch input sources. If it doesn't open the panel, turn it off in System Settings → Keyboard → Keyboard Shortcuts… → Input Sources.";
 const SPOTLIGHT_HINT =
-  "macOS uses this for Spotlight. If it doesn't open the panel, turn it off in System Settings → Keyboard → Keyboard Shortcuts → Spotlight.";
+  "macOS uses this for Spotlight. If it doesn't open the panel, turn it off in System Settings → Keyboard → Keyboard Shortcuts… → Spotlight.";
 
 function keyFromCode(code: string): string | null {
   if (/^Key[A-Z]$/.test(code)) return code.slice(3);
@@ -85,4 +85,18 @@ export function reservedShortcutHint(shortcut: string): string | null {
     default:
       return null;
   }
+}
+
+/** Why a shortcut can't be used as a global hotkey, or null if it can. */
+export function shortcutProblem(shortcut: string): string | null {
+  const normalized = normalizeShortcut(shortcut);
+  const modifiers = normalized.split("+").slice(0, -1);
+  if (!modifiers.includes("Command") && !modifiers.includes("Control")) {
+    return "Use ⌘ or ⌃ in the shortcut, so it doesn't fire while you type.";
+  }
+  // The app sends these itself to capture and paste your text.
+  if (["Command+C", "Command+V", "Command+X"].includes(normalized)) {
+    return "⌘C, ⌘V and ⌘X are used to copy and paste your text — pick another shortcut.";
+  }
+  return null;
 }

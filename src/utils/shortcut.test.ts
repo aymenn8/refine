@@ -5,6 +5,7 @@ import {
   modifierPrefix,
   normalizeShortcut,
   reservedShortcutHint,
+  shortcutProblem,
   shortcutFromKeyEvent,
   type KeyInput,
 } from "./shortcut.ts";
@@ -54,4 +55,14 @@ test("explains macOS-reserved shortcuts", () => {
   assert.match(reservedShortcutHint("Control+Space") ?? "", /Input Sources/);
   assert.match(reservedShortcutHint("Command+Space") ?? "", /Spotlight/);
   assert.equal(reservedShortcutHint("Control+Shift+Space"), null);
+});
+
+test("refuses shortcuts that would fire while typing or break copy and paste", () => {
+  assert.match(shortcutProblem("Shift+A") ?? "", /⌘ or ⌃/);
+  assert.match(shortcutProblem("Alt+R") ?? "", /⌘ or ⌃/);
+  assert.match(shortcutProblem("Command+V") ?? "", /copy and paste/);
+  assert.match(shortcutProblem("CommandOrControl+C") ?? "", /copy and paste/);
+  assert.match(shortcutProblem("Command+X") ?? "", /copy and paste/);
+  assert.equal(shortcutProblem("Control+Space"), null);
+  assert.equal(shortcutProblem("Command+Shift+R"), null);
 });
