@@ -23,10 +23,21 @@ pub struct ProcessingMode {
     pub model_override: Option<ActiveModelConfig>,
 }
 
+/// The user prompt for `text`. A template without `{text}` still gets the text, after it.
+pub fn render_user_prompt(template: &str, text: &str) -> String {
+    if template.contains("{text}") {
+        template.replace("{text}", text)
+    } else if template.trim().is_empty() {
+        text.to_string()
+    } else {
+        format!("{template}\n\n{text}")
+    }
+}
+
 impl ProcessingMode {
     /// Build the complete prompt for llama.cpp using the appropriate chat template
     pub fn build_prompt(&self, text: &str, model_id: &str) -> String {
-        let user_prompt = self.user_prompt_template.replace("{text}", text);
+        let user_prompt = render_user_prompt(&self.user_prompt_template, text);
         if model_id.starts_with("gemma") {
             // Gemma chat template
             format!(
@@ -451,4 +462,29 @@ pub fn get_mode_by_id(app: &AppHandle, mode_id: &str) -> Result<ProcessingMode, 
         .into_iter()
         .find(|m| m.id == mode_id)
         .ok_or_else(|| format!("Mode not found: {}", mode_id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn template_placeholder_is_replaced() {
+        assert_eq!(render_user_prompt("Fix: {text}", "hi"), "Fix: hi");
+    }
+
+    #[test]
+    fn every_placeholder_is_replaced() {
+        assert_eq!(render_user_prompt("{text} / {text}", "a"), "a / a");
+    }
+
+    #[test]
+    fn template_without_placeholder_still_gets_the_text() {
+        assert_eq!(render_user_prompt("Make it formal.", "hey"), "Make it formal.\n\nhey");
+    }
+
+    #[test]
+    fn blank_template_sends_just_the_text() {
+        assert_eq!(render_user_prompt("  ", "hey"), "hey");
+    }
 }
