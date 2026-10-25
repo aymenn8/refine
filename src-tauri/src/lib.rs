@@ -26,6 +26,7 @@ mod quick_actions;
 mod shortcuts;
 mod sound;
 mod state;
+mod stored_list;
 mod tray;
 mod window;
 

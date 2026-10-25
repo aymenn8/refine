@@ -20,9 +20,7 @@ pub async fn get_flows(app: AppHandle) -> Result<Vec<Flow>, String> {
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let flows: Vec<Flow> = store
-        .get(FLOWS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let flows: Vec<Flow> = crate::stored_list::load_list(&store, FLOWS_KEY)
         .unwrap_or_default();
 
     Ok(flows)
@@ -39,9 +37,7 @@ pub async fn save_flow(app: AppHandle, flow: Flow) -> Result<(), String> {
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut flows: Vec<Flow> = store
-        .get(FLOWS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut flows: Vec<Flow> = crate::stored_list::load_list(&store, FLOWS_KEY)
         .unwrap_or_default();
 
     let is_new_flow = !flows.iter().any(|f| f.id == flow.id);
@@ -74,9 +70,7 @@ pub async fn delete_flow(app: AppHandle, flow_id: String) -> Result<(), String> 
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut flows: Vec<Flow> = store
-        .get(FLOWS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut flows: Vec<Flow> = crate::stored_list::load_list(&store, FLOWS_KEY)
         .unwrap_or_default();
 
     flows.retain(|f| f.id != flow_id);
@@ -99,9 +93,7 @@ pub fn get_flow_by_id(app: &AppHandle, flow_id: &str) -> Result<Flow, String> {
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let flows: Vec<Flow> = store
-        .get(FLOWS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let flows: Vec<Flow> = crate::stored_list::load_list(&store, FLOWS_KEY)
         .unwrap_or_default();
 
     flows
