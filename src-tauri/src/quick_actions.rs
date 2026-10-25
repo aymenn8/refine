@@ -28,9 +28,7 @@ pub async fn get_quick_actions(app: AppHandle) -> Result<Vec<QuickAction>, Strin
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let actions: Vec<QuickAction> = store
-        .get(QUICK_ACTIONS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let actions: Vec<QuickAction> = crate::stored_list::load_list(&store, QUICK_ACTIONS_KEY)
         .unwrap_or_default();
 
     Ok(actions)
@@ -51,9 +49,7 @@ pub async fn save_quick_action(
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut actions: Vec<QuickAction> = store
-        .get(QUICK_ACTIONS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut actions: Vec<QuickAction> = crate::stored_list::load_list(&store, QUICK_ACTIONS_KEY)
         .unwrap_or_default();
 
     // Check if this target already has a quick action (match by mode_id AND action_type)
@@ -91,9 +87,7 @@ pub async fn delete_quick_action(app: AppHandle, mode_id: String) -> Result<(), 
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut actions: Vec<QuickAction> = store
-        .get(QUICK_ACTIONS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut actions: Vec<QuickAction> = crate::stored_list::load_list(&store, QUICK_ACTIONS_KEY)
         .unwrap_or_default();
 
     actions.retain(|a| a.mode_id != mode_id);
@@ -117,9 +111,7 @@ pub fn get_quick_actions_sync(app: &AppHandle) -> Vec<QuickAction> {
         Err(_) => return vec![],
     };
 
-    store
-        .get(QUICK_ACTIONS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    crate::stored_list::load_list(&store, QUICK_ACTIONS_KEY)
         .unwrap_or_default()
 }
 

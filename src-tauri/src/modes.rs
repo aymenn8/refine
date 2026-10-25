@@ -177,12 +177,10 @@ pub async fn get_modes(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let from_store = store.get(MODES_KEY);
+    let from_store = crate::stored_list::load_list(&store, MODES_KEY);
     println!("[get_modes] From store: {:?}", from_store.is_some());
 
-    let mut modes: Vec<ProcessingMode> = from_store
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or_else(get_default_modes);
+    let mut modes: Vec<ProcessingMode> = from_store.unwrap_or_else(get_default_modes);
 
     let defaults_added = append_missing_default_modes(&mut modes);
     if defaults_added {
@@ -211,9 +209,7 @@ pub async fn save_mode(app: AppHandle, mode: ProcessingMode) -> Result<(), Strin
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut modes: Vec<ProcessingMode> = store
-        .get(MODES_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
         .unwrap_or_else(get_default_modes);
     append_missing_default_modes(&mut modes);
 
@@ -258,9 +254,7 @@ pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> 
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut modes: Vec<ProcessingMode> = store
-        .get(MODES_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
         .unwrap_or_else(get_default_modes);
     append_missing_default_modes(&mut modes);
 
@@ -323,9 +317,7 @@ pub async fn toggle_pin_mode(app: AppHandle, mode_id: String) -> Result<(), Stri
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut modes: Vec<ProcessingMode> = store
-        .get(MODES_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
         .unwrap_or_else(get_default_modes);
     append_missing_default_modes(&mut modes);
 
@@ -388,9 +380,7 @@ pub async fn reorder_pinned_modes(app: AppHandle, mode_ids: Vec<String>) -> Resu
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut modes: Vec<ProcessingMode> = store
-        .get(MODES_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
         .unwrap_or_else(get_default_modes);
     append_missing_default_modes(&mut modes);
 
@@ -423,9 +413,7 @@ pub async fn set_mode_model(
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut modes: Vec<ProcessingMode> = store
-        .get(MODES_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
         .unwrap_or_else(get_default_modes);
     append_missing_default_modes(&mut modes);
 
@@ -455,9 +443,7 @@ pub fn get_mode_by_id(app: &AppHandle, mode_id: &str) -> Result<ProcessingMode, 
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let mut modes: Vec<ProcessingMode> = store
-        .get(MODES_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let mut modes: Vec<ProcessingMode> = crate::stored_list::load_list(&store, MODES_KEY)
         .unwrap_or_else(get_default_modes);
     append_missing_default_modes(&mut modes);
 

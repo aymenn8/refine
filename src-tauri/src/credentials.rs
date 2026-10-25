@@ -77,9 +77,7 @@ fn get_credentials_from_store(app: &AppHandle) -> Result<Vec<ApiCredential>, Str
         .store("settings.json")
         .map_err(|e| format!("Failed to load store: {}", e))?;
 
-    let credentials: Vec<ApiCredential> = store
-        .get(CREDENTIALS_KEY)
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+    let credentials: Vec<ApiCredential> = crate::stored_list::load_list(&store, CREDENTIALS_KEY)
         .unwrap_or_default();
 
     Ok(credentials)
