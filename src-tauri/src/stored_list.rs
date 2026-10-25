@@ -42,24 +42,27 @@ fn reconcile<T: DeserializeOwned>(raw: &Value, backup: Option<&Value>) -> Reconc
         None => unreadable.push(raw.clone()),
     }
 
-    // The first backup format stored whole lists; flatten those into single entries.
-    let backed_up: Vec<Value> = match backup {
+    // The first backup format stored whole-list snapshots; flatten them into single
+    // entries, flagged as legacy (`true`). A readable legacy entry may be one the user
+    // has deleted since, so legacy entries are never restored, only kept if unreadable.
+    let backed_up: Vec<(Value, bool)> = match backup {
         Some(Value::Array(entries)) => entries
             .iter()
             .flat_map(|e| match e {
-                Value::Array(inner) => inner.clone(),
-                other => vec![other.clone()],
+                Value::Array(inner) => inner.iter().map(|i| (i.clone(), true)).collect(),
+                other => vec![(other.clone(), false)],
             })
             .collect(),
-        Some(other) => vec![other.clone()],
+        Some(other) => vec![(other.clone(), false)],
         None => Vec::new(),
     };
 
     let mut present: HashSet<String> = readable_raw.iter().filter_map(id_of).collect();
     let mut restored_raw = Vec::new();
     let mut kept: Vec<Value> = Vec::new();
-    for entry in backed_up {
+    for (entry, legacy) in backed_up {
         match (serde_json::from_value::<T>(entry.clone()), id_of(&entry)) {
+            (Ok(_), _) if legacy => {} // readable legacy snapshot entry: drop
             (Ok(item), Some(id)) => {
                 // Readable again: restore it unless that id is already in the list.
                 if present.insert(id) {
@@ -189,6 +192,17 @@ mod tests {
         let r = reconcile::<ApiCredential>(&json!([a.clone()]), Some(&json!([[a, b.clone()]])));
         assert_eq!(r.backup_to_save, Some(json!([b])));
         assert_eq!(r.list_to_save, None);
+    }
+
+    #[test]
+    fn never_restores_readable_entries_from_the_old_backup_format() {
+        // The old format snapshotted whole lists, so a readable entry there may be one
+        // the user deleted since; it must not come back.
+        let (a, b) = (credential("a", "openai"), credential("b", "not_a_provider"));
+        let r = reconcile::<ApiCredential>(&json!([]), Some(&json!([[a, b.clone()]])));
+        assert!(r.items.is_empty());
+        assert_eq!(r.list_to_save, None);
+        assert_eq!(r.backup_to_save, Some(json!([b])));
     }
 
     #[test]

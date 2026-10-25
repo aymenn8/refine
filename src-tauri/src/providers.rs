@@ -141,6 +141,9 @@ fn check_status(status: reqwest::StatusCode) -> Result<(), String> {
     match status.as_u16() {
         _ if status.is_success() => Ok(()),
         401 | 403 => Err("The endpoint rejected the API key".to_string()),
+        // 400/402/422 per DeepSeek's documented error codes
+        400 | 422 => Err("The endpoint rejected the request — check the model ID".to_string()),
+        402 => Err("The endpoint account is out of balance — top it up and try again".to_string()),
         404 => Err("Endpoint or model not found — check the base URL and model ID".to_string()),
         429 => Err("The endpoint is rate limiting requests — try again shortly".to_string()),
         _ if status.is_redirection() => Err("The endpoint tried to redirect — use its final URL".to_string()),
@@ -238,6 +241,11 @@ pub async fn run_cloud_inference(
     system_prompt: &str,
     user_prompt: &str,
 ) -> Result<String, String> {
+    // A compatible endpoint's secret must never go to another provider, even if the
+    // provider field in settings.json was changed.
+    if provider != Provider::OpenAICompatible && CustomEndpointSecret::from_keychain(api_key).is_ok() {
+        return Err("This model's saved details don't match its provider — remove and re-add it".to_string());
+    }
     match provider {
         Provider::OpenAI => call_openai_api(model_id, api_key, system_prompt, user_prompt).await,
         Provider::Anthropic => call_anthropic_api(model_id, api_key, system_prompt, user_prompt).await,
@@ -527,6 +535,14 @@ mod tests {
     }
 
     #[test]
+    fn deepseek_error_codes_get_clear_messages() {
+        let msg = |code: u16| check_status(reqwest::StatusCode::from_u16(code).unwrap()).unwrap_err();
+        assert_eq!(msg(402), "The endpoint account is out of balance — top it up and try again");
+        assert_eq!(msg(400), "The endpoint rejected the request — check the model ID");
+        assert_eq!(msg(422), "The endpoint rejected the request — check the model ID");
+    }
+
+    #[test]
     fn keychain_secret_round_trips() {
         let s = CustomEndpointSecret { base_url: "https://api.deepseek.com".into(), api_key: "sk-test".into() };
         let back = CustomEndpointSecret::from_keychain(&s.to_keychain()).unwrap();
@@ -700,6 +716,18 @@ mod endpoint_tests {
             call_openai_compatible(&test_client(200), &url, "k", "m", "s", "u").await,
             Err("The endpoint didn't respond in time".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn compatible_secret_is_refused_by_other_providers() {
+        let secret = CustomEndpointSecret { base_url: "https://api.deepseek.com".into(), api_key: "k".into() }.to_keychain();
+        for provider in [Provider::OpenAI, Provider::Anthropic, Provider::Ollama] {
+            assert_eq!(
+                run_cloud_inference(provider, "m", &secret, "s", "u").await,
+                Err("This model's saved details don't match its provider — remove and re-add it".to_string()),
+                "{provider:?}"
+            );
+        }
     }
 
     #[tokio::test]
