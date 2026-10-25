@@ -392,13 +392,13 @@ function ModesTab() {
               </div>
               <div>
                 <h3 className="text-[16px] font-semibold text-white m-0">Reset to Defaults</h3>
-                <p className="text-[12px] text-white/45 m-0">This action cannot be undone</p>
+                <p className="text-[12px] text-white/45 m-0">Built-in modes go back to how they shipped</p>
               </div>
             </div>
 
             <div className="bg-white/3 border border-white/6 rounded-xl p-4 mb-6">
               <p className="text-[13px] text-white/65 leading-relaxed">
-                All custom modes will be <strong className="text-white">permanently deleted</strong>. Only built-in modes will remain.
+                Built-in modes and their pins are restored. <strong className="text-white">Your custom modes are kept</strong> (unpinned).
               </p>
             </div>
 

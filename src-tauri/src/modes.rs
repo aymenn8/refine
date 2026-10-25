@@ -319,14 +319,22 @@ pub async fn delete_mode(app: AppHandle, mode_id: String) -> Result<(), String> 
     Ok(())
 }
 
-/// Reset modes to defaults
+/// The built-in modes as shipped (prompts, pins, order), then the user's own modes, unpinned.
+pub fn reset_keeping_custom(current: Vec<ProcessingMode>) -> Vec<ProcessingMode> {
+    let mut modes = get_default_modes();
+    modes.extend(current.into_iter().filter(|m| !m.is_default).map(|mut m| {
+        m.is_pinned = false;
+        m.pin_order = None;
+        m
+    }));
+    modes
+}
+
+/// Reset built-in modes to how they shipped; the user's own modes are kept.
 #[tauri::command]
 pub async fn reset_modes_to_defaults(app: AppHandle) -> Result<Vec<ProcessingMode>, String> {
-    let store = app
-        .store("settings.json")
-        .map_err(|e| format!("Failed to load store: {}", e))?;
-
-    let defaults = get_default_modes();
+    let (store, current) = load_modes(&app)?;
+    let defaults = reset_keeping_custom(current);
 
     store.set(
         MODES_KEY,
@@ -580,6 +588,26 @@ mod tests {
     fn flow_quick_action_does_not_count() {
         let actions = [quick_action("m1", "Control+Alt+C", "flow")];
         assert!(mode_users("m1", &[], &actions).is_empty());
+    }
+
+    #[test]
+    fn reset_keeps_custom_modes_unpinned() {
+        let mut current = get_default_modes();
+        current.iter_mut().find(|m| m.id == "correct").unwrap().system_prompt = "edited".to_string();
+        let mut m1 = custom("m1");
+        m1.is_pinned = true;
+        m1.pin_order = Some(0);
+        m1.model_override = Some(ActiveModelConfig::Cloud { credential_id: "cred-1".to_string() });
+        current.insert(0, m1);
+
+        let result = reset_keeping_custom(current);
+        let shipped = get_default_modes();
+        assert_eq!(pins(&result[..shipped.len()]), pins(&shipped));
+        assert_eq!(result[2].system_prompt, shipped[2].system_prompt);
+        let last = result.last().unwrap();
+        assert_eq!((last.id.as_str(), last.is_pinned, last.pin_order), ("m1", false, None));
+        assert!(matches!(&last.model_override, Some(ActiveModelConfig::Cloud { credential_id }) if credential_id == "cred-1"));
+        assert_eq!(result.len(), shipped.len() + 1);
     }
 
     #[test]
