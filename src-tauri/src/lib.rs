@@ -21,6 +21,8 @@ mod inference;
 mod model;
 mod modes;
 mod native_mac;
+#[cfg(target_os = "macos")]
+mod pasteboard;
 mod providers;
 mod quick_actions;
 mod shortcuts;
