@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Refine",
+  "productName": "Recast",
   "version": "0.1.2",
   "identifier": "com.refine",
   "build": {
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Refine",
+        "title": "Recast",
         "width": 680,
         "height": 340,
         "resizable": false,
@@ -28,7 +28,7 @@
       },
       {
         "label": "settings",
-        "title": "Refine",
+        "title": "Recast",
         "url": "/settings",
         "width": 750,
         "height": 500,
@@ -56,7 +56,7 @@
       },
       {
         "label": "clipboard",
-        "title": "Refine Clipboard",
+        "title": "Recast Clipboard",
         "url": "/clipboard",
         "width": 680,
         "height": 420,

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="public/logo-white-no-bg.png" alt="Refine logo" width="84" />
+  <img src="public/recast-mark-white.png" alt="Recast logo" width="84" />
 </p>
 
-<h1 align="center">Refine</h1>
+<h1 align="center">Recast</h1>
 
 <p align="center">
   Open-source macOS text processing with global shortcuts, local models, and cloud providers.
@@ -120,6 +120,11 @@ Refine only sends manual product events after the user explicitly opts in from S
 The app does not send input text, prompts, or API keys. It uses a random local
 installation ID to count repeat usage anonymously, and you can self-host
 PostHog if you do not want event traffic to reach PostHog Cloud.
+
+## Credits
+
+Recast is based on [Refine](https://github.com/aymenn8/refine) by aymenn8, released under the MIT License.
+The original copyright notice is kept in [LICENSE](LICENSE).
 
 ## License
 

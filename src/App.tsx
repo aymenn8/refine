@@ -520,12 +520,12 @@ function App() {
   const getPlaceholder = () => {
     if (selectedType === "flow") {
       const flow = flows.find((f) => f.id === mode);
-      if (flow) return `Refine your text with ${flow.name}...`;
+      if (flow) return `Recast your text with ${flow.name}...`;
     } else {
       const m = modes.find((m) => m.id === mode);
-      if (m) return `Refine your text with ${m.name}...`;
+      if (m) return `Recast your text with ${m.name}...`;
     }
-    return "Refine your text...";
+    return "Recast your text...";
   };
 
   // --- Render ---

@@ -279,7 +279,7 @@ pub async fn update_history_shortcut(app: AppHandle, shortcut_str: String) -> Re
 
     let main_shortcut = load_shortcut_from_store(&app);
     if new_shortcut == main_shortcut {
-        return Err("Shortcut already used by Open Refine".to_string());
+        return Err("Shortcut already used by Open Recast".to_string());
     }
 
     let actions = crate::quick_actions::get_quick_actions_sync(&app);
@@ -363,7 +363,7 @@ pub async fn reload_quick_action_shortcuts(app: AppHandle) -> Result<Vec<String>
 
     // 2. Re-register the open, clipboard history and quick action shortcuts
     let main_shortcut = load_shortcut_from_store(&app);
-    let mut items = vec![("Open Refine".to_string(), main_shortcut)];
+    let mut items = vec![("Open Recast".to_string(), main_shortcut)];
     let history_shortcut = load_history_shortcut_from_store(&app);
     if crate::clipboard::clipboard_history_enabled(&app) && history_shortcut != main_shortcut {
         items.push(("Clipboard History".to_string(), history_shortcut));
@@ -418,7 +418,7 @@ pub async fn check_shortcut_conflict(
     if exclude_id.as_deref() != Some("global") {
         if let Some(global_parsed) = parse_shortcut(&global_str) {
             if global_parsed == new_shortcut {
-                return Ok(Some("Open Refine".to_string()));
+                return Ok(Some("Open Recast".to_string()));
             }
         }
     }

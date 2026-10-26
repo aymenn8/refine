@@ -35,14 +35,14 @@ pub fn handle_menu_action<R: Runtime>(app: &AppHandle<R>, id: &str) {
 }
 
 pub fn build_app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
-    let open_item = MenuItem::with_id(app, "open", "Open Refine", true, None::<&str>)?;
+    let open_item = MenuItem::with_id(app, "open", "Open Recast", true, None::<&str>)?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
     let history_item = MenuItem::with_id(app, "history", "History...", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Refine", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit Recast", true, None::<&str>)?;
     let separator1 = PredefinedMenuItem::separator(app)?;
     let refine_menu = Submenu::with_items(
         app,
-        "Refine",
+        "Recast",
         true,
         &[
             &open_item,
@@ -74,7 +74,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let version = app.config().version.clone().unwrap_or_default();
 
     // Menu items
-    let open_item = MenuItem::with_id(app, "open", "Open Refine", true, None::<&str>)?;
+    let open_item = MenuItem::with_id(app, "open", "Open Recast", true, None::<&str>)?;
     let settings_item = MenuItem::with_id(app, "settings", "Settings...", true, None::<&str>)?;
     let history_item = MenuItem::with_id(app, "history", "History...", true, None::<&str>)?;
 
@@ -84,7 +84,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let separator2 = PredefinedMenuItem::separator(app)?;
 
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Refine", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit Recast", true, None::<&str>)?;
 
     // Build menu
     let menu = Menu::with_items(
@@ -102,7 +102,10 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     // Create tray icon
     let _tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(tauri::image::Image::from_bytes(include_bytes!(
+            "../icons/tray/RecastMenuBarTemplate@2x.png"
+        ))?)
+        .icon_as_template(true)
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| handle_menu_action(app, event.id.as_ref()))

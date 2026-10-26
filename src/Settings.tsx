@@ -257,7 +257,7 @@ function Settings() {
           data-tauri-drag-region
         >
           <span className="text-sm font-medium text-white/70 pointer-events-none">
-            Refine Settings
+            Recast Settings
           </span>
         </div>
       </div>
@@ -293,8 +293,8 @@ function Settings() {
               onClick={() => setActiveTab("about")}
               className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all w-full"
             >
-              <img src="/logo-white-no-bg.png" alt="Refine" className="h-4 opacity-70" />
-              <span className="text-[12px] font-medium text-white/50">refine</span>
+              <img src="/recast-mark-white.png" alt="Recast" className="h-4 opacity-70" />
+              <span className="text-[12px] font-medium text-white/50">Recast</span>
             </button>
           </div>
         </aside>

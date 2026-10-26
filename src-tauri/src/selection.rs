@@ -6,10 +6,10 @@ use std::time::{Duration, Instant};
 pub const NOT_FRONTMOST: &str = "Couldn't switch back to the original app — nothing was pasted.";
 pub const APP_GONE: &str = "The original app isn't open anymore — nothing was pasted.";
 pub const CLIPBOARD_UNREADABLE: &str =
-    "Refine couldn't save what's on your clipboard, so it left everything as it was. Copy something else and try again.";
-pub const BUSY: &str = "Refine is still finishing the last request — try again in a moment.";
+    "Recast couldn't save what's on your clipboard, so it left everything as it was. Copy something else and try again.";
+pub const BUSY: &str = "Recast is still finishing the last request — try again in a moment.";
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-const KEYSTROKE_FAILED: &str = "Refine couldn't send keystrokes. Allow it in System Settings → Privacy & Security → Accessibility (and Automation → System Events).";
+const KEYSTROKE_FAILED: &str = "Recast couldn't send keystrokes. Allow it in System Settings → Privacy & Security → Accessibility (and Automation → System Events).";
 
 /// How long a copy that arrives after `change_wait` is still watched for, so the clipboard can be put back.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -205,7 +205,7 @@ pub fn capture_selection() -> Result<String, String> {
     Err("Capturing the selection is only supported on macOS.".to_string())
 }
 
-/// Pastes `text` into the app with `target` bundle ID. With `activate`, Refine brings it forward
+/// Pastes `text` into the app with `target` bundle ID. With `activate`, Recast brings it forward
 /// first (the panel is in front); without, the app must still be frontmost (quick actions).
 #[cfg(target_os = "macos")]
 pub fn paste_into_app(target: &str, activate: bool, text: &str) -> Result<(), String> {
@@ -491,7 +491,7 @@ mod tests {
         let (log, written) = (RefCell::new(vec![]), Cell::new(false));
         let mut ops = paste_ops(&log, true, &written);
         let reads = Cell::new(0);
-        // The target app (or the user) writes the clipboard after Refine's paste.
+        // The target app (or the user) writes the clipboard after Recast's paste.
         ops.change_count = Box::new(|| {
             reads.set(reads.get() + 1);
             if reads.get() == 1 { 2 } else { 3 }

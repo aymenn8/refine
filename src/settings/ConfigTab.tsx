@@ -243,7 +243,7 @@ function ConfigTab() {
         return;
       }
       if (targetId === "history" && normalizeShortcut(shortcut) === normalizeShortcut(globalShortcut)) {
-        setShortcutError('Already used by "Open Refine"');
+        setShortcutError('Already used by "Open Recast"');
         setIsRecording(null);
         setRecordingPreview("");
         return;
@@ -434,7 +434,7 @@ function ConfigTab() {
         <div className="space-y-2">
           <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
             <div className="flex items-center justify-between">
-              <span className="text-[14px] text-white">Open Refine</span>
+              <span className="text-[14px] text-white">Open Recast</span>
               <button
                 onClick={(e) => startRecording("global", e.currentTarget)}
                 onKeyDown={(e) => handleKeyDown(e, "global")}
@@ -770,7 +770,7 @@ function ConfigTab() {
               </span>
               <p className="text-[11px] text-white/25 mt-0.5 max-w-[300px]">
                 Off by default. Enable it only if you want to help improve
-                Refine with anonymous usage data.
+                Recast with anonymous usage data.
               </p>
             </div>
             <button
@@ -967,7 +967,7 @@ function ConfigTab() {
 
             <div className="bg-white/5 rounded-xl p-4 mb-4">
               <p className="text-[12px] text-white/50 leading-relaxed mb-3">
-                Refine uses <strong className="text-white/70">PostHog</strong>{" "}
+                Recast uses <strong className="text-white/70">PostHog</strong>{" "}
                 with manual events only. Here's exactly what we track:
               </p>
               <ul className="space-y-1.5 text-[11px] text-white/40">
