@@ -2,10 +2,6 @@
   "model": "claude-opus-5-5",
   "effortLevel": "medium",
   "permissions": {
-    "ask": [
-      "Bash(git push *)",
-      "Bash(git reset --hard *)",
-      "Bash(gh release *)"
-    ]
+    "defaultMode": "bypassPermissions"
   }
 }
