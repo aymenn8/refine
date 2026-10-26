@@ -534,7 +534,6 @@ function ModeCard({
         {/* Pin button */}
         <button
           onClick={() => onTogglePin(mode.id)}
-          disabled={mode.is_pinned && pinnedCount <= 1}
           className={`shrink-0 mt-0.5 p-1.5 rounded-lg transition-colors cursor-pointer border-none ${
             mode.is_pinned
               ? "bg-(--accent)/10 text-(--accent)"
