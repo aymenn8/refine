@@ -83,6 +83,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "../LICENSE": "LICENSE"
+    },
     "macOS": {
       "entitlements": "entitlements.plist",
       "exceptionDomain": null,

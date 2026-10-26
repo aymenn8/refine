@@ -146,6 +146,11 @@ get_tauri_config_version() {
   node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.stdout.write(j.version || "");' "$ROOT_DIR/src-tauri/tauri.conf.json"
 }
 
+# Release files are named after the app (productName), e.g. Recast_1.2.3_aarch64.dmg.
+app_name() {
+  node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.stdout.write(j.productName || "");' "$ROOT_DIR/src-tauri/tauri.conf.json"
+}
+
 get_cargo_toml_version() {
   awk '
     BEGIN { in_pkg = 0 }
@@ -190,14 +195,6 @@ assert_project_version() {
 
 key_from_target() {
   echo "$1" | tr '[:lower:]-' '[:upper:]_'
-}
-
-platform_from_target() {
-  case "$1" in
-    aarch64-apple-darwin) echo "darwin-aarch64" ;;
-    x86_64-apple-darwin) echo "darwin-x86_64" ;;
-    *) echo "" ;;
-  esac
 }
 
 suffix_from_target() {
@@ -270,7 +267,7 @@ prepare_cmd() {
   local targets="both"
   local release_repo="${RELEASE_REPO:-}"
   local target_triples=()
-  local state_dir manifest_path tag triple bundle_base dmg_path tar_path sig_path submission_id key
+  local state_dir manifest_path tag triple bundle_base dmg_path submission_id key name
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -300,8 +297,10 @@ prepare_cmd() {
   [ -n "$release_repo" ] || die "--release-repo (or RELEASE_REPO) is required"
   validate_version "$version"
 
-  require_env_vars APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-  /usr/bin/python3 "${ROOT_DIR}/scripts/check-updater-signing-key.py" --require-private-key --skip-remote-check
+  # No updater: this fork ships notarized DMGs only, so no Tauri updater signing key is needed.
+  require_env_vars APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+  name="$(app_name)"
+  [ -n "$name" ] || die "productName missing in src-tauri/tauri.conf.json"
 
   sync_project_version "$version"
   assert_project_version "$version"
@@ -337,7 +336,7 @@ prepare_cmd() {
   for triple in "${target_triples[@]}"; do
     ensure_target_installed "$triple"
 
-    export CARGO_TARGET_DIR="${HOME}/.cache/refine-build/target"
+    export CARGO_TARGET_DIR="${HOME}/.cache/recast-build/target"
     mkdir -p "$CARGO_TARGET_DIR"
 
     xattr -cr src-tauri/icons src-tauri/entitlements.plist
@@ -346,12 +345,11 @@ prepare_cmd() {
     pnpm tauri build --target "$triple" --bundles app,dmg --verbose --ci --skip-stapling
 
     bundle_base="${CARGO_TARGET_DIR}/${triple}/release/bundle"
-    dmg_path="$(find "${bundle_base}/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1)"
-    tar_path="${bundle_base}/macos/Refine.app.tar.gz"
-    sig_path="${bundle_base}/macos/Refine.app.tar.gz.sig"
+    # The build folder is reused, so match this version's file, not any older DMG left in it.
+    dmg_path="$(find "${bundle_base}/dmg" -maxdepth 1 -type f -name "${name}_${version}_*.dmg" | head -n 1)"
 
-    if [ -z "$dmg_path" ] || [ ! -f "$tar_path" ] || [ ! -f "$sig_path" ]; then
-      die "Missing expected artifacts for ${triple}"
+    if [ -z "$dmg_path" ]; then
+      die "Missing ${name}_${version} DMG for ${triple}"
     fi
 
     echo ">>> Submitting DMG to Apple Notary: ${dmg_path}"
@@ -360,9 +358,7 @@ prepare_cmd() {
 
     key="$(key_from_target "$triple")"
     {
-      echo "DMG_${key}=${dmg_path}"
-      echo "TAR_${key}=${tar_path}"
-      echo "SIG_${key}=${sig_path}"
+      printf 'DMG_%s=%q\n' "$key" "$dmg_path"
       echo "SUBMISSION_${key}=${submission_id}"
     } >> "$manifest_path"
   done
@@ -424,6 +420,7 @@ status_cmd() {
     # shellcheck disable=SC1090
     . "$manifest_path"
     echo "Manifest: ${manifest_path}"
+    [ -n "${TARGETS:-}" ] || die "Manifest is incomplete (TARGETS missing): ${manifest_path}"
     for target in $TARGETS; do
       key="$(key_from_target "$target")"
       sub_var="SUBMISSION_${key}"
@@ -472,8 +469,7 @@ publish_cmd() {
   local manifest_path=""
   local wait_minutes="${WAIT_MINUTES:-240}"
   local release_repo="${RELEASE_REPO:-}"
-  local tag release_dir target key dmg_var tar_var sig_var sub_var dmg_path tar_path sig_path submission_id suffix out_dmg out_tar out_sig pub_date latest_path platform_map_file platform sig_file sig_value url notes_file
-  local copy_targets=()
+  local tag release_dir target key dmg_var sub_var dmg_path submission_id suffix out_dmg notes_file name head_sha
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -507,6 +503,12 @@ publish_cmd() {
   validate_version "$version"
   assert_project_version "$version"
 
+  # The release tag is created at this commit, so it must hold the version bump and be on GitHub.
+  git diff --quiet HEAD -- package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock \
+    || die "Commit and push the ${version} version bump before publishing"
+  head_sha="$(git rev-parse HEAD)"
+  [ -n "$(git branch -r --contains "$head_sha")" ] || die "Push ${head_sha} before publishing; the release tag points at it"
+
   require_env_vars APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
 
   if [ -z "$manifest_path" ]; then
@@ -518,6 +520,7 @@ publish_cmd() {
   . "$manifest_path"
 
   [ -n "${VERSION:-}" ] || die "Manifest is incomplete (VERSION missing): ${manifest_path}"
+  [ -n "${TARGETS:-}" ] || die "Manifest is incomplete (TARGETS missing): ${manifest_path}"
   [ "$VERSION" = "$version" ] || die "Manifest version is ${VERSION}, expected ${version}"
 
   tag="v${version}"
@@ -528,22 +531,21 @@ publish_cmd() {
   fi
   [ -n "$release_repo" ] || die "--release-repo (or RELEASE_REPO in the manifest) is required"
 
+  name="$(app_name)"
+  [ -n "$name" ] || die "productName missing in src-tauri/tauri.conf.json"
+
   release_dir="release-assets/${tag}"
   mkdir -p "$release_dir"
 
   for target in $TARGETS; do
     key="$(key_from_target "$target")"
     dmg_var="DMG_${key}"
-    tar_var="TAR_${key}"
-    sig_var="SIG_${key}"
     sub_var="SUBMISSION_${key}"
 
     dmg_path="${!dmg_var:-}"
-    tar_path="${!tar_var:-}"
-    sig_path="${!sig_var:-}"
     submission_id="${!sub_var:-}"
 
-    if [ -z "$dmg_path" ] || [ -z "$tar_path" ] || [ -z "$sig_path" ] || [ -z "$submission_id" ]; then
+    if [ -z "$dmg_path" ] || [ -z "$submission_id" ]; then
       die "Missing data in manifest for target ${target}"
     fi
 
@@ -555,69 +557,10 @@ publish_cmd() {
     spctl -a -vv -t install "$dmg_path"
 
     suffix="$(suffix_from_target "$target")"
-    out_dmg="${release_dir}/Refine_${version}_${suffix}.dmg"
-    out_tar="${release_dir}/Refine_${version}_${suffix}.app.tar.gz"
-    out_sig="${release_dir}/Refine_${version}_${suffix}.app.tar.gz.sig"
+    out_dmg="${release_dir}/${name}_${version}_${suffix}.dmg"
 
     cp "$dmg_path" "$out_dmg"
-    cp "$tar_path" "$out_tar"
-    cp "$sig_path" "$out_sig"
-    copy_targets+=("$target")
   done
-
-  pub_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  latest_path="${release_dir}/latest.json"
-  platform_map_file="$(mktemp)"
-
-  for target in "${copy_targets[@]}"; do
-    suffix="$(suffix_from_target "$target")"
-    platform="$(platform_from_target "$target")"
-    sig_file="${release_dir}/Refine_${version}_${suffix}.app.tar.gz.sig"
-    sig_value="$(tr -d '\n' < "$sig_file")"
-    url="https://github.com/${release_repo}/releases/download/${tag}/Refine_${version}_${suffix}.app.tar.gz"
-    echo "${platform}|${sig_value}|${url}" >> "$platform_map_file"
-  done
-
-  /usr/bin/python3 - "$tag" "$pub_date" "RELEASE_NOTES.md" "$latest_path" "$platform_map_file" <<'PY'
-import json
-import pathlib
-import sys
-
-tag, pub_date, notes_path, out_path, platform_file = sys.argv[1:]
-
-notes = ""
-p = pathlib.Path(notes_path)
-if p.exists():
-    notes = p.read_text(encoding="utf-8").strip()
-
-platforms = {}
-for line in pathlib.Path(platform_file).read_text(encoding="utf-8").splitlines():
-    if not line.strip():
-        continue
-    platform, signature, url = line.split("|", 2)
-    platforms[platform] = {"signature": signature, "url": url}
-
-data = {
-    "version": tag,
-    "notes": notes,
-    "pub_date": pub_date,
-    "platforms": platforms,
-}
-
-pathlib.Path(out_path).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-PY
-  rm -f "$platform_map_file"
-
-  {
-    echo "Upload these files to release ${tag} on ${release_repo}:"
-    echo "1. Refine_${version}_aarch64.dmg (if present)"
-    echo "2. Refine_${version}_x86_64.dmg (if present)"
-    echo "3. Refine_${version}_aarch64.app.tar.gz (if present)"
-    echo "4. Refine_${version}_aarch64.app.tar.gz.sig (if present)"
-    echo "5. Refine_${version}_x86_64.app.tar.gz (if present)"
-    echo "6. Refine_${version}_x86_64.app.tar.gz.sig (if present)"
-    echo "7. latest.json"
-  } > "${release_dir}/UPLOAD_ORDER.txt"
 
   echo
   echo "Release folder ready: ${release_dir}"
@@ -640,8 +583,9 @@ PY
   gh release create "${tag}" \
     --repo "${release_repo}" \
     --title "${tag}" \
+    --target "$head_sha" \
     "${GH_NOTES_FLAG[@]}" \
-    "${release_dir}"/*
+    "${release_dir}"/*.dmg
 
   echo
   echo "Release ${tag} published on ${release_repo}"
