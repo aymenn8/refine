@@ -17,6 +17,7 @@ mod commands;
 mod credentials;
 mod flows;
 mod history;
+mod identity_migration;
 mod inference;
 mod model;
 mod modes;
@@ -188,6 +189,25 @@ pub fn run() {
             commands::set_analytics_enabled
         ])
         .setup(move |app| {
+            // Carry over an existing Refine install's data before anything reads the store.
+            match identity_migration::run(app.handle()) {
+                Ok(outcome) => eprintln!("[migration] {:?}", outcome),
+                Err(reason) => {
+                    eprintln!("[migration] Failed: {}", reason);
+                    // Don't start on blank settings: the next launch retries the copy.
+                    let _ = std::process::Command::new("osascript")
+                        .args([
+                            "-e", "on run argv",
+                            "-e", "display alert (item 1 of argv) message (item 2 of argv) as critical",
+                            "-e", "end run",
+                            "Recast couldn't copy your Refine settings",
+                            &format!("{reason}\n\nYour Refine data is untouched."),
+                        ])
+                        .status();
+                    std::process::exit(1);
+                }
+            }
+
             // Charger le raccourci depuis le store
             let shortcut = shortcuts::load_shortcut_from_store(app.handle());
 

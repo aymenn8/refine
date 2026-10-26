@@ -30,11 +30,25 @@ fn tauri_config() -> serde_json::Value {
 }
 
 #[test]
-fn identity_stays_on_com_refine_until_migration() {
-    // Changing these moves settings, history, models, the clipboard DB and saved API keys.
-    // They need the Phase 4 migration first.
-    assert_eq!(tauri_config()["identifier"], "com.refine");
+fn identity_is_recast_and_keychain_stays_legacy() {
+    assert_eq!(tauri_config()["identifier"], "com.drummerms.recast");
+    // Saved API keys stay under the old Keychain service; the copied settings.json names them.
     assert!(include_str!("credentials.rs").contains(r#"const SERVICE_NAME: &str = "com.refine";"#));
+    assert_eq!(crate::identity_migration::LEGACY_IDENTIFIER, "com.refine");
+    // The copy must be the first thing setup does: anything that writes into the app-data
+    // folder first would make it look non-empty and the copy would be skipped.
+    let lib = include_str!("lib.rs");
+    let after_setup = &lib[lib.find(".setup(move |app| {").expect("setup closure")..];
+    let first_code_line = after_setup
+        .lines()
+        .skip(1)
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with("//"))
+        .expect("setup body");
+    assert!(
+        first_code_line.starts_with("match identity_migration::run(app.handle())"),
+        "setup must start with the migration, found: {first_code_line}"
+    );
     assert!(include_str!("../../LICENSE").contains("Copyright (c) 2026 Refine contributors"));
 }
 
