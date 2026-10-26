@@ -249,7 +249,7 @@ function Onboarding() {
           )}
 
           {step === 5 && (
-            <button onClick={handleComplete} className="onb-btn-primary">Open Refine</button>
+            <button onClick={handleComplete} className="onb-btn-primary">Open Recast</button>
           )}
         </div>
 
@@ -283,12 +283,12 @@ function Onboarding() {
 function StepWelcome() {
   return (
     <div className="flex flex-col items-center text-center gap-4">
-      <img src="/logo-white-no-bg.png" alt="Refine" className="h-20 opacity-90" />
+      <img src="/recast-mark-white.png" alt="Recast" className="h-20 opacity-90" />
       <h1 className="text-2xl font-semibold text-white/90 tracking-wide m-0">
-        Welcome to refine
+        Welcome to Recast
       </h1>
       <p className="text-[14px] text-white/40 max-w-[300px] leading-relaxed m-0">
-        AI-powered text refinement for macOS.
+        Select. Recast. Done.
         <br />
         Private, fast, and always at your fingertips.
       </p>
@@ -306,7 +306,7 @@ function StepFeatures() {
         </svg>
       ),
       title: "Spotlight",
-      desc: "Select text anywhere, press Cmd+Shift+R — Refine appears instantly.",
+      desc: "Select text anywhere, press Cmd+Shift+R — Recast appears instantly.",
     },
     {
       icon: (
@@ -326,7 +326,7 @@ function StepFeatures() {
         </svg>
       ),
       title: "Quick Actions",
-      desc: "Assign global shortcuts to process text without even opening Refine.",
+      desc: "Assign global shortcuts to process text without even opening Recast.",
     },
   ];
 
@@ -334,7 +334,7 @@ function StepFeatures() {
     <div className="flex flex-col items-center w-full max-w-md gap-4">
       <div className="text-center mb-1">
         <h2 className="text-xl font-semibold text-white/90 m-0">How it works</h2>
-        <p className="text-[13px] text-white/35 mt-1 m-0">Everything you need to refine text</p>
+        <p className="text-[13px] text-white/35 mt-1 m-0">Everything you need to recast text</p>
       </div>
       <div className="w-full space-y-2.5">
         {features.map((f) => (
@@ -368,7 +368,7 @@ function StepPrivacy({
   return (
     <div className="flex flex-col items-center w-full max-w-md gap-4">
       <div className="text-center mb-1">
-        <h2 className="text-xl font-semibold text-white/90 m-0">Help improve Refine?</h2>
+        <h2 className="text-xl font-semibold text-white/90 m-0">Help improve Recast?</h2>
         <p className="text-[13px] text-white/35 mt-1 m-0">
           Choose whether you want to share anonymous usage analytics.
         </p>
@@ -408,7 +408,7 @@ function StepPrivacy({
       </div>
 
       <p className="text-[11px] text-white/28 leading-relaxed text-center max-w-[360px] m-0">
-        Refine uses a random local install ID for anonymous counts only. You can change this later
+        Recast uses a random local install ID for anonymous counts only. You can change this later
         in Settings.
       </p>
 
@@ -447,7 +447,7 @@ function StepClipboard({
         >
           <div className="text-[13px] font-semibold text-white/90">No — I use another clipboard manager</div>
           <div className="text-[12px] text-white/40 mt-1 leading-relaxed">
-            Refine won't record what you copy, and ⌘⇧V stays free for apps like Paste.
+            Recast won't record what you copy, and ⌘⇧V stays free for apps like Paste.
           </div>
         </button>
 
@@ -462,7 +462,7 @@ function StepClipboard({
         >
           <div className="text-[13px] font-semibold text-white/90">Yes, keep a clipboard history</div>
           <div className="text-[12px] text-white/40 mt-1 leading-relaxed">
-            Refine remembers recent text you copy. Password-manager copies are skipped.
+            Recast remembers recent text you copy. Password-manager copies are skipped.
           </div>
         </button>
       </div>
@@ -557,7 +557,7 @@ function StepReady() {
       </div>
       <h2 className="text-xl font-semibold text-white/90 m-0">You're all set!</h2>
       <p className="text-[13px] text-white/40 leading-relaxed max-w-[280px] m-0">
-        Select text anywhere and press the shortcut to start refining.
+        Select text anywhere and press the shortcut to start recasting.
       </p>
       <div className="flex items-center gap-1.5 mt-1">
         {["⌘", "⇧", "R"].map((key) => (

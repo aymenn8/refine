@@ -77,7 +77,7 @@ function HomeTab({ onNavigate }: HomeTabProps) {
         </svg>
       ),
       title: "Create a mode",
-      description: "Build custom refinement modes for your workflow.",
+      description: "Build custom rewrite modes for your workflow.",
       action: () => onNavigate("modes"),
       shortcut: null,
     },
@@ -97,7 +97,7 @@ function HomeTab({ onNavigate }: HomeTabProps) {
       ),
       title: "Set up quick actions",
       description:
-        "Assign shortcuts to refine text instantly without opening Refine.",
+        "Assign shortcuts to recast text instantly without opening Recast.",
       action: () => onNavigate("config"),
       shortcut: null,
     },
@@ -148,8 +148,8 @@ function HomeTab({ onNavigate }: HomeTabProps) {
     <div className="p-6 space-y-8">
       {/* Logo */}
       <div className="flex items-center gap-3">
-        <img src="/logo-white-no-bg.png" alt="Refine" className="h-7 opacity-80" />
-        <span className="text-[15px] font-medium text-white/70 tracking-wide">refine</span>
+        <img src="/recast-mark-white.png" alt="Recast" className="h-7 opacity-80" />
+        <span className="text-[15px] font-medium text-white/70 tracking-wide">Recast</span>
       </div>
 
       {/* Stats */}
@@ -158,13 +158,13 @@ function HomeTab({ onNavigate }: HomeTabProps) {
           <div className="text-2xl font-semibold text-white">
             {stats.totalWords.toLocaleString()}
           </div>
-          <div className="text-xs text-white/50 mt-1">Words refined</div>
+          <div className="text-xs text-white/50 mt-1">Words recast</div>
         </div>
         <div className="text-center">
           <div className="text-2xl font-semibold text-white">
             {stats.thisWeek}
           </div>
-          <div className="text-xs text-white/50 mt-1"> Refine this week</div>
+          <div className="text-xs text-white/50 mt-1"> Recasts this week</div>
         </div>
         <div className="text-center">
           <div className="text-2xl font-semibold text-white">

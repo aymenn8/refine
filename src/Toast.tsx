@@ -77,7 +77,7 @@ function Toast() {
               />
             </svg>
             <span className="text-[13px] font-medium text-white/90">
-              Refining...
+              Recasting...
             </span>
           </>
         )}
