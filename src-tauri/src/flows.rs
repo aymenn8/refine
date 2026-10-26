@@ -26,6 +26,14 @@ pub async fn get_flows(app: AppHandle) -> Result<Vec<Flow>, String> {
     Ok(flows)
 }
 
+/// Flows for internal checks; empty if the store can't be read.
+pub fn get_flows_sync(app: &AppHandle) -> Vec<Flow> {
+    app.store("settings.json")
+        .ok()
+        .and_then(|store| crate::stored_list::load_list(&store, FLOWS_KEY))
+        .unwrap_or_default()
+}
+
 /// Save a flow (add or update)
 #[tauri::command]
 pub async fn save_flow(app: AppHandle, flow: Flow) -> Result<(), String> {

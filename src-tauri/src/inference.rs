@@ -273,7 +273,7 @@ async fn run_api_inference(
     let api_key = retrieve_api_key(&credential)?;
 
     // Construire le prompt utilisateur
-    let user_prompt = process_mode.user_prompt_template.replace("{text}", text);
+    let user_prompt = crate::modes::render_user_prompt(&process_mode.user_prompt_template, text);
 
     // Appeler l'API du provider
     run_cloud_inference(
