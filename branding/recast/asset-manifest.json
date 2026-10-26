@@ -1,0 +1,471 @@
+{
+  "product": "Recast",
+  "selected_concept": "Pack A / Folded R",
+  "native_icns": {
+    "verified_format": "ICNS",
+    "decoded_size": [
+      1024,
+      1024
+    ]
+  },
+  "iconset": [
+    {
+      "file": "macos/Recast.iconset/icon_16x16.png",
+      "size": [
+        16,
+        16
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_16x16@2x.png",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_32x32.png",
+      "size": [
+        32,
+        32
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_32x32@2x.png",
+      "size": [
+        64,
+        64
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_128x128.png",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_128x128@2x.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_256x256.png",
+      "size": [
+        256,
+        256
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_256x256@2x.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_512x512.png",
+      "size": [
+        512,
+        512
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "macos/Recast.iconset/icon_512x512@2x.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "file": "tauri-icons/icon.icns",
+      "format": "ICNS",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "file": "tauri-icons/icon.ico",
+      "format": "ICO",
+      "size": [
+        256,
+        256
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 3442,
+      "sha256": "93c7fb518b7b76c3102f163cbef6a67064c4b2fa831ff61179a851e576d66ae4"
+    },
+    {
+      "path": "brand-marks/Recast-Mark-Black-1024.png",
+      "bytes": 23896,
+      "sha256": "91f88df7224d54b8b1916b50ee97674c8bed7ee163e0917275f0f158b843b3d8"
+    },
+    {
+      "path": "brand-marks/Recast-Mark-Color-1024.png",
+      "bytes": 213970,
+      "sha256": "9d28fe4c6c4583d7c3b62d4d27c6d7ce4fc207539d4b1f467722e1ad44a0517a"
+    },
+    {
+      "path": "brand-marks/Recast-Mark-White-1024.png",
+      "bytes": 19076,
+      "sha256": "eade97082e84156cecf7e64811f83bb98cbfd2f5b3709f98b9c60e151bdf70eb"
+    },
+    {
+      "path": "brand-marks/Recast-Wordmark-Dark.png",
+      "bytes": 56187,
+      "sha256": "f35a9cc2620d44824424b7ccd7eeb407ec43cfa6d8df8bdad3babd085145c148"
+    },
+    {
+      "path": "brand-marks/Recast-Wordmark-Light.png",
+      "bytes": 56811,
+      "sha256": "5fdff0c411b43d4e0078180984892ae031dc7e914f1f7e45eebe6982daf62a91"
+    },
+    {
+      "path": "macos/Recast.icns",
+      "bytes": 771331,
+      "sha256": "f9926aaa952e2af0a4d61982f501443c84ee089e5d073ad5d36b207d8a7eb7ef"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_128x128.png",
+      "bytes": 18250,
+      "sha256": "ffc5313dd1aeb6f97080ed79a933618c5912a6ae762f6cf1ae40f1e105b9df9b"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_128x128@2x.png",
+      "bytes": 50705,
+      "sha256": "1a5a097163925b8feee80fc8fc2599dd4235595c719a2c4be21ece643489f980"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_16x16.png",
+      "bytes": 846,
+      "sha256": "4e735131524bb0c677495b22b354aafb396c5484dec8f7f3f53dabaade56d91c"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_16x16@2x.png",
+      "bytes": 2379,
+      "sha256": "247a0e069ff8a7020a12fff30488633227fada41294c45178d329238f8085403"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_256x256.png",
+      "bytes": 50705,
+      "sha256": "1a5a097163925b8feee80fc8fc2599dd4235595c719a2c4be21ece643489f980"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_256x256@2x.png",
+      "bytes": 137258,
+      "sha256": "73bb4c2c62bf603e7b47e465b9bcc1e3856852ad7a7042689a210d9e3635fc01"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_32x32.png",
+      "bytes": 2379,
+      "sha256": "247a0e069ff8a7020a12fff30488633227fada41294c45178d329238f8085403"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_32x32@2x.png",
+      "bytes": 6601,
+      "sha256": "7c160b0bb692390bac40660a63122054eecf0f93224b0ceb63830570cd3e89b3"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_512x512.png",
+      "bytes": 137258,
+      "sha256": "73bb4c2c62bf603e7b47e465b9bcc1e3856852ad7a7042689a210d9e3635fc01"
+    },
+    {
+      "path": "macos/Recast.iconset/icon_512x512@2x.png",
+      "bytes": 294344,
+      "sha256": "ae7ad5a24543a355607d302128ce1cb730f40cec5dd53332bd523465ed889075"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Dark-1024.png",
+      "bytes": 294344,
+      "sha256": "ae7ad5a24543a355607d302128ce1cb730f40cec5dd53332bd523465ed889075"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Dark-128.png",
+      "bytes": 18250,
+      "sha256": "ffc5313dd1aeb6f97080ed79a933618c5912a6ae762f6cf1ae40f1e105b9df9b"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Dark-16.png",
+      "bytes": 843,
+      "sha256": "2cf1f77d1081a3c4f353c49413702a8377a650905e6e0af799cddb95172cd089"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Dark-256.png",
+      "bytes": 50705,
+      "sha256": "1a5a097163925b8feee80fc8fc2599dd4235595c719a2c4be21ece643489f980"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Dark-32.png",
+      "bytes": 2432,
+      "sha256": "a3939f641d3e3c0f08b0ae6778726b8ac51eb80fa32acfd2c2e5986868365927"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Dark-512.png",
+      "bytes": 137258,
+      "sha256": "73bb4c2c62bf603e7b47e465b9bcc1e3856852ad7a7042689a210d9e3635fc01"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Dark-64.png",
+      "bytes": 6601,
+      "sha256": "7c160b0bb692390bac40660a63122054eecf0f93224b0ceb63830570cd3e89b3"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Light-1024.png",
+      "bytes": 244467,
+      "sha256": "778c4fb03cbc84fd69e25e97f86c605a287696486d911f091524eb23db42392a"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Light-128.png",
+      "bytes": 15807,
+      "sha256": "7164d9b485905ce9fbcca5fbd7109db5089a3cab197dff0e2ead6778df1047f1"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Light-16.png",
+      "bytes": 743,
+      "sha256": "1fc92a9c8c79b9baebfc3e4fc121d6225d0150b04a5433c0784c2ff5d926e049"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Light-256.png",
+      "bytes": 43749,
+      "sha256": "443cf737823a021a713e46bf9908c481cde5075b1b4841fd25f639b69ad0edb8"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Light-32.png",
+      "bytes": 2094,
+      "sha256": "9d598c89169f8ab1793eb04be5d8dc368986de5a9a59f822041c8b8c534a47f3"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Light-512.png",
+      "bytes": 120052,
+      "sha256": "153b130d986adc28c597875e2fc56cdc8e8f123683c31cdd6e6bb934b4021939"
+    },
+    {
+      "path": "master-png/Recast-App-Icon-Light-64.png",
+      "bytes": 5931,
+      "sha256": "649c2f10988b2e702bbb9e115e30e5dd59eeea3e658cc38519f64065cad8d407"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-128px.png",
+      "bytes": 1730,
+      "sha256": "87484ce965477b877f650576bb7a620fc3b2a42d43d33fe2632152ec96309b63"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-16pt.png",
+      "bytes": 294,
+      "sha256": "e18a60a05f107b179f633e69d070b65bf92e9ff6e84831dfd202c87e1de098d4"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-16pt@2x.png",
+      "bytes": 492,
+      "sha256": "c57c68332bc83281eea7dd09a7ebde7ded101ebabeafcfacfcc2c1c3f0578aaa"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-16px.png",
+      "bytes": 294,
+      "sha256": "e18a60a05f107b179f633e69d070b65bf92e9ff6e84831dfd202c87e1de098d4"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-18pt.png",
+      "bytes": 320,
+      "sha256": "d4d6c835848bcf873b44375b0aa1c0dae6e2892852a9b7bae242cb99264617a5"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-18pt@2x.png",
+      "bytes": 557,
+      "sha256": "ebb12607567409cf0e2b6ecb2dc89f4fbf037a61700b3472cf7d3c955d0e5355"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-18px.png",
+      "bytes": 320,
+      "sha256": "d4d6c835848bcf873b44375b0aa1c0dae6e2892852a9b7bae242cb99264617a5"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-20pt.png",
+      "bytes": 369,
+      "sha256": "5b7f1408dc2aba5c6bd56ec17fbb2c598119c3e3e833ccf5c03e8ce190a1cc62"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-20pt@2x.png",
+      "bytes": 583,
+      "sha256": "cc4c3e6452ca17d3ab7f5bd9ba13f522c5186b95d5fd1ffc19c5c2297dfb6a66"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-20px.png",
+      "bytes": 369,
+      "sha256": "5b7f1408dc2aba5c6bd56ec17fbb2c598119c3e3e833ccf5c03e8ce190a1cc62"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-22pt.png",
+      "bytes": 387,
+      "sha256": "c869b6609f52024c53cf700a8d8691b9a82d8815470c5410f9df4b0b59cc799a"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-22pt@2x.png",
+      "bytes": 662,
+      "sha256": "813af5f0a48a6f1a110254ef3547bd51f20ede9f1f099a13d264c3b92ef234f2"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-22px.png",
+      "bytes": 387,
+      "sha256": "c869b6609f52024c53cf700a8d8691b9a82d8815470c5410f9df4b0b59cc799a"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-24pt.png",
+      "bytes": 371,
+      "sha256": "df1eb5ba818c9d64958aebd4082e9596987fed9b1c2dfcdf08580b1c6adc46a7"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-24pt@2x.png",
+      "bytes": 651,
+      "sha256": "01943b1d75cbf50d727599ac8cdb88632a3cef663c98bb0019e9321471065e95"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-24px.png",
+      "bytes": 371,
+      "sha256": "df1eb5ba818c9d64958aebd4082e9596987fed9b1c2dfcdf08580b1c6adc46a7"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-32px.png",
+      "bytes": 492,
+      "sha256": "c57c68332bc83281eea7dd09a7ebde7ded101ebabeafcfacfcc2c1c3f0578aaa"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-36px.png",
+      "bytes": 557,
+      "sha256": "ebb12607567409cf0e2b6ecb2dc89f4fbf037a61700b3472cf7d3c955d0e5355"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-40px.png",
+      "bytes": 583,
+      "sha256": "cc4c3e6452ca17d3ab7f5bd9ba13f522c5186b95d5fd1ffc19c5c2297dfb6a66"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-44px.png",
+      "bytes": 662,
+      "sha256": "813af5f0a48a6f1a110254ef3547bd51f20ede9f1f099a13d264c3b92ef234f2"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-48px.png",
+      "bytes": 651,
+      "sha256": "01943b1d75cbf50d727599ac8cdb88632a3cef663c98bb0019e9321471065e95"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate-64px.png",
+      "bytes": 864,
+      "sha256": "1d8a18a5346b66b8923724e79fa5a4f5bc227f1db9b68391ca453270750050eb"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate.png",
+      "bytes": 320,
+      "sha256": "d4d6c835848bcf873b44375b0aa1c0dae6e2892852a9b7bae242cb99264617a5"
+    },
+    {
+      "path": "menu-bar/RecastMenuBarTemplate@2x.png",
+      "bytes": 557,
+      "sha256": "ebb12607567409cf0e2b6ecb2dc89f4fbf037a61700b3472cf7d3c955d0e5355"
+    },
+    {
+      "path": "reference/Original-Pack-A-Concept.png",
+      "bytes": 1804989,
+      "sha256": "7eaf3bb23402745530fb45f6ea2d43e75ec1315dc223e6b92c84d4c4cda05fe0"
+    },
+    {
+      "path": "source/Recast-App-Icon-Dark-Small.svg",
+      "bytes": 4636,
+      "sha256": "ce66c4c3e92821112835e5351f25ef30afa90f578e7c154b6759b026e418b4c3"
+    },
+    {
+      "path": "source/Recast-App-Icon-Dark.svg",
+      "bytes": 5501,
+      "sha256": "57a052f1ce4a34d8f99d3f6defa145b5eac155c1690897879b083e75df207b56"
+    },
+    {
+      "path": "source/Recast-App-Icon-Light.svg",
+      "bytes": 5488,
+      "sha256": "8f23e2dcbc15b81757d3dac7d10a32baa7f88cd8a7ebe2f25788449bbf267491"
+    },
+    {
+      "path": "source/Recast-Mark-Black.svg",
+      "bytes": 3872,
+      "sha256": "877420110e842eff2c0f10cc3809add8fc0898e660392fec4c35c7e020adbf97"
+    },
+    {
+      "path": "source/Recast-Mark-Color.svg",
+      "bytes": 4980,
+      "sha256": "e597ff330af8ddfede11e9ad90a305f81bc41f4659872384af8c09df71040f42"
+    },
+    {
+      "path": "source/Recast-Mark-White.svg",
+      "bytes": 3872,
+      "sha256": "ec64b96de073bc2705e86685ad72a87a4491bca34fc95011970c08abb12a23e6"
+    },
+    {
+      "path": "source/Recast-Menu-Bar-Template.svg",
+      "bytes": 463,
+      "sha256": "009082cf070ce19b71fd7bbb3c72ffb6b5a09298f6c3abb4b2bdc1673aad5112"
+    },
+    {
+      "path": "source/Recast-Menu-Bar-White.svg",
+      "bytes": 463,
+      "sha256": "98337ec42d4debc5640ea18e185b5c0056300373d4490c9a28d449f703120800"
+    },
+    {
+      "path": "source/Recast-Wordmark-Dark.svg",
+      "bytes": 5132,
+      "sha256": "88cdbb895b08d976d51f62ef1a4a519823ffa275a6acf9836e763845ea12ca63"
+    },
+    {
+      "path": "source/Recast-Wordmark-Light.svg",
+      "bytes": 5132,
+      "sha256": "7186b7651269085d94fbdb3c73d5fc638c4e7a0993de6c94e4e65f54212809db"
+    },
+    {
+      "path": "tauri-icons/128x128.png",
+      "bytes": 18250,
+      "sha256": "ffc5313dd1aeb6f97080ed79a933618c5912a6ae762f6cf1ae40f1e105b9df9b"
+    },
+    {
+      "path": "tauri-icons/128x128@2x.png",
+      "bytes": 50705,
+      "sha256": "1a5a097163925b8feee80fc8fc2599dd4235595c719a2c4be21ece643489f980"
+    },
+    {
+      "path": "tauri-icons/32x32.png",
+      "bytes": 2379,
+      "sha256": "247a0e069ff8a7020a12fff30488633227fada41294c45178d329238f8085403"
+    },
+    {
+      "path": "tauri-icons/icon.icns",
+      "bytes": 771331,
+      "sha256": "f9926aaa952e2af0a4d61982f501443c84ee089e5d073ad5d36b207d8a7eb7ef"
+    },
+    {
+      "path": "tauri-icons/icon.ico",
+      "bytes": 89010,
+      "sha256": "375f3ee314ea8c832b591a37af056436d99d9423e6be8e79d4295a313274f67e"
+    },
+    {
+      "path": "tauri-icons/icon.png",
+      "bytes": 294344,
+      "sha256": "ae7ad5a24543a355607d302128ce1cb730f40cec5dd53332bd523465ed889075"
+    }
+  ]
+}

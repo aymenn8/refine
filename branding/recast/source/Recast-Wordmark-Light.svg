@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 320" width="1320" height="320" aria-label="Recast wordmark">
+
+<defs>
+  <linearGradient id="bgDark" x1="0" y1="0" x2="0.84" y2="1" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#334459"/>
+    <stop offset="26%" stop-color="#1c2a3a"/>
+    <stop offset="65%" stop-color="#111a28"/>
+    <stop offset="100%" stop-color="#091321"/>
+  </linearGradient>
+  <linearGradient id="bgLight" x1="0" y1="0" x2="0.4" y2="1" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#FFFFFF"/>
+    <stop offset="45%" stop-color="#F0F4FA"/>
+    <stop offset="100%" stop-color="#DDE5F0"/>
+  </linearGradient>
+  <linearGradient id="rimDark" x1="0" y1="0" x2=".8" y2="1">
+    <stop offset="0%" stop-color="#D7EBFF" stop-opacity=".78"/>
+    <stop offset="29%" stop-color="#7B9DC7" stop-opacity=".36"/>
+    <stop offset="64%" stop-color="#294461" stop-opacity=".28"/>
+    <stop offset="100%" stop-color="#3777C6" stop-opacity=".70"/>
+  </linearGradient>
+  <linearGradient id="topBlue" x1="0" y1=".85" x2=".88" y2=".04">
+    <stop offset="0%" stop-color="#3287DE"/>
+    <stop offset="22%" stop-color="#5EB0F9"/>
+    <stop offset="56%" stop-color="#D1EAFF"/>
+    <stop offset="77%" stop-color="#93C9FF"/>
+    <stop offset="100%" stop-color="#326BBF"/>
+  </linearGradient>
+  <linearGradient id="topFold" x1="0" y1="0" x2=".81" y2=".99">
+    <stop offset="0%" stop-color="#1F62B5"/>
+    <stop offset="36%" stop-color="#5199E9"/>
+    <stop offset="77%" stop-color="#8BC5FD"/>
+    <stop offset="100%" stop-color="#17447D"/>
+  </linearGradient>
+  <linearGradient id="leftBlue" x1=".05" y1=".78" x2=".95" y2=".16">
+    <stop offset="0%" stop-color="#E4F4FF"/>
+    <stop offset="25%" stop-color="#B8DCFF"/>
+    <stop offset="56%" stop-color="#689FDC"/>
+    <stop offset="84%" stop-color="#2762AA"/>
+    <stop offset="100%" stop-color="#143A70"/>
+  </linearGradient>
+  <linearGradient id="legBlue" x1=".1" y1="0" x2=".85" y2="1">
+    <stop offset="0%" stop-color="#0E4384"/>
+    <stop offset="21%" stop-color="#1866B8"/>
+    <stop offset="56%" stop-color="#3E96E6"/>
+    <stop offset="100%" stop-color="#9DD4FF"/>
+  </linearGradient>
+  <linearGradient id="legShade" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#00182E" stop-opacity=".72"/>
+    <stop offset="55%" stop-color="#12447A" stop-opacity=".21"/>
+    <stop offset="100%" stop-color="#0A1B30" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="innerGlow" cx=".55" cy=".93" r=".74">
+    <stop offset="0%" stop-color="#285AA7" stop-opacity=".25"/>
+    <stop offset="100%" stop-color="#285AA7" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="topBloom" cx=".30" cy="-.05" r="1">
+    <stop offset="0%" stop-color="#D5E6FF" stop-opacity=".12"/>
+    <stop offset="100%" stop-color="#D5E6FF" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="1" y2=".9">
+    <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".35"/>
+    <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <clipPath id="outerClip"><rect x="27" y="27" width="970" height="970" rx="219"/></clipPath>
+</defs>
+
+<g transform="translate(8,5) scale(.29)">
+<path d="M 408,665 C 486,621 598,576 667,552 C 705,544 744,572 772,615 L 875,822 L 619,822 C 592,822 570,812 551,788 Z" fill="url(#legBlue)" stroke="#4D98DE" stroke-width="1.5"/>
+<path d="M 408,665 C 486,621 598,576 667,552 C 705,544 744,572 772,615 L 875,822 L 619,822 C 592,822 570,812 551,788 Z" fill="url(#legShade)"/>
+<path d="M 207,180 L 551,180 C 693,180 782,228 812,320 C 842,414 790,501 704,552 L 666,572 C 713,518 746,472 730,447 C 718,424 684,415 626,414 L 384,414 C 268,414 207,371 207,288 Z" fill="url(#topFold)" stroke="#164C88" stroke-width="2.2"/>
+<path d="M 208,181 L 552,181 C 686,181 785,225 809,314 C 829,388 797,447 748,493 C 756,445 726,418 668,413 C 532,392 290,384 225,342 C 211,324 208,305 208,287 Z" fill="url(#topBlue)" opacity=".88"/>
+<path d="M 208,181 L 551,181 C 694,181 782,228 811,318 C 839,404 798,495 705,551" fill="none" stroke="#E6F8FF" stroke-width="2" opacity=".66"/>
+<path d="M 207,824 L 207,589 C 207,494 246,450 343,436 C 400,429 535,432 625,432 C 688,432 722,455 726,493 C 735,555 646,597 557,640 C 449,690 311,750 207,824 Z" fill="url(#leftBlue)" stroke="#5B9DDB" stroke-width="1.5"/>
+<path d="M 207,824 L 207,591 C 207,512 241,458 335,443 C 397,431 580,434 638,438 C 602,478 571,512 524,553 C 440,627 319,721 207,824 Z" fill="url(#sheen)" opacity=".4"/>
+<path d="M 209,821 L 209,591 C 209,494 246,451 343,438 C 399,430 544,434 625,434" fill="none" stroke="#D6EDFF" stroke-width="2" opacity=".6"/>
+<path d="M 412,666 C 487,624 592,576 668,553 C 706,541 743,572 773,618 L 874,822 L 619,822" fill="none" stroke="#9BCFFB" stroke-width="2" opacity=".39"/>
+</g>
+<text x="300" y="230" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="222" font-weight="600" letter-spacing="-9" fill="#171B21">Recast</text>
+</svg>

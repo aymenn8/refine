@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Recast folded ribbon R mark">
+
+<defs>
+  <linearGradient id="bgDark" x1="0" y1="0" x2="0.84" y2="1" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#334459"/>
+    <stop offset="26%" stop-color="#1c2a3a"/>
+    <stop offset="65%" stop-color="#111a28"/>
+    <stop offset="100%" stop-color="#091321"/>
+  </linearGradient>
+  <linearGradient id="bgLight" x1="0" y1="0" x2="0.4" y2="1" gradientUnits="objectBoundingBox">
+    <stop offset="0%" stop-color="#FFFFFF"/>
+    <stop offset="45%" stop-color="#F0F4FA"/>
+    <stop offset="100%" stop-color="#DDE5F0"/>
+  </linearGradient>
+  <linearGradient id="rimDark" x1="0" y1="0" x2=".8" y2="1">
+    <stop offset="0%" stop-color="#D7EBFF" stop-opacity=".78"/>
+    <stop offset="29%" stop-color="#7B9DC7" stop-opacity=".36"/>
+    <stop offset="64%" stop-color="#294461" stop-opacity=".28"/>
+    <stop offset="100%" stop-color="#3777C6" stop-opacity=".70"/>
+  </linearGradient>
+  <linearGradient id="topBlue" x1="0" y1=".85" x2=".88" y2=".04">
+    <stop offset="0%" stop-color="#3287DE"/>
+    <stop offset="22%" stop-color="#5EB0F9"/>
+    <stop offset="56%" stop-color="#D1EAFF"/>
+    <stop offset="77%" stop-color="#93C9FF"/>
+    <stop offset="100%" stop-color="#326BBF"/>
+  </linearGradient>
+  <linearGradient id="topFold" x1="0" y1="0" x2=".81" y2=".99">
+    <stop offset="0%" stop-color="#1F62B5"/>
+    <stop offset="36%" stop-color="#5199E9"/>
+    <stop offset="77%" stop-color="#8BC5FD"/>
+    <stop offset="100%" stop-color="#17447D"/>
+  </linearGradient>
+  <linearGradient id="leftBlue" x1=".05" y1=".78" x2=".95" y2=".16">
+    <stop offset="0%" stop-color="#E4F4FF"/>
+    <stop offset="25%" stop-color="#B8DCFF"/>
+    <stop offset="56%" stop-color="#689FDC"/>
+    <stop offset="84%" stop-color="#2762AA"/>
+    <stop offset="100%" stop-color="#143A70"/>
+  </linearGradient>
+  <linearGradient id="legBlue" x1=".1" y1="0" x2=".85" y2="1">
+    <stop offset="0%" stop-color="#0E4384"/>
+    <stop offset="21%" stop-color="#1866B8"/>
+    <stop offset="56%" stop-color="#3E96E6"/>
+    <stop offset="100%" stop-color="#9DD4FF"/>
+  </linearGradient>
+  <linearGradient id="legShade" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#00182E" stop-opacity=".72"/>
+    <stop offset="55%" stop-color="#12447A" stop-opacity=".21"/>
+    <stop offset="100%" stop-color="#0A1B30" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="innerGlow" cx=".55" cy=".93" r=".74">
+    <stop offset="0%" stop-color="#285AA7" stop-opacity=".25"/>
+    <stop offset="100%" stop-color="#285AA7" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="topBloom" cx=".30" cy="-.05" r="1">
+    <stop offset="0%" stop-color="#D5E6FF" stop-opacity=".12"/>
+    <stop offset="100%" stop-color="#D5E6FF" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="1" y2=".9">
+    <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".35"/>
+    <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <clipPath id="outerClip"><rect x="27" y="27" width="970" height="970" rx="219"/></clipPath>
+</defs>
+<g fill="#0A1422"><path d="M 408,665 C 486,621 598,576 667,552 C 705,544 744,572 772,615 L 875,822 L 619,822 C 592,822 570,812 551,788 Z"/><path d="M 207,180 L 551,180 C 693,180 782,228 812,320 C 842,414 790,501 704,552 L 666,572 C 713,518 746,472 730,447 C 718,424 684,415 626,414 L 384,414 C 268,414 207,371 207,288 Z"/><path d="M 207,824 L 207,589 C 207,494 246,450 343,436 C 400,429 535,432 625,432 C 688,432 722,455 726,493 C 735,555 646,597 557,640 C 449,690 311,750 207,824 Z"/></g>
+</svg>
