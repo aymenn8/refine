@@ -109,6 +109,9 @@ Keychain under `com.refine`, so they keep working. macOS asks again for Accessib
 commit after you type the repo name to confirm. Apple credentials go in
 `scripts/.env.local` (see `scripts/.env.example`).
 
+`THIRD_PARTY_NOTICES.txt` ships inside the app. After any dependency change, run
+`node scripts/third-party-notices.mjs` and commit the result; `prepare` stops if the file is out of date.
+
 ## Updater
 
 Recast ships without an updater. Upstream's update feed and signing key were removed so a fork build can never install upstream Refine. A new feed and signing key are needed before adding one.
