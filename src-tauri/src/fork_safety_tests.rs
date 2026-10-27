@@ -10,6 +10,7 @@ fn tauri_config_has_no_updater_plugin() {
         config.pointer("/plugins/updater").is_none(),
         "updater config must stay removed until the fork has its own feed and signing key"
     );
+    assert!(config.pointer("/bundle/createUpdaterArtifacts").is_none());
 }
 
 #[test]
@@ -111,4 +112,24 @@ fn tray_icon_is_a_template_glyph() {
     );
     assert!(pixels.chunks(4).any(|p| p[3] > 0), "template glyph must not be empty");
     assert!(include_str!("tray.rs").contains(".icon_as_template(true)"), "tray must render as a template");
+}
+
+#[test]
+fn release_script_has_no_updater_steps() {
+    let script = include_str!("../../scripts/release.sh");
+    for banned in ["TAURI_SIGNING", "check-updater-signing-key", "tar.gz", "latest.json", "Refine_", "refine-build"] {
+        assert!(!script.contains(banned), "scripts/release.sh still contains {banned:?}");
+    }
+    assert!(script.contains("productName"), "artifact names should come from productName");
+    // A reused build folder can hold last version's DMG: only take this version's file.
+    assert!(script.contains(r#"-name "${name}_${version}_*.dmg""#), "prepare must pick this version's DMG");
+    // Without --target, GitHub tags the default branch, which may lack the version bump.
+    assert!(script.contains(r#"--target "$head_sha""#), "publish must tag the pushed release commit");
+    assert!(!include_str!("../../scripts/.env.example").contains("TAURI_SIGNING"));
+}
+
+#[test]
+fn license_ships_inside_the_app() {
+    // MIT requires the notice in every copy, including the built app.
+    assert_eq!(tauri_config().pointer("/bundle/resources/..~1LICENSE"), Some(&serde_json::json!("LICENSE")));
 }

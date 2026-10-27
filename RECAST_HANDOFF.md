@@ -1,6 +1,6 @@
 # Recast — Claude Code Rebranding Handoff
 
-**Status:** Implementation handoff and approved production artwork staged in the repository; application source has **not** been rebranded. **Do not start source changes or replace existing assets until the user authorizes implementation.**
+**Status (2026-10-26):** Implemented with the user's approval: visual rebrand (PR #8), bundle ID `com.drummerms.recast` with data migration (PR #9), release script and docs (Phase 5). Plans are in `docs/superpowers/plans/2026-10-26-recast-*.md`. The sections below are the original handoff and describe the pre-rebrand code.
 
 - **Repository:** `Drummerms/refine` (upstream: `aymenn8/refine`)
 - **Approved product name:** **Recast**
