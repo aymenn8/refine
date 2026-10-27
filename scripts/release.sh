@@ -296,6 +296,7 @@ prepare_cmd() {
   [ -n "$version" ] || die "--version is required"
   [ -n "$release_repo" ] || die "--release-repo (or RELEASE_REPO) is required"
   validate_version "$version"
+  node scripts/third-party-notices.mjs --check || die "Regenerate THIRD_PARTY_NOTICES.txt and commit it first"
 
   # No updater: this fork ships notarized DMGs only, so no Tauri updater signing key is needed.
   require_env_vars APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID

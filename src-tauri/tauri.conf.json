@@ -84,7 +84,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../LICENSE": "LICENSE"
+      "../LICENSE": "LICENSE",
+      "../THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt"
     },
     "macOS": {
       "entitlements": "entitlements.plist",

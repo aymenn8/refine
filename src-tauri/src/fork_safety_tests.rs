@@ -133,3 +133,29 @@ fn license_ships_inside_the_app() {
     // MIT requires the notice in every copy, including the built app.
     assert_eq!(tauri_config().pointer("/bundle/resources/..~1LICENSE"), Some(&serde_json::json!("LICENSE")));
 }
+
+#[test]
+fn third_party_notices_ship_inside_the_app() {
+    // MIT, BSD and MPL need their notices in the built app too.
+    assert_eq!(
+        tauri_config().pointer("/bundle/resources/..~1THIRD_PARTY_NOTICES.txt"),
+        Some(&serde_json::json!("THIRD_PARTY_NOTICES.txt"))
+    );
+    let notices = include_str!("../../THIRD_PARTY_NOTICES.txt");
+    for name in [
+        "llama.cpp",
+        "cpp-httplib",
+        "nlohmann/json",
+        "minja",
+        "tauri 2.",
+        "react 19.",
+        "tailwindcss 4.",
+        "selectors 0.24.0",
+        "alloc-stdlib 0.2.2",
+        "Mozilla Public License Version 2.0",
+    ] {
+        assert!(notices.contains(name), "THIRD_PARTY_NOTICES.txt is missing {name}");
+    }
+    // A release must not ship notices that no longer match the dependencies.
+    assert!(include_str!("../../scripts/release.sh").contains("node scripts/third-party-notices.mjs --check"));
+}
