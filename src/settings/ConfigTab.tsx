@@ -109,7 +109,7 @@ function ConfigTab() {
       el: "#accent-color-input",
       parent: configContainerRef.current ?? ".settings-main",
       theme: "polaroid",
-      themeMode: "dark",
+      themeMode: "auto",
       alpha: false,
       format: "hex",
       wrap: false,

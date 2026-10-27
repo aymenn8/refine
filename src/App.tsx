@@ -5,6 +5,7 @@ import { load } from "@tauri-apps/plugin-store";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 import { playNotificationSound } from "./utils/sound";
+import { resolveTheme } from "./utils/theme";
 import { applyAccentColor } from "./utils/accent";
 import { SelectorBar } from "./spotlight/SelectorBar";
 import { ProcessedBar } from "./spotlight/ProcessedBar";
@@ -93,17 +94,8 @@ function App() {
       const raw =
         (await store.get<string>("themeMode")) ||
         (await store.get<string>("appearance")) ||
-        (await store.get<string>("theme")) ||
-        "dark";
-      const mode = raw.toLowerCase();
-
-      if (mode === "light") {
-        setSpotlightTheme("light");
-      } else if (mode === "system") {
-        setSpotlightTheme(window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-      } else {
-        setSpotlightTheme("dark");
-      }
+        (await store.get<string>("theme"));
+      setSpotlightTheme(resolveTheme(raw, window.matchMedia("(prefers-color-scheme: light)").matches));
     } catch {
       setSpotlightTheme(window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     }
@@ -331,6 +323,14 @@ function App() {
     };
     loadData();
   }, [loadModes, loadFlows, resolveSpotlightTheme, pickPinnedMode]);
+
+  // Follow macOS when the appearance changes while the window is open
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: light)");
+    const onChange = () => void resolveSpotlightTheme();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [resolveSpotlightTheme]);
 
   useEffect(() => {
     const unlisten = listen<SpotlightPayload>("spotlight-open", async (event) => {

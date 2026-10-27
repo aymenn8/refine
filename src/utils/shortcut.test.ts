@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   eventMatchesShortcut,
+  formatShortcut,
   modifierPrefix,
   normalizeShortcut,
   reservedShortcutHint,
@@ -65,4 +66,10 @@ test("refuses shortcuts that would fire while typing or break copy and paste", (
   assert.match(shortcutProblem("Command+X") ?? "", /copy and paste/);
   assert.equal(shortcutProblem("Control+Space"), null);
   assert.equal(shortcutProblem("Command+Shift+R"), null);
+});
+
+test("formats shortcuts with macOS key symbols", () => {
+  assert.equal(formatShortcut("Control+Space"), "⌃ Space");
+  assert.equal(formatShortcut("CommandOrControl+Shift+R"), "⌘ ⇧ R");
+  assert.equal(formatShortcut("Alt+Command+K"), "⌥ ⌘ K");
 });

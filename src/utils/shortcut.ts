@@ -100,3 +100,15 @@ export function shortcutProblem(shortcut: string): string | null {
   }
   return null;
 }
+
+/** "CommandOrControl+Shift+R" → "⌘ ⇧ R" */
+export function formatShortcut(shortcut: string): string {
+  return shortcut
+    .replace("CommandOrControl", "⌘")
+    .replace("Command", "⌘")
+    .replace("Control", "⌃")
+    .replace("Shift", "⇧")
+    .replace("Alt", "⌥")
+    .replace("Option", "⌥")
+    .replace(/\+/g, " ");
+}
