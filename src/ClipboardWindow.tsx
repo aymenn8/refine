@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { load } from "@tauri-apps/plugin-store";
+import { resolveTheme as themeFor } from "./utils/theme";
 import { applyAccentColor } from "./utils/accent";
 import { ClipboardHistory } from "./spotlight/ClipboardHistory";
 
@@ -20,17 +21,8 @@ function ClipboardWindow() {
       const raw =
         (await store.get<string>("themeMode")) ||
         (await store.get<string>("appearance")) ||
-        (await store.get<string>("theme")) ||
-        "dark";
-      const mode = raw.toLowerCase();
-
-      if (mode === "light") {
-        setTheme("light");
-      } else if (mode === "system") {
-        setTheme(window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-      } else {
-        setTheme("dark");
-      }
+        (await store.get<string>("theme"));
+      setTheme(themeFor(raw, window.matchMedia("(prefers-color-scheme: light)").matches));
     } catch {
       setTheme(window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     }
@@ -62,6 +54,14 @@ function ClipboardWindow() {
     return () => {
       unlistenOpen.then((fn) => fn());
     };
+  }, [resolveTheme]);
+
+  // Follow macOS when the appearance changes while the window is open
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: light)");
+    const onChange = () => void resolveTheme();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
   }, [resolveTheme]);
 
   useEffect(() => {

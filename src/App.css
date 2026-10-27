@@ -149,4 +149,15 @@
   .auto-light-contrast svg[fill="white"] {
     fill: rgb(15 23 42 / 0.75) !important;
   }
+
+  /* Dialogs, menus and tooltips drawn on a fixed dark surface */
+  .auto-light-contrast [class*="bg-[#18181a]"],
+  .auto-light-contrast [class*="bg-[#1a1a1a]"] {
+    background-color: rgb(246 247 249 / 0.97) !important;
+  }
+
+  /* White Recast mark → black */
+  .auto-light-contrast img[src="/recast-mark-white.png"] {
+    filter: invert(1);
+  }
 }

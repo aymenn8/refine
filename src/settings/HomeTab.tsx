@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { formatShortcut } from "../utils/shortcut";
 
 interface HomeTabProps {
   onNavigate: (tab: string) => void;
@@ -24,9 +25,13 @@ function HomeTab({ onNavigate }: HomeTabProps) {
     quickActions: 0,
     customModes: 0,
   });
+  const [globalShortcut, setGlobalShortcut] = useState<string | null>(null);
 
   useEffect(() => {
     loadStats();
+    invoke<string>("get_global_shortcut")
+      .then(setGlobalShortcut)
+      .catch((e) => console.error("Failed to load shortcut:", e));
   }, []);
 
   const loadStats = async () => {
@@ -140,7 +145,7 @@ function HomeTab({ onNavigate }: HomeTabProps) {
       title: "Customize settings",
       description: "Change the global shortcut and other preferences.",
       action: () => onNavigate("config"),
-      shortcut: "⌘ ⇧ R",
+      shortcut: globalShortcut && formatShortcut(globalShortcut),
     },
   ];
 
