@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   eventMatchesShortcut,
   formatShortcut,
+  shortcutKeys,
   modifierPrefix,
   normalizeShortcut,
   reservedShortcutHint,
@@ -72,4 +73,9 @@ test("formats shortcuts with macOS key symbols", () => {
   assert.equal(formatShortcut("Control+Space"), "⌃ Space");
   assert.equal(formatShortcut("CommandOrControl+Shift+R"), "⌘ ⇧ R");
   assert.equal(formatShortcut("Alt+Command+K"), "⌥ ⌘ K");
+});
+
+test("splits a shortcut into keycaps", () => {
+  assert.deepEqual(shortcutKeys("Control+Space"), ["\u2303", "Space"]);
+  assert.deepEqual(shortcutKeys("CommandOrControl+Shift+R"), ["\u2318", "\u21E7", "R"]);
 });

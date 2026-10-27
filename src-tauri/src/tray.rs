@@ -8,10 +8,16 @@ pub fn handle_menu_action<R: Runtime>(app: &AppHandle<R>, id: &str) {
     match id {
         "open" => {
             if let Some(window) = app.get_webview_window("main") {
+                // Same open event as the shortcut, so the popup resets and focuses its text box
+                let payload = crate::window::SpotlightPayload {
+                    text: String::new(),
+                    previous_app: crate::native_mac::get_and_store_frontmost_app(),
+                    capture_error: None,
+                };
                 let _ = window.show();
                 let _ = window.center();
                 let _ = window.set_focus();
-                let _ = window.emit("text-captured", String::new());
+                let _ = window.emit("spotlight-open", payload);
             }
         }
         "settings" => {
@@ -112,4 +118,20 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         .build(app)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    /// "Open Recast" must use the popup's normal open event; nothing listens for "text-captured".
+    #[test]
+    fn open_menu_item_sends_the_popup_open_event() {
+        let source = include_str!("tray.rs");
+        let open_arm = source
+            .split("\"open\" =>")
+            .nth(1)
+            .and_then(|rest| rest.split("\"settings\" =>").next())
+            .expect("tray.rs has an \"open\" menu arm");
+        assert!(open_arm.contains("\"spotlight-open\""));
+        assert!(!open_arm.contains("text-captured"));
+    }
 }

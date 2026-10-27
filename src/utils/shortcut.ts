@@ -112,3 +112,8 @@ export function formatShortcut(shortcut: string): string {
     .replace("Option", "⌥")
     .replace(/\+/g, " ");
 }
+
+/** "Control+Space" → ["⌃", "Space"] */
+export function shortcutKeys(shortcut: string): string[] {
+  return formatShortcut(shortcut).split(" ");
+}
