@@ -297,6 +297,11 @@ function App() {
 
   // --- Effects ---
 
+  // The textarea is disabled during a rewrite, which drops its focus. Give it back so Enter pastes.
+  useEffect(() => {
+    if (!isLoading) textareaRef.current?.focus();
+  }, [isLoading]);
+
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
