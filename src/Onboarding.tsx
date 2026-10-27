@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { load } from "@tauri-apps/plugin-store";
+import { shortcutKeys } from "./utils/shortcut";
 import "./Onboarding.css";
 
 interface DownloadProgress {
@@ -548,6 +549,14 @@ function StepModel({
 
 /* ---- Step 5: Ready ---- */
 function StepReady() {
+  const [keys, setKeys] = useState<string[]>([]);
+
+  useEffect(() => {
+    invoke<string>("get_global_shortcut")
+      .then((shortcut) => setKeys(shortcutKeys(shortcut)))
+      .catch((e) => console.error("Failed to load shortcut:", e));
+  }, []);
+
   return (
     <div className="flex flex-col items-center text-center gap-4">
       <div className="w-16 h-16 rounded-full bg-(--accent)/15 flex items-center justify-center">
@@ -560,8 +569,8 @@ function StepReady() {
         Select text anywhere and press the shortcut to start recasting.
       </p>
       <div className="flex items-center gap-1.5 mt-1">
-        {["⌘", "⇧", "R"].map((key) => (
-          <span key={key} className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/10 border border-white/15 text-[15px] font-medium text-white/70">
+        {keys.map((key) => (
+          <span key={key} className="min-w-9 h-9 px-2 flex items-center justify-center rounded-lg bg-white/10 border border-white/15 text-[15px] font-medium text-white/70">
             {key}
           </span>
         ))}
